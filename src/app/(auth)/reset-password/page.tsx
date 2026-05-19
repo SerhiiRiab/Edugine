@@ -14,27 +14,14 @@ export default function ResetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [exchanging, setExchanging] = useState(true)
-  const [sessionReady, setSessionReady] = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [hasSession, setHasSession] = useState(false)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-
-    if (!code) {
-      setError('Invalid or expired reset link. Please request a new one.')
-      setExchanging(false)
-      return
-    }
-
     const supabase = createClient()
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
-        setError('Invalid or expired reset link. Please request a new one.')
-      } else {
-        setSessionReady(true)
-      }
-      setExchanging(false)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setHasSession(!!session)
+      setChecking(false)
     })
   }, [])
 
@@ -82,27 +69,28 @@ export default function ResetPasswordPage() {
           <h2 className="text-2xl font-bold text-slate-800 mb-1">Set new password</h2>
           <p className="text-slate-500 text-sm mb-6">Choose a strong password for your account</p>
 
-          {exchanging && (
+          {checking && (
             <div className="flex items-center justify-center gap-2 py-8 text-slate-400">
               <span className="w-5 h-5 border-2 border-slate-300 border-t-violet-500 rounded-full animate-spin" />
-              Verifying reset link…
+              Verifying session…
             </div>
           )}
 
-          {!exchanging && !sessionReady && (
+          {!checking && !hasSession && (
             <div className="text-center py-4">
-              <div className="text-5xl mb-4">⚠️</div>
-              <p className="text-sm text-red-500 bg-red-50 px-3 py-2 rounded-lg mb-4">{error}</p>
+              <div className="text-5xl mb-4">⏱️</div>
+              <p className="text-slate-600 mb-1 font-medium">Reset link has expired</p>
+              <p className="text-slate-400 text-sm mb-5">Please request a new password reset link.</p>
               <Link
                 href="/forgot-password"
-                className="text-sm text-violet-600 hover:text-violet-800 font-semibold transition-colors"
+                className="px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl transition-colors inline-block"
               >
-                Request a new reset link →
+                Request new link →
               </Link>
             </div>
           )}
 
-          {!exchanging && sessionReady && (
+          {!checking && hasSession && (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="new-password" className="block text-sm font-medium text-slate-700">
