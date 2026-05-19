@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Loader2,
 } from 'lucide-react'
+import { createSession } from '@/lib/actions/sessions'
 import {
   DndContext,
   closestCenter,
@@ -198,6 +199,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
   const [addingCard, setAddingCard] = useState(false)
+  const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const itemTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -415,13 +417,18 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             </span>
 
             <button
-              disabled={!canStartSession}
+              disabled={!canStartSession || startingSession}
               title={canStartSession ? 'Start a live session' : 'Need at least 4 cards'}
+              onClick={() => startSessionTransition(() => createSession(set.id))}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
                 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
             >
-              Start Session 🚀
+              {startingSession ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
+              ) : (
+                'Start Session 🚀'
+              )}
             </button>
           </div>
         </div>

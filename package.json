@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.105.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "framer-motion": "^12.39.0",
     "lucide-react": "^1.16.0",
     "next": "15.5.18",
     "radix-ui": "^1.4.3",
