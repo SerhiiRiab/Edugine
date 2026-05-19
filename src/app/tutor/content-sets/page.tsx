@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
 import { ContentSetCard } from '@/components/tutor/content-set-card'
+import { Suspense } from 'react'
 
 export default async function ContentSetsPage() {
   const supabase = await createClient()
@@ -23,7 +24,7 @@ export default async function ContentSetsPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-800">My Content Sets 📚</h1>
-          <p className="text-slate-400 mt-1">Create and manage your lesson content</p>
+          <p className="text-slate-400 mt-1">Build amazing lessons in minutes</p>
         </div>
         <Link
           href="/tutor/content-sets/new"
@@ -39,7 +40,7 @@ export default async function ContentSetsPage() {
           <div className="text-7xl mb-6">📚</div>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">No content sets yet</h2>
           <p className="text-slate-400 mb-8 max-w-sm">
-            Create your first content set and bring your lessons to life with interactive games!
+            Create your first content set to start building interactive lessons
           </p>
           <Link
             href="/tutor/content-sets/new"

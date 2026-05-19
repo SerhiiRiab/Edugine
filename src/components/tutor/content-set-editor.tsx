@@ -1,15 +1,41 @@
 'use client'
 
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, GripVertical, Trash2, Plus, Check, AlertCircle } from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  ArrowLeft,
+  GripVertical,
+  Trash2,
+  Plus,
+  Check,
+  AlertCircle,
+  Loader2,
+} from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import {
   updateContentSet,
   updateContentItem,
   createContentItem,
   deleteContentItem,
   reorderContentItems,
-} from '@/app/tutor/content-sets/actions'
+} from '@/lib/actions/content-sets'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -56,7 +82,108 @@ const MECHANIC_LABEL: Record<string, string> = {
   swipe_battle: 'Swipe Battle 🎯',
 }
 
-// ── Component ────────────────────────────────────────────────────────────────
+// ── Sortable card row ────────────────────────────────────────────────────────
+
+interface CardRowProps {
+  item: EditorItem
+  index: number
+  onUpdate: (id: string, patch: Partial<EditorItem>) => void
+  onDelete: (id: string) => void
+}
+
+function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-3 bg-white rounded-xl border-2 p-3 group transition-all duration-150
+        ${isDragging
+          ? 'border-violet-300 shadow-lg opacity-60 scale-[0.99] z-50'
+          : 'border-slate-100 hover:border-violet-100 hover:shadow-sm'
+        }`}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-slate-200 hover:text-slate-400
+          transition-colors shrink-0 touch-none"
+      >
+        <GripVertical className="w-4 h-4" />
+      </div>
+
+      {/* Index */}
+      <span className="text-xs text-slate-300 font-mono w-5 text-right shrink-0 select-none">
+        {index + 1}
+      </span>
+
+      {/* Word */}
+      <input
+        type="text"
+        value={item.word}
+        onChange={(e) => onUpdate(item.id, { word: e.target.value })}
+        placeholder="English word"
+        className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+          border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+          outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
+      />
+
+      {/* Arrow */}
+      <span className="text-slate-300 shrink-0 select-none">→</span>
+
+      {/* Translation */}
+      <input
+        type="text"
+        value={item.translation}
+        onChange={(e) => onUpdate(item.id, { translation: e.target.value })}
+        placeholder="Translation"
+        className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+          border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+          outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
+      />
+
+      {/* isCorrect toggle */}
+      <div className="w-28 flex flex-col items-center gap-0.5 shrink-0">
+        <button
+          type="button"
+          onClick={() => onUpdate(item.id, { isCorrect: !item.isCorrect })}
+          title="Is this a correct word pair? (students should swipe right)"
+          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
+            ${item.isCorrect ? 'bg-emerald-400' : 'bg-slate-200'}`}
+        >
+          <span
+            className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200
+              ${item.isCorrect ? 'translate-x-6' : 'translate-x-1'}`}
+          />
+        </button>
+        <span className={`text-[10px] font-medium ${item.isCorrect ? 'text-emerald-500' : 'text-slate-400'}`}>
+          {item.isCorrect ? 'Correct ✓' : 'Wrong ✗'}
+        </span>
+      </div>
+
+      {/* Delete */}
+      <button
+        type="button"
+        onClick={() => onDelete(item.id)}
+        className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8
+          rounded-lg hover:bg-red-50 hover:text-red-500 text-slate-300
+          transition-all shrink-0"
+      >
+        <Trash2 className="w-4 h-4" />
+      </button>
+    </div>
+  )
+}
+
+// ── Main editor ──────────────────────────────────────────────────────────────
 
 interface Props {
   set: ContentSet
@@ -68,22 +195,44 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const [description, setDescription] = useState(set.description ?? '')
   const [items, setItems] = useState<EditorItem[]>(initialItems.map(rawToEditor))
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
+  const [addingCard, setAddingCard] = useState(false)
 
-  // Timers
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const itemTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  // Drag state
-  const dragIdx = useRef<number | null>(null)
-  const dragOverIdx = useRef<number | null>(null)
-  const [dragging, setDragging] = useState<number | null>(null)
-
   const canStartSession = items.length >= 4
+  const correctCount = items.filter((i) => i.isCorrect).length
+  const incorrectCount = items.length - correctCount
   const mechanicLabel = MECHANIC_LABEL[set.mechanic_id] ?? set.mechanic_id
   const mechanicBadge = MECHANIC_BADGE[set.mechanic_id] ?? 'bg-slate-100 text-slate-600 border-slate-200'
 
-  // ── Auto-save: meta ────────────────────────────────────────────────────────
+  // ── dnd-kit sensors ────────────────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setItems((prev) => {
+      const oldIdx = prev.findIndex((i) => i.id === active.id)
+      const newIdx = prev.findIndex((i) => i.id === over.id)
+      const next = arrayMove(prev, oldIdx, newIdx)
+      reorderContentItems(next.map((i) => i.id))
+      return next
+    })
+  }
+
+  // ── Auto-save helpers ──────────────────────────────────────────────────────
+  const markSaved = useCallback(() => {
+    setSaveStatus('saved')
+    setSavedAt(new Date())
+  }, [])
+
   const flushMeta = useCallback(
     (newTitle: string, newDesc: string) => {
       if (metaTimer.current) clearTimeout(metaTimer.current)
@@ -94,13 +243,13 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             title: newTitle.trim() || set.title,
             description: newDesc.trim() || undefined,
           })
-          setSaveStatus('saved')
+          markSaved()
         } catch {
           setSaveStatus('error')
         }
-      }, 2000)
+      }, 1500)
     },
-    [set.id, set.title],
+    [set.id, set.title, markSaved],
   )
 
   function handleTitleChange(val: string) {
@@ -113,7 +262,6 @@ export function ContentSetEditor({ set, initialItems }: Props) {
     flushMeta(title, val)
   }
 
-  // ── Auto-save: item fields ─────────────────────────────────────────────────
   function flushItem(item: EditorItem) {
     const prev = itemTimers.current.get(item.id)
     if (prev) clearTimeout(prev)
@@ -125,12 +273,12 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           translation: item.translation,
           isCorrect: item.isCorrect,
         })
-        setSaveStatus('saved')
+        markSaved()
       } catch {
         setSaveStatus('error')
       }
       itemTimers.current.delete(item.id)
-    }, 2000)
+    }, 1500)
     itemTimers.current.set(item.id, t)
   }
 
@@ -145,8 +293,9 @@ export function ContentSetEditor({ set, initialItems }: Props) {
     )
   }
 
-  // ── Add / Delete items ─────────────────────────────────────────────────────
+  // ── Add / Delete ───────────────────────────────────────────────────────────
   async function handleAddItem() {
+    setAddingCard(true)
     try {
       const created = await createContentItem(set.id, {
         word: '',
@@ -158,7 +307,9 @@ export function ContentSetEditor({ set, initialItems }: Props) {
         { id: created.id, word: '', translation: '', isCorrect: true },
       ])
     } catch {
-      setSaveStatus('error')
+      toast.error('Failed to add card')
+    } finally {
+      setAddingCard(false)
     }
   }
 
@@ -168,59 +319,35 @@ export function ContentSetEditor({ set, initialItems }: Props) {
     if (t) { clearTimeout(t); itemTimers.current.delete(id) }
     try {
       await deleteContentItem(id)
+      toast.success('Card deleted')
     } catch {
-      setSaveStatus('error')
+      toast.error('Failed to delete card')
     }
   }
 
-  // ── Drag-and-drop reorder ──────────────────────────────────────────────────
-  function onDragStart(e: React.DragEvent, index: number) {
-    dragIdx.current = index
-    setDragging(index)
-    e.dataTransfer.effectAllowed = 'move'
-  }
-
-  function onDragOver(e: React.DragEvent, index: number) {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    dragOverIdx.current = index
-  }
-
-  async function onDrop(e: React.DragEvent) {
-    e.preventDefault()
-    const from = dragIdx.current
-    const to = dragOverIdx.current
-    dragIdx.current = null
-    dragOverIdx.current = null
-    setDragging(null)
-
-    if (from === null || to === null || from === to) return
-
-    setItems((prev) => {
-      const next = [...prev]
-      const [moved] = next.splice(from, 1)
-      next.splice(to, 0, moved)
-      reorderContentItems(next.map((i) => i.id))
-      return next
-    })
-  }
-
-  function onDragEnd() {
-    dragIdx.current = null
-    dragOverIdx.current = null
-    setDragging(null)
-  }
-
-  // ── Save status icon ───────────────────────────────────────────────────────
+  // ── Save indicator ─────────────────────────────────────────────────────────
   function SaveIndicator() {
     if (saveStatus === 'saving') {
-      return <span className="text-xs text-slate-400 animate-pulse">Saving...</span>
+      return (
+        <span className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Saving...
+        </span>
+      )
     }
     if (saveStatus === 'saved') {
+      const ago = savedAt
+        ? (() => {
+            const s = Math.floor((Date.now() - savedAt.getTime()) / 1000)
+            if (s < 5) return 'just now'
+            if (s < 60) return `${s}s ago`
+            return `${Math.floor(s / 60)}m ago`
+          })()
+        : null
       return (
         <span className="flex items-center gap-1 text-xs text-emerald-500 font-medium">
           <Check className="w-3.5 h-3.5" />
-          Saved
+          Saved {ago ? ago : ''}
         </span>
       )
     }
@@ -240,13 +367,12 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-20">
         <div className="max-w-4xl mx-auto flex items-center gap-4">
-          {/* Back */}
           <Link
             href="/tutor/content-sets"
             className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 font-medium transition-colors shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            All sets
+            Back to sets
           </Link>
 
           <div className="w-px h-5 bg-slate-200 shrink-0" />
@@ -280,23 +406,17 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           <div className="flex items-center gap-3 shrink-0">
             <SaveIndicator />
 
-            <span
-              className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${mechanicBadge}`}
-            >
+            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${mechanicBadge}`}>
               {mechanicLabel}
             </span>
 
-            <span className="text-xs text-slate-400">
-              {items.length} {items.length === 1 ? 'item' : 'items'}
+            <span className="text-xs text-slate-400 hidden sm:block">
+              {items.length} {items.length === 1 ? 'card' : 'cards'}
             </span>
 
             <button
               disabled={!canStartSession}
-              title={
-                canStartSession
-                  ? 'Start a live session'
-                  : 'Add at least 4 cards to start a session'
-              }
+              title={canStartSession ? 'Start a live session' : 'Need at least 4 cards'}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
                 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
@@ -308,8 +428,8 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       </div>
 
       {/* ── Body ──────────────────────────────────────────────────────────── */}
-      <div className="max-w-4xl mx-auto px-6 pt-8">
-        {/* Description */}
+      <div className="max-w-4xl mx-auto px-6 pt-8 lg:pr-72">
+        {/* Inline description */}
         <textarea
           value={description}
           onChange={(e) => handleDescriptionChange(e.target.value)}
@@ -327,110 +447,56 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             <span className="w-4 shrink-0" />
             <span className="w-5 shrink-0" />
             <span className="flex-[3]">Front (word)</span>
+            <span className="w-3 shrink-0" />
             <span className="flex-[3]">Back (translation)</span>
             <span className="w-28 text-center">Correct pair?</span>
             <span className="w-8 shrink-0" />
           </div>
         )}
 
-        {/* Item list */}
-        <div className="space-y-2.5">
-          {items.map((item, index) => (
-            <div
-              key={item.id}
-              draggable
-              onDragStart={(e) => onDragStart(e, index)}
-              onDragOver={(e) => onDragOver(e, index)}
-              onDrop={onDrop}
-              onDragEnd={onDragEnd}
-              className={`flex items-center gap-3 bg-white rounded-xl border-2 p-3 group
-                transition-all duration-150
-                ${dragging === index
-                  ? 'border-violet-300 shadow-md opacity-60 scale-[0.99]'
-                  : 'border-slate-100 hover:border-violet-100 hover:shadow-sm'
-                }`}
-            >
-              {/* Drag handle */}
-              <div
-                className="cursor-grab active:cursor-grabbing text-slate-200 hover:text-slate-400
-                  transition-colors shrink-0 touch-none"
-              >
-                <GripVertical className="w-4 h-4" />
-              </div>
-
-              {/* Index */}
-              <span className="text-xs text-slate-300 font-mono w-5 text-right shrink-0 select-none">
-                {index + 1}
-              </span>
-
-              {/* Word */}
-              <input
-                type="text"
-                value={item.word}
-                onChange={(e) => updateItem(item.id, { word: e.target.value })}
-                placeholder="Word..."
-                className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
-                  border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
-                  outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
-              />
-
-              {/* Translation */}
-              <input
-                type="text"
-                value={item.translation}
-                onChange={(e) => updateItem(item.id, { translation: e.target.value })}
-                placeholder="Translation..."
-                className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
-                  border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
-                  outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
-              />
-
-              {/* isCorrect toggle */}
-              <div className="w-28 flex flex-col items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={() => updateItem(item.id, { isCorrect: !item.isCorrect })}
-                  title="Is this a correct word pair? (students should swipe right)"
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
-                    ${item.isCorrect ? 'bg-emerald-400' : 'bg-slate-200'}`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200
-                      ${item.isCorrect ? 'translate-x-6' : 'translate-x-1'}`}
-                  />
-                </button>
-                <span className={`text-[10px] font-medium ${item.isCorrect ? 'text-emerald-500' : 'text-slate-400'}`}>
-                  {item.isCorrect ? 'Correct ✓' : 'Wrong ✗'}
-                </span>
-              </div>
-
-              {/* Delete */}
-              <button
-                type="button"
-                onClick={() => handleDeleteItem(item.id)}
-                className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8
-                  rounded-lg hover:bg-red-50 hover:text-red-500 text-slate-300
-                  transition-all shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+        {/* Sortable item list */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={items.map((i) => i.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-2.5">
+              {items.map((item, index) => (
+                <SortableCardRow
+                  key={item.id}
+                  item={item}
+                  index={index}
+                  onUpdate={updateItem}
+                  onDelete={handleDeleteItem}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
 
         {/* Add card button */}
         <button
           type="button"
           onClick={handleAddItem}
+          disabled={addingCard}
           className="mt-4 w-full flex items-center justify-center gap-2 py-3.5 rounded-xl
             border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
-            text-slate-400 hover:text-violet-500 font-medium text-sm transition-all"
+            text-slate-400 hover:text-violet-500 font-medium text-sm transition-all
+            disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Plus className="w-4 h-4" />
+          {addingCard ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Plus className="w-4 h-4" />
+          )}
           Add card
         </button>
 
-        {/* Hint */}
+        {/* Progress hint */}
         {items.length > 0 && items.length < 4 && (
           <p className="text-center text-xs text-amber-500 mt-3 font-medium">
             Add {4 - items.length} more {4 - items.length === 1 ? 'card' : 'cards'} to unlock sessions
@@ -442,6 +508,66 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             No cards yet — click &ldquo;Add card&rdquo; to get started!
           </p>
         )}
+      </div>
+
+      {/* ── Right side panel (desktop only) ───────────────────────────────── */}
+      <div className="hidden lg:block fixed right-6 top-24 w-56 space-y-3">
+        {/* Auto-save status */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Auto-save</p>
+          <div className="text-sm">
+            <SaveIndicator />
+            {saveStatus === 'idle' && (
+              <span className="text-xs text-slate-300">All changes saved</span>
+            )}
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Stats</p>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-500">Total cards</span>
+              <span className="font-bold text-slate-800 tabular-nums">{items.length}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-emerald-500">Correct</span>
+              <span className="font-bold text-emerald-600 tabular-nums">{correctCount}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-slate-400">Incorrect</span>
+              <span className="font-bold text-slate-600 tabular-nums">{incorrectCount}</span>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          {items.length > 0 && (
+            <div className="mt-1">
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-emerald-400 transition-all duration-300"
+                  style={{ width: `${(correctCount / items.length) * 100}%` }}
+                />
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1 text-right">
+                {Math.round((correctCount / items.length) * 100)}% correct
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Session readiness */}
+        <div className={`rounded-xl border p-4 text-xs font-medium
+          ${canStartSession
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            : 'bg-amber-50 border-amber-200 text-amber-700'
+          }`}>
+          {canStartSession
+            ? '✅ Ready for a session!'
+            : `⚠️ Need ${4 - items.length} more card${4 - items.length === 1 ? '' : 's'}`
+          }
+        </div>
       </div>
     </div>
   )

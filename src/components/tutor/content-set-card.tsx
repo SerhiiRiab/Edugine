@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock } from 'lucide-react'
+import { toast } from 'sonner'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { deleteContentSet, duplicateContentSet } from '@/app/tutor/content-sets/actions'
+import { deleteContentSet, duplicateContentSet } from '@/lib/actions/content-sets'
 
 interface ContentSetProps {
   set: {
@@ -39,12 +40,15 @@ const MECHANIC_META: Record<string, { label: string; classes: string }> = {
   },
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60_000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
 }
 
 export function ContentSetCard({ set }: ContentSetProps) {
@@ -61,7 +65,10 @@ export function ContentSetCard({ set }: ContentSetProps) {
     setBusy(true)
     try {
       await deleteContentSet(set.id)
+      toast.success('Set deleted')
       router.refresh()
+    } catch {
+      toast.error('Failed to delete')
     } finally {
       setBusy(false)
     }
@@ -70,9 +77,13 @@ export function ContentSetCard({ set }: ContentSetProps) {
   async function handleDuplicate(e: React.MouseEvent) {
     e.preventDefault()
     setBusy(true)
+    const tid = toast.loading('Duplicating...')
     try {
       await duplicateContentSet(set.id)
+      toast.success('Set duplicated!', { id: tid })
       router.refresh()
+    } catch {
+      toast.error('Failed to duplicate', { id: tid })
     } finally {
       setBusy(false)
     }
@@ -83,10 +94,10 @@ export function ContentSetCard({ set }: ContentSetProps) {
       href={`/tutor/content-sets/${set.id}/edit`}
       aria-disabled={busy}
       className={`group relative flex flex-col bg-white rounded-2xl border-2 border-slate-100 p-5 shadow-sm
-        hover:border-violet-200 hover:shadow-md transition-all
+        hover:border-violet-200 hover:shadow-md hover:scale-[1.02] transition-all duration-200
         ${busy ? 'opacity-50 pointer-events-none' : ''}`}
     >
-      {/* Dropdown — stops link propagation via the wrapper div */}
+      {/* Dropdown */}
       <div
         className="absolute top-3 right-3"
         onClick={(e) => e.preventDefault()}
@@ -132,7 +143,7 @@ export function ContentSetCard({ set }: ContentSetProps) {
       </span>
 
       {/* Title */}
-      <h3 className="font-bold text-slate-800 text-base leading-snug mb-1.5 pr-6 group-hover:text-violet-700 transition-colors">
+      <h3 className="font-bold text-slate-800 text-base leading-snug mb-1.5 pr-6 group-hover:text-violet-700 transition-colors truncate">
         {set.title}
       </h3>
 
@@ -141,18 +152,17 @@ export function ContentSetCard({ set }: ContentSetProps) {
         <p className="text-slate-400 text-sm line-clamp-2 mb-2">{set.description}</p>
       )}
 
-      {/* Spacer */}
       <div className="flex-1" />
 
       {/* Meta row */}
       <div className="flex items-center gap-4 mt-4 pt-3 border-t border-slate-100 text-xs text-slate-400">
         <span className="flex items-center gap-1">
           <BookOpen className="w-3.5 h-3.5" />
-          {set.item_count} {set.item_count === 1 ? 'item' : 'items'}
+          {set.item_count} {set.item_count === 1 ? 'card' : 'cards'}
         </span>
         <span className="flex items-center gap-1 ml-auto">
           <Clock className="w-3.5 h-3.5" />
-          {formatDate(set.updated_at)}
+          Updated {timeAgo(set.updated_at)}
         </span>
       </div>
     </Link>

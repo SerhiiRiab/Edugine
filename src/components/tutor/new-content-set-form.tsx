@@ -3,7 +3,7 @@
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
-import { createContentSet } from '@/app/tutor/content-sets/actions'
+import { createContentSet } from '@/lib/actions/content-sets'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -29,54 +29,70 @@ const COMING_SOON = [
   { id: 'roleplay_quest', name: 'Roleplay Quest 🎭', desc: 'Interactive conversation scenarios' },
 ]
 
+const TITLE_MAX = 100
+const DESC_MAX = 500
+
 export function NewContentSetForm() {
   const [state, action, isPending] = useActionState(createContentSet, { error: '' })
   const [language, setLanguage] = useState('en')
+  const [titleLen, setTitleLen] = useState(0)
+  const [descLen, setDescLen] = useState(0)
 
   return (
     <form action={action}>
-      {/* Hidden inputs that Radix Select doesn't wire natively */}
       <input type="hidden" name="language" value={language} />
       <input type="hidden" name="mechanic_id" value="swipe_battle" />
 
       <div className="bg-white rounded-2xl border-2 border-slate-100 p-6 shadow-sm space-y-6">
         {/* Title */}
         <div className="space-y-2">
-          <Label htmlFor="title" className="text-sm font-semibold text-slate-700">
-            Title <span className="text-red-500">*</span>
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="title" className="text-sm font-semibold text-slate-700">
+              Title <span className="text-red-500">*</span>
+            </Label>
+            <span className={`text-xs tabular-nums ${titleLen >= TITLE_MAX ? 'text-red-500' : 'text-slate-400'}`}>
+              {titleLen}/{TITLE_MAX}
+            </span>
+          </div>
           <Input
             id="title"
             name="title"
             placeholder='e.g. "Animals in English"'
-            maxLength={100}
+            maxLength={TITLE_MAX}
             required
             className="h-11 text-base"
+            onChange={(e) => setTitleLen(e.target.value.length)}
           />
         </div>
 
         {/* Description */}
         <div className="space-y-2">
-          <Label htmlFor="description" className="text-sm font-semibold text-slate-700">
-            Description{' '}
-            <span className="text-slate-400 font-normal text-xs">optional</span>
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="description" className="text-sm font-semibold text-slate-700">
+              Description{' '}
+              <span className="text-slate-400 font-normal text-xs">optional</span>
+            </Label>
+            <span className={`text-xs tabular-nums ${descLen >= DESC_MAX ? 'text-red-500' : 'text-slate-400'}`}>
+              {descLen}/{DESC_MAX}
+            </span>
+          </div>
           <textarea
             id="description"
             name="description"
             placeholder="What will students learn from this set?"
-            maxLength={500}
+            maxLength={DESC_MAX}
             rows={3}
             className="w-full rounded-lg border border-input bg-transparent px-3 py-2.5 text-sm
               placeholder:text-muted-foreground focus-visible:outline-none
               focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:border-ring
               resize-none transition-colors"
+            onChange={(e) => setDescLen(e.target.value.length)}
           />
         </div>
 
         {/* Language */}
         <div className="space-y-2">
-          <Label className="text-sm font-semibold text-slate-700">Language</Label>
+          <Label className="text-sm font-semibold text-slate-700">Language <span className="text-red-500">*</span></Label>
           <Select value={language} onValueChange={setLanguage}>
             <SelectTrigger className="h-11 w-full">
               <SelectValue />
@@ -93,9 +109,8 @@ export function NewContentSetForm() {
 
         {/* Mechanic selector */}
         <div className="space-y-3">
-          <Label className="text-sm font-semibold text-slate-700">Game Mechanic</Label>
+          <Label className="text-sm font-semibold text-slate-700">Game Mechanic <span className="text-red-500">*</span></Label>
 
-          {/* Active option */}
           <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-violet-300 bg-violet-50">
             <div className="flex-1">
               <p className="font-semibold text-violet-800 text-sm">Vocabulary Swipe Battle 🎯</p>
@@ -108,7 +123,6 @@ export function NewContentSetForm() {
             </div>
           </div>
 
-          {/* Coming soon */}
           {COMING_SOON.map((m) => (
             <div
               key={m.id}
@@ -125,7 +139,6 @@ export function NewContentSetForm() {
           ))}
         </div>
 
-        {/* Error */}
         {state?.error && (
           <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2.5">
             {state.error}
@@ -133,7 +146,6 @@ export function NewContentSetForm() {
         )}
       </div>
 
-      {/* Actions */}
       <div className="flex items-center justify-between mt-6">
         <Link
           href="/tutor/content-sets"
@@ -155,7 +167,7 @@ export function NewContentSetForm() {
             </>
           ) : (
             <>
-              Create &amp; Edit
+              Create &amp; Edit →
               <ArrowRight className="w-4 h-4" />
             </>
           )}
