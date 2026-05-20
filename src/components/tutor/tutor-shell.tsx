@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import {
   LayoutDashboard,
   BookOpen,
+  GraduationCap,
   Play,
   Settings,
   LogOut,
@@ -15,6 +16,7 @@ import {
 const NAV_ITEMS = [
   { href: '/tutor/dashboard',     label: 'Dashboard',    icon: LayoutDashboard },
   { href: '/tutor/content-sets',  label: 'Content Sets', icon: BookOpen },
+  { href: '/tutor/lessons',       label: 'Lessons',      icon: GraduationCap },
   { href: '/tutor/sessions',      label: 'Sessions',     icon: Play },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
 ]
