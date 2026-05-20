@@ -63,3 +63,64 @@ CREATE POLICY "lesson_activities_owner_all" ON lesson_activities
         AND lessons.owner_id = auth.uid()
     )
   );
+
+-- ── Activity mode (individual vs shared) ─────────────────────────────────────
+
+ALTER TABLE lesson_activities
+  ADD COLUMN mode TEXT NOT NULL DEFAULT 'individual'
+    CHECK (mode IN ('individual', 'shared'));
+
+-- ── Participant progress (individual activities) ──────────────────────────────
+-- One row per (session, participant, activity_index). Tracks card position,
+-- score, and arbitrary mechanic state so each student progresses independently.
+
+CREATE TABLE participant_progress (
+  id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id        UUID        NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  participant_id    UUID        NOT NULL REFERENCES session_participants(id) ON DELETE CASCADE,
+  activity_index    INT         NOT NULL,
+  current_card_index INT        NOT NULL DEFAULT 0,
+  score             INT         NOT NULL DEFAULT 0,
+  state             JSONB       NOT NULL DEFAULT '{}',
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(session_id, participant_id, activity_index)
+);
+
+CREATE INDEX idx_participant_progress_session ON participant_progress(session_id);
+
+-- ── Shared activity state (shared activities) ────────────────────────────────
+-- One row per (session, activity_index). Single collaborative state field
+-- written by the host / game engine, read by all participants.
+
+CREATE TABLE shared_activity_state (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  session_id     UUID        NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+  activity_index INT         NOT NULL,
+  state          JSONB       NOT NULL DEFAULT '{}',
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(session_id, activity_index)
+);
+
+CREATE INDEX idx_shared_activity_state_session ON shared_activity_state(session_id);
+
+-- ── RLS for progress tables ──────────────────────────────────────────────────
+-- Open read/insert/update (same pattern as session_participants and
+-- session_events — the session code is the access control boundary).
+
+ALTER TABLE participant_progress  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE shared_activity_state ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "participant_progress_read_anyone"   ON participant_progress FOR SELECT USING (true);
+CREATE POLICY "participant_progress_insert_anyone" ON participant_progress FOR INSERT WITH CHECK (true);
+CREATE POLICY "participant_progress_update_anyone" ON participant_progress FOR UPDATE USING (true);
+
+CREATE POLICY "shared_state_read_anyone"   ON shared_activity_state FOR SELECT USING (true);
+CREATE POLICY "shared_state_insert_anyone" ON shared_activity_state FOR INSERT WITH CHECK (true);
+CREATE POLICY "shared_state_update_anyone" ON shared_activity_state FOR UPDATE USING (true);
+
+-- ── Extend mechanics with supported_modes ────────────────────────────────────
+
+ALTER TABLE mechanics
+  ADD COLUMN supported_modes TEXT[] NOT NULL DEFAULT ARRAY['individual'];
+
+UPDATE mechanics SET supported_modes = ARRAY['individual'] WHERE id = 'swipe_battle';

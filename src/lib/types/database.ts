@@ -47,6 +47,7 @@ export interface LessonActivity {
   content_set_id: string
   mechanic_id: string
   position: number
+  mode: 'individual' | 'shared'
   config: Record<string, unknown>
   created_at: string
 }
@@ -86,6 +87,38 @@ export interface SessionEvent {
   participant_id: string | null
   event_type: string
   payload: Record<string, unknown>
+  created_at: string
+}
+
+// ── Progress tables (005_lessons_layer.sql) ──────────────────────────────────
+
+export interface ParticipantProgress {
+  id: string
+  session_id: string
+  participant_id: string
+  activity_index: number
+  current_card_index: number
+  score: number
+  state: Record<string, unknown>
+  updated_at: string
+}
+
+export interface SharedActivityState {
+  id: string
+  session_id: string
+  activity_index: number
+  state: Record<string, unknown>
+  updated_at: string
+}
+
+// ── Mechanic (extended) ──────────────────────────────────────────────────────
+
+export interface Mechanic {
+  id: string
+  name: string
+  description: string | null
+  config_schema: Record<string, unknown> | null
+  supported_modes: ('individual' | 'shared')[]
   created_at: string
 }
 
