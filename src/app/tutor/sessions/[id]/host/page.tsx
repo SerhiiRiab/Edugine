@@ -2,6 +2,19 @@ import { createClient } from '@/lib/supabase/server'
 import { notFound, redirect } from 'next/navigation'
 import { SessionHostView } from '@/components/tutor/session-host-view'
 
+type RawActivity = {
+  id: string
+  mechanic_id: string
+  mode: string
+  position: number
+  config: Record<string, unknown>
+  content_sets: {
+    id: string
+    title: string
+    content_items: { id: string; position: number; data: Record<string, unknown> }[]
+  } | null
+}
+
 export default async function HostPage({
   params,
 }: {
@@ -21,6 +34,62 @@ export default async function HostPage({
 
   if (!session) notFound()
 
+  // ── Lesson mode ─────────────────────────────────────────────────────────────
+  if (session.lesson_id) {
+    const { data: lessonData } = await supabase
+      .from('lessons')
+      .select(`
+        id, title,
+        lesson_activities(
+          id, mechanic_id, mode, position, config,
+          content_sets(id, title, content_items(id, position, data))
+        )
+      `)
+      .eq('id', session.lesson_id)
+      .single()
+
+    if (!lessonData) notFound()
+
+    const activities = ((lessonData.lesson_activities ?? []) as unknown as RawActivity[])
+      .sort((a, b) => a.position - b.position)
+      .map((act) => ({
+        id: act.id,
+        mechanic_id: act.mechanic_id,
+        mode: act.mode as 'individual' | 'shared',
+        content_set_title: act.content_sets?.title ?? '(deleted)',
+        items: (act.content_sets?.content_items ?? [])
+          .sort((a, b) => a.position - b.position)
+          .map((i) => ({
+            id: i.id,
+            word: (i.data.word as string | undefined) ?? '',
+            translation: (i.data.translation as string | undefined) ?? '',
+            isCorrect: (i.data.isCorrect as boolean | undefined) ?? true,
+          })),
+      }))
+
+    return (
+      <SessionHostView
+        session={{
+          id: session.id,
+          code: session.code,
+          status: session.status as 'waiting' | 'active' | 'paused' | 'finished',
+          mechanic_id: session.mechanic_id,
+          set_id: session.set_id ?? '',
+          setTitle: lessonData.title,
+          setId: '',
+        }}
+        items={activities[session.current_activity_index ?? 0]?.items ?? []}
+        lesson={{
+          id: lessonData.id,
+          title: lessonData.title,
+          activities,
+          initialActivityIndex: session.current_activity_index ?? 0,
+        }}
+      />
+    )
+  }
+
+  // ── Single content set mode (legacy) ────────────────────────────────────────
   const { data: items } = await supabase
     .from('content_items')
     .select('id, position, data')

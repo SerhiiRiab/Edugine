@@ -7,11 +7,11 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Copy, Check, Wifi, WifiOff,
   PlayCircle, StopCircle, RotateCcw, User,
-  Clock, Target, TrendingUp, Eye,
+  Clock, Target, TrendingUp, Eye, ChevronRight,
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity } from '@/lib/actions/sessions'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -46,6 +46,29 @@ interface GameResult {
   swipes: SwipeRecord[]
 }
 
+interface LessonActivity {
+  id: string
+  mechanic_id: string
+  mode: 'individual' | 'shared'
+  content_set_title: string
+  items: CardItem[]
+}
+
+interface LessonInfo {
+  id: string
+  title: string
+  activities: LessonActivity[]
+  initialActivityIndex: number
+}
+
+interface ActivityResult {
+  activityIndex: number
+  score: number
+  correct: number
+  incorrect: number
+  totalCards: number
+}
+
 interface Props {
   session: {
     id: string
@@ -57,9 +80,12 @@ interface Props {
     setId: string
   }
   items: CardItem[]
+  lesson?: LessonInfo
 }
 
-export function SessionHostView({ session, items }: Props) {
+export function SessionHostView({ session, items, lesson }: Props) {
+  const isLesson = !!lesson
+
   const [phase, setPhase] = useState<SessionStatus>(session.status)
   const [player, setPlayer] = useState<JoinedPlayer | null>(null)
   const [swipes, setSwipes] = useState<SwipeRecord[]>([])
@@ -75,6 +101,12 @@ export function SessionHostView({ session, items }: Props) {
   const [mirrorFlash, setMirrorFlash] = useState<'correct' | 'wrong' | null>(null)
   const [mirrorTimeLeft, setMirrorTimeLeft] = useState(10)
 
+  // Lesson-mode state
+  const [currentActivityIndex, setCurrentActivityIndex] = useState(lesson?.initialActivityIndex ?? 0)
+  const [activityResults, setActivityResults] = useState<ActivityResult[]>([])
+  const [lessonBetween, setLessonBetween] = useState(false)
+  const [isAdvancing, setIsAdvancing] = useState(false)
+
   const [isStarting, startTransition] = useTransition()
   const [isEnding, endTransition] = useTransition()
 
@@ -83,12 +115,21 @@ export function SessionHostView({ session, items }: Props) {
   const mirrorTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const mirrorExitDirRef = useRef<'left' | 'right'>('right')
   const cardStartTimeRef = useRef<number>(Date.now())
+  const currentActivityIndexRef = useRef(lesson?.initialActivityIndex ?? 0)
+
+  // Keep ref in sync
+  useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
+
+  // Current activity's items (lesson mode uses activity items, single mode uses props items)
+  const currentActivityItems = isLesson
+    ? (lesson.activities[currentActivityIndex]?.items ?? [])
+    : items
 
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/play/${session.code}`
     : `/play/${session.code}`
 
-  // ── Realtime channel ─────────────────────────────────────────────────────
+  // ── Realtime channel ─────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase.channel(`session:${session.id}`)
@@ -126,17 +167,12 @@ export function SessionHostView({ session, items }: Props) {
           cardIndex: number; word: string; translation: string
           swipedRight: boolean; correct: boolean; score: number
         }
-
         const timeTaken = ((Date.now() - cardStartTimeRef.current) / 1000).toFixed(1)
-
         setSwipes(prev => [{ ...p, timeTaken }, ...prev])
         setCurrentCardIndex(p.cardIndex + 1)
         setPlayerScore(p.score)
-
-        // Mirror: flash then slide card out
         mirrorExitDirRef.current = p.swipedRight ? 'right' : 'left'
         setMirrorFlash(p.correct ? 'correct' : 'wrong')
-
         setTimeout(() => {
           setMirrorCardIndex(p.cardIndex + 1)
           setMirrorFlash(null)
@@ -145,11 +181,28 @@ export function SessionHostView({ session, items }: Props) {
       .on('broadcast', { event: 'game_complete' }, ({ payload }) => {
         const p = payload as GameResult
         setResult(p)
-        setPhase('finished')
         setMirrorFlash(null)
-        endTransition(() => endSession(session.id))
         if (elapsedRef.current) clearInterval(elapsedRef.current)
         if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current)
+
+        if (isLesson) {
+          // Accumulate result and show between-activity UI
+          setActivityResults(prev => [
+            ...prev,
+            {
+              activityIndex: currentActivityIndexRef.current,
+              score: p.score,
+              correct: p.correct,
+              incorrect: p.incorrect,
+              totalCards: p.totalCards,
+            },
+          ])
+          setLessonBetween(true)
+        } else {
+          // Single mode: end session immediately
+          setPhase('finished')
+          endTransition(() => endSession(session.id))
+        }
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
@@ -159,31 +212,31 @@ export function SessionHostView({ session, items }: Props) {
 
     return () => { supabase.removeChannel(channel) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.id])
+  }, [session.id, isLesson])
 
-  // ── Elapsed timer (active phase) ─────────────────────────────────────────
+  // ── Elapsed timer ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase === 'active') {
+    if (phase === 'active' && !lessonBetween) {
       setElapsed(0)
       elapsedRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
     }
     return () => {
       if (elapsedRef.current) clearInterval(elapsedRef.current)
     }
-  }, [phase])
+  }, [phase, lessonBetween])
 
-  // ── Mirror card countdown — resets when mirrorCardIndex changes ───────────
+  // ── Mirror countdown ──────────────────────────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'active') return
+    if (phase !== 'active' || lessonBetween) return
     cardStartTimeRef.current = Date.now()
     setMirrorTimeLeft(10)
     if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current)
     mirrorTimerRef.current = setInterval(() =>
       setMirrorTimeLeft(prev => Math.max(0, prev - 1)), 1000)
     return () => { if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current) }
-  }, [mirrorCardIndex, phase])
+  }, [mirrorCardIndex, phase, lessonBetween])
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // ── Handlers ──────────────────────────────────────────────────────────────────
   function handleStartGame() {
     startTransition(async () => {
       try {
@@ -191,7 +244,10 @@ export function SessionHostView({ session, items }: Props) {
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_started',
-          payload: { totalCards: items.length },
+          payload: {
+            totalCards: currentActivityItems.length,
+            activityIndex: currentActivityIndex,
+          },
         })
         setPhase('active')
         setCurrentCardIndex(0)
@@ -203,6 +259,51 @@ export function SessionHostView({ session, items }: Props) {
         toast.error('Failed to start game')
       }
     })
+  }
+
+  async function handleNextActivity() {
+    if (!lesson) return
+    const nextIndex = currentActivityIndex + 1
+    setIsAdvancing(true)
+    try {
+      await advanceActivity(session.id, nextIndex)
+      const nextActivity = lesson.activities[nextIndex]
+      await channelRef.current?.send({
+        type: 'broadcast',
+        event: 'activity_advance',
+        payload: { nextIndex, totalCards: nextActivity?.items.length ?? 0 },
+      })
+      setCurrentActivityIndex(nextIndex)
+      setLessonBetween(false)
+      setSwipes([])
+      setPlayerScore(0)
+      setResult(null)
+      setCurrentCardIndex(0)
+      setMirrorCardIndex(0)
+      setMirrorFlash(null)
+    } catch {
+      toast.error('Failed to advance activity')
+    } finally {
+      setIsAdvancing(false)
+    }
+  }
+
+  async function handleEndLesson() {
+    if (!lesson) return
+    setIsAdvancing(true)
+    try {
+      await channelRef.current?.send({
+        type: 'broadcast',
+        event: 'lesson_complete',
+        payload: { activityResults },
+      })
+      await endSession(session.id)
+      setPhase('finished')
+    } catch {
+      toast.error('Failed to end lesson')
+    } finally {
+      setIsAdvancing(false)
+    }
   }
 
   function handleEndGame() {
@@ -246,28 +347,42 @@ export function SessionHostView({ session, items }: Props) {
   }, [])
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(shareUrl)}&format=svg&margin=4`
-  const mirrorItem = items[mirrorCardIndex]
+  const mirrorItem = currentActivityItems[mirrorCardIndex]
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  const isLastActivity = isLesson && currentActivityIndex >= lesson.activities.length - 1
+
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ── Top bar ────────────────────────────────────────────────────────── */}
+      {/* ── Top bar ──────────────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center gap-4">
           <Link
-            href={`/tutor/content-sets/${session.setId}/edit`}
+            href={isLesson ? `/tutor/lessons/${lesson.id}/edit` : `/tutor/content-sets/${session.setId}/edit`}
             className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700
               font-medium transition-colors shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to set
+            {isLesson ? 'Back to lesson' : 'Back to set'}
           </Link>
           <div className="w-px h-5 bg-slate-200 shrink-0" />
-          <h1 className="flex-1 font-bold text-slate-800 truncate">{session.setTitle}</h1>
+          <div className="flex-1 min-w-0">
+            <h1 className="font-bold text-slate-800 truncate">{session.setTitle}</h1>
+            {isLesson && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                Activity {currentActivityIndex + 1} of {lesson.activities.length}
+                {lesson.activities[currentActivityIndex] && (
+                  <span className="ml-1 text-slate-300">·</span>
+                )}
+                {lesson.activities[currentActivityIndex] && (
+                  <span className="ml-1">{lesson.activities[currentActivityIndex].content_set_title}</span>
+                )}
+              </p>
+            )}
+          </div>
           <StatusBadge phase={phase} />
 
-          {/* End game in top bar — visible only during active */}
-          {phase === 'active' && (
+          {phase === 'active' && !lessonBetween && (
             <button
               onClick={handleEndGame}
               disabled={isEnding}
@@ -284,7 +399,7 @@ export function SessionHostView({ session, items }: Props) {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
-        {/* ── WAITING PHASE ──────────────────────────────────────────────── */}
+        {/* ── WAITING PHASE ──────────────────────────────────────────────────── */}
         {(phase === 'waiting' || phase === 'paused') && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* Code + QR */}
@@ -384,7 +499,7 @@ export function SessionHostView({ session, items }: Props) {
                       px-8 py-3 rounded-xl text-base transition-colors shadow-sm"
                   >
                     <PlayCircle className="w-5 h-5" />
-                    {isStarting ? 'Starting...' : 'Start game! 🎮'}
+                    {isStarting ? 'Starting...' : isLesson ? 'Start lesson! 🚀' : 'Start game! 🎮'}
                   </button>
                 </div>
               )}
@@ -394,7 +509,17 @@ export function SessionHostView({ session, items }: Props) {
                   Session info
                 </p>
                 <div className="space-y-2 text-sm">
-                  <InfoRow label="Total cards" value={items.length} />
+                  {isLesson ? (
+                    <>
+                      <InfoRow label="Activities" value={lesson.activities.length} />
+                      <InfoRow
+                        label="Total cards"
+                        value={lesson.activities.reduce((n, a) => n + a.items.length, 0)}
+                      />
+                    </>
+                  ) : (
+                    <InfoRow label="Total cards" value={currentActivityItems.length} />
+                  )}
                   <InfoRow label="Mechanic" value="Swipe Battle" />
                   <InfoRow label="Code" value={<span className="font-mono text-violet-600">{session.code}</span>} />
                 </div>
@@ -403,15 +528,47 @@ export function SessionHostView({ session, items }: Props) {
           </div>
         )}
 
-        {/* ── ACTIVE PHASE ───────────────────────────────────────────────── */}
-        {phase === 'active' && (
+        {/* ── ACTIVE PHASE ───────────────────────────────────────────────────── */}
+        {phase === 'active' && !lessonBetween && (
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-            {/* LEFT — Mirror view (60%) */}
+            {/* LEFT — Mirror view */}
             <div className="lg:col-span-3 space-y-4">
+
+              {/* Lesson progress bar */}
+              {isLesson && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3">
+                  <div className="flex justify-between text-xs text-slate-500 mb-2">
+                    <span className="font-semibold">
+                      Activity {currentActivityIndex + 1} of {lesson.activities.length}
+                    </span>
+                    <span className="text-slate-400">{lesson.activities[currentActivityIndex]?.content_set_title}</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-violet-400 transition-all"
+                      style={{ width: `${((currentActivityIndex) / lesson.activities.length) * 100}%` }}
+                    />
+                  </div>
+                  <div className="flex gap-1 mt-2">
+                    {lesson.activities.map((_, i) => (
+                      <div
+                        key={i}
+                        className={`flex-1 h-1 rounded-full transition-colors ${
+                          i < currentActivityIndex
+                            ? 'bg-emerald-400'
+                            : i === currentActivityIndex
+                            ? 'bg-violet-500'
+                            : 'bg-slate-200'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Mirror panel */}
               <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-7">
-                {/* Mirror header */}
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-2 text-slate-400">
                     <Eye className="w-4 h-4" />
@@ -419,7 +576,6 @@ export function SessionHostView({ session, items }: Props) {
                       What <span className="text-white">{player?.nickname ?? 'student'}</span> sees
                     </span>
                   </div>
-                  {/* Per-card timer */}
                   <div className={`text-xl font-black tabular-nums transition-colors ${
                     mirrorTimeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-slate-300'
                   }`}>
@@ -427,16 +583,12 @@ export function SessionHostView({ session, items }: Props) {
                   </div>
                 </div>
 
-                {/* Swipe direction hints */}
                 <div className="flex justify-between text-xs font-semibold mb-3 px-1">
                   <span className="text-red-500/60">← Wrong ✗</span>
                   <span className="text-emerald-500/60">Correct ✓ →</span>
                 </div>
 
-                {/* Mirror card */}
                 <div className="relative min-h-[220px] sm:min-h-[260px]">
-
-                  {/* Disconnected overlay */}
                   <AnimatePresence>
                     {player && !player.online && (
                       <motion.div
@@ -454,7 +606,6 @@ export function SessionHostView({ session, items }: Props) {
                     )}
                   </AnimatePresence>
 
-                  {/* Flash overlay */}
                   <AnimatePresence>
                     {mirrorFlash && (
                       <motion.div
@@ -484,7 +635,6 @@ export function SessionHostView({ session, items }: Props) {
                     )}
                   </AnimatePresence>
 
-                  {/* Animated card */}
                   <AnimatePresence mode="wait">
                     {mirrorItem ? (
                       <motion.div
@@ -501,7 +651,6 @@ export function SessionHostView({ session, items }: Props) {
                         className="bg-slate-800 rounded-2xl border border-slate-700 p-6 sm:p-8
                           flex flex-col items-center justify-center gap-4 min-h-[220px] sm:min-h-[260px]"
                       >
-                        {/* Correct/wrong pair badge */}
                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
                           mirrorItem.isCorrect
                             ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700'
@@ -509,8 +658,6 @@ export function SessionHostView({ session, items }: Props) {
                         }`}>
                           {mirrorItem.isCorrect ? '✓ Correct pair' : '✗ Wrong pair'}
                         </span>
-
-                        {/* Word + translation */}
                         <div className="text-center space-y-3">
                           <div className="text-3xl sm:text-4xl font-black text-white leading-tight">
                             {mirrorItem.word}
@@ -535,7 +682,6 @@ export function SessionHostView({ session, items }: Props) {
                   </AnimatePresence>
                 </div>
 
-                {/* Mock action buttons */}
                 <div className="flex gap-3 mt-4">
                   <div className="flex-1 py-3 rounded-2xl border border-red-800/60
                     text-red-500/50 text-center text-sm font-bold select-none">
@@ -552,24 +698,22 @@ export function SessionHostView({ session, items }: Props) {
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
                 <div className="flex justify-between text-xs text-slate-500 mb-2">
                   <span className="font-semibold">
-                    Card {Math.min(mirrorCardIndex + 1, items.length)} of {items.length}
+                    Card {Math.min(mirrorCardIndex + 1, currentActivityItems.length)} of {currentActivityItems.length}
                   </span>
                   <span>{accuracy > 0 ? `${accuracy}% accuracy` : 'Waiting...'}</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
                   <motion.div
                     className="h-full rounded-full bg-violet-500"
-                    animate={{ width: `${(mirrorCardIndex / items.length) * 100}%` }}
+                    animate={{ width: `${(mirrorCardIndex / currentActivityItems.length) * 100}%` }}
                     transition={{ duration: 0.4, ease: 'easeOut' }}
                   />
                 </div>
               </div>
             </div>
 
-            {/* RIGHT — Analytics (40%) */}
+            {/* RIGHT — Analytics */}
             <div className="lg:col-span-2 space-y-4">
-
-              {/* Player card */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full bg-violet-50 border-2 border-violet-200
@@ -602,7 +746,6 @@ export function SessionHostView({ session, items }: Props) {
                 </div>
               </div>
 
-              {/* Stats */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5">
                 <StatRow
                   icon={<Clock className="w-4 h-4 text-slate-400" />}
@@ -629,7 +772,6 @@ export function SessionHostView({ session, items }: Props) {
                 />
               </div>
 
-              {/* Live feed */}
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Recent answers
@@ -659,9 +801,6 @@ export function SessionHostView({ session, items }: Props) {
                           </span>
                           <span className="text-slate-400 mx-1">→</span>
                           <span className="text-slate-500">{s.translation}</span>
-                          <span className="text-slate-300 ml-1">
-                            ({s.swipedRight ? 'right' : 'left'})
-                          </span>
                         </span>
                         {s.timeTaken && (
                           <span className="text-slate-400 shrink-0 tabular-nums">
@@ -674,7 +813,6 @@ export function SessionHostView({ session, items }: Props) {
                 )}
               </div>
 
-              {/* End game (secondary) */}
               <button
                 onClick={handleEndGame}
                 disabled={isEnding}
@@ -690,13 +828,138 @@ export function SessionHostView({ session, items }: Props) {
           </div>
         )}
 
-        {/* ── FINISHED PHASE ─────────────────────────────────────────────── */}
+        {/* ── BETWEEN ACTIVITIES (lesson only) ──────────────────────────────── */}
+        {phase === 'active' && lessonBetween && lesson && (
+          <div className="max-w-2xl mx-auto space-y-6">
+            {/* Activity complete banner */}
+            <div className="text-center py-4">
+              <div className="text-4xl mb-2">
+                {isLastActivity ? '🎉' : '✅'}
+              </div>
+              <h2 className="text-2xl font-black text-slate-800">
+                Activity {currentActivityIndex + 1} complete!
+              </h2>
+              {!isLastActivity && (
+                <p className="text-slate-500 mt-1 text-sm">
+                  Up next: <span className="font-semibold text-slate-700">
+                    {lesson.activities[currentActivityIndex + 1]?.content_set_title}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Activity stats */}
+            {result && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6
+                grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <div className="text-3xl font-black text-emerald-600">{result.correct}</div>
+                  <div className="text-xs text-slate-400 mt-1">Correct</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-black text-red-500">{result.incorrect}</div>
+                  <div className="text-xs text-slate-400 mt-1">Wrong</div>
+                </div>
+                <div>
+                  <div className="text-3xl font-black text-violet-600">{result.score}</div>
+                  <div className="text-xs text-slate-400 mt-1">Points</div>
+                </div>
+              </div>
+            )}
+
+            {/* Lesson progress */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+                Lesson progress
+              </p>
+              <div className="space-y-2">
+                {lesson.activities.map((act, i) => {
+                  const past = activityResults.find(r => r.activityIndex === i)
+                  const isCurrent = i === currentActivityIndex
+                  return (
+                    <div
+                      key={act.id}
+                      className={`flex items-center gap-3 text-sm p-2 rounded-lg ${
+                        isCurrent ? 'bg-violet-50' : ''
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        past ? 'bg-emerald-100 text-emerald-700'
+                          : isCurrent ? 'bg-violet-100 text-violet-700'
+                          : 'bg-slate-100 text-slate-400'
+                      }`}>
+                        {past ? '✓' : i + 1}
+                      </div>
+                      <span className={`flex-1 truncate ${isCurrent ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>
+                        {act.content_set_title}
+                      </span>
+                      {past && (
+                        <span className="text-xs font-semibold text-violet-600 tabular-nums">
+                          {past.score} pts
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleEndLesson}
+                disabled={isAdvancing}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl
+                  border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
+                  hover:text-red-600 text-slate-400 text-sm font-semibold
+                  disabled:opacity-50 transition-colors"
+              >
+                <StopCircle className="w-4 h-4" />
+                End lesson
+              </button>
+
+              {!isLastActivity ? (
+                <button
+                  onClick={handleNextActivity}
+                  disabled={isAdvancing}
+                  className="flex-1 flex items-center justify-center gap-2 bg-violet-600
+                    hover:bg-violet-700 disabled:opacity-50 text-white font-bold
+                    px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
+                >
+                  {isAdvancing ? 'Loading...' : 'Next activity →'}
+                  {!isAdvancing && <ChevronRight className="w-4 h-4" />}
+                </button>
+              ) : (
+                <button
+                  onClick={handleEndLesson}
+                  disabled={isAdvancing}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-500
+                    hover:bg-emerald-600 disabled:opacity-50 text-white font-bold
+                    px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
+                >
+                  {isAdvancing ? 'Finishing...' : 'Finish lesson! 🎉'}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── FINISHED PHASE ─────────────────────────────────────────────────── */}
         {phase === 'finished' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="text-center py-4">
               <div className="text-5xl mb-3">🎉</div>
-              <h2 className="text-3xl font-black text-slate-800">Game over!</h2>
-              {result && (
+              <h2 className="text-3xl font-black text-slate-800">
+                {isLesson ? 'Lesson complete!' : 'Game over!'}
+              </h2>
+              {isLesson ? (
+                <p className="text-slate-500 mt-1">
+                  Total: <span className="font-bold text-violet-600">
+                    {activityResults.reduce((s, r) => s + r.score, 0)} points
+                  </span>{' '}
+                  across {activityResults.length} {activityResults.length === 1 ? 'activity' : 'activities'}
+                </p>
+              ) : result && (
                 <p className="text-slate-500 mt-1">
                   {result.nickname} scored{' '}
                   <span className="font-bold text-violet-600">{result.score} points</span>
@@ -704,7 +967,39 @@ export function SessionHostView({ session, items }: Props) {
               )}
             </div>
 
-            {result && (
+            {/* Lesson activity breakdown */}
+            {isLesson && activityResults.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                  Activity breakdown
+                </p>
+                {activityResults.map((r, i) => {
+                  const act = lesson.activities[r.activityIndex]
+                  const acc = r.totalCards > 0 ? Math.round((r.correct / r.totalCards) * 100) : 0
+                  return (
+                    <div key={i} className="flex items-center gap-3 text-sm py-1">
+                      <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
+                        {r.activityIndex + 1}
+                      </div>
+                      <span className="flex-1 text-slate-700 font-medium truncate">
+                        {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
+                      </span>
+                      <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
+                      <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                    </div>
+                  )
+                })}
+                <div className="border-t border-slate-100 pt-3 flex justify-between text-sm font-bold">
+                  <span className="text-slate-600">Total</span>
+                  <span className="text-violet-600">
+                    {activityResults.reduce((s, r) => s + r.score, 0)} pts
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Single mode result */}
+            {!isLesson && result && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6
                 grid grid-cols-3 gap-4 text-center">
                 <div>
@@ -726,7 +1021,7 @@ export function SessionHostView({ session, items }: Props) {
               </div>
             )}
 
-            {result && result.swipes.filter(s => !s.correct).length > 0 && (
+            {!isLesson && result && result.swipes.filter(s => !s.correct).length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   Cards to review ({result.swipes.filter(s => !s.correct).length})
@@ -754,15 +1049,27 @@ export function SessionHostView({ session, items }: Props) {
               >
                 Back to dashboard
               </Link>
-              <Link
-                href={`/tutor/content-sets/${session.setId}/edit`}
-                className="flex-1 flex items-center justify-center gap-2 bg-violet-500
-                  hover:bg-violet-600 text-white font-semibold px-4 py-3
-                  rounded-xl text-sm transition-colors"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Start new session
-              </Link>
+              {isLesson ? (
+                <Link
+                  href={`/tutor/lessons/${lesson.id}/edit`}
+                  className="flex-1 flex items-center justify-center gap-2 bg-violet-500
+                    hover:bg-violet-600 text-white font-semibold px-4 py-3
+                    rounded-xl text-sm transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Back to lesson
+                </Link>
+              ) : (
+                <Link
+                  href={`/tutor/content-sets/${session.setId}/edit`}
+                  className="flex-1 flex items-center justify-center gap-2 bg-violet-500
+                    hover:bg-violet-600 text-white font-semibold px-4 py-3
+                    rounded-xl text-sm transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Start new session
+                </Link>
+              )}
             </div>
           </div>
         )}

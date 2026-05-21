@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -41,6 +41,7 @@ import {
   deleteActivity,
   reorderActivities,
 } from '@/lib/actions/lessons'
+import { createLessonSession } from '@/lib/actions/sessions'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -679,6 +680,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const [editingTitle, setEditingTitle] = useState(false)
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingActivity, setEditingActivity] = useState<ActivityRow | null>(null)
+  const [isLaunching, launchTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -834,14 +836,22 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
               {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
             </span>
             <button
-              disabled={activities.length === 0}
-              title={activities.length === 0 ? 'Add at least one activity first' : 'Start a live lesson (coming soon)'}
-              onClick={() => toast.info('Lesson sessions coming in the next step!')}
+              disabled={activities.length === 0 || isLaunching}
+              title={activities.length === 0 ? 'Add at least one activity first' : 'Start a live lesson'}
+              onClick={() => {
+                launchTransition(async () => {
+                  try {
+                    await createLessonSession(lesson.id)
+                  } catch {
+                    toast.error('Failed to start lesson session')
+                  }
+                })
+              }}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
                 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
             >
-              Start Lesson 🚀
+              {isLaunching ? <><Loader2 className="w-4 h-4 animate-spin" />Starting...</> : 'Start Lesson 🚀'}
             </button>
           </div>
         </div>
