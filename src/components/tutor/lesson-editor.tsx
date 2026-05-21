@@ -42,6 +42,7 @@ import {
   reorderActivities,
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
+import { isRedirectError } from 'next/dist/client/components/redirect-error'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -842,7 +843,8 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                 launchTransition(async () => {
                   try {
                     await createLessonSession(lesson.id)
-                  } catch {
+                  } catch (e) {
+                    if (isRedirectError(e)) return
                     toast.error('Failed to start lesson session')
                   }
                 })
