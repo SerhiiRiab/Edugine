@@ -1206,83 +1206,110 @@ export function SessionHostView({ session, items, lesson }: Props) {
         {/* ── BETWEEN ACTIVITIES (lesson only) ──────────────────────────────── */}
         {phase === 'active' && lessonBetween && lesson && (
           <div className="max-w-2xl mx-auto space-y-6">
+
+            {/* Header */}
             <div className="text-center py-4">
               <div className="text-4xl mb-2">{isLastActivity ? '🎉' : '✅'}</div>
               <h2 className="text-2xl font-black text-slate-800">
                 Activity {currentActivityIndex + 1} complete!
               </h2>
+              <p className="text-slate-500 mt-0.5 text-sm font-medium">
+                {lesson.activities[currentActivityIndex]?.content_set_title}
+              </p>
               {!isLastActivity && (
-                <p className="text-slate-500 mt-1 text-sm">
+                <p className="text-slate-400 mt-1 text-sm">
                   Up next: <span className="font-semibold text-slate-700">
                     {lesson.activities[currentActivityIndex + 1]?.content_set_title}
                   </span>
                 </p>
               )}
-              {participants.length > 1 && (
-                <p className="text-slate-400 text-sm mt-2">
-                  <span className="font-semibold text-emerald-600">{completedCountCurrentActivity}</span>
-                  /{participants.length} students completed this activity
-                </p>
-              )}
+              <p className="text-slate-400 text-sm mt-2">
+                <span className="font-semibold text-emerald-600">{completedCountCurrentActivity}</span>
+                /{participants.length} student{participants.length !== 1 ? 's' : ''} completed this activity
+              </p>
             </div>
 
-            {/* Activity stats — aggregate or single participant */}
-            {activityResults.find(r => r.activityIndex === currentActivityIndex) && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6
-                grid grid-cols-3 gap-4 text-center">
-                {(() => {
-                  const r = activityResults.find(r => r.activityIndex === currentActivityIndex)!
-                  return (
-                    <>
-                      <div>
-                        <div className="text-3xl font-black text-emerald-600">{r.correct}</div>
-                        <div className="text-xs text-slate-400 mt-1">Correct</div>
+            {/* Per-student results for this activity */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">
+                Activity {currentActivityIndex + 1} results
+              </p>
+              <div className="space-y-4">
+                {[...participants]
+                  .map((student, originalIndex) => {
+                    const r = perStudentResults[student.id]
+                      ?.find(x => x.activityIndex === currentActivityIndex)
+                    const lessonTotal = (perStudentResults[student.id] ?? [])
+                      .reduce((s, x) => s + x.score, 0)
+                    return { student, originalIndex, r, lessonTotal }
+                  })
+                  .sort((a, b) => (b.r?.score ?? -1) - (a.r?.score ?? -1))
+                  .map(({ student, originalIndex, r, lessonTotal }) => {
+                    const acc = r && r.totalCards > 0
+                      ? Math.round((r.correct / r.totalCards) * 100)
+                      : null
+                    return (
+                      <div key={student.id} className="flex items-center gap-3">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center
+                          text-sm font-bold text-white shrink-0 ${avatarBg(originalIndex)}`}>
+                          {student.nickname[0].toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-slate-800 truncate leading-tight">
+                            {student.nickname}
+                          </div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {r
+                              ? `${r.correct}/${r.totalCards} correct${acc !== null ? ` (${acc}%)` : ''} · lesson total: ${lessonTotal} pts`
+                              : 'not finished yet'}
+                          </div>
+                        </div>
+                        {r ? (
+                          <span className="text-violet-600 font-black tabular-nums text-lg">
+                            {r.score} pts
+                          </span>
+                        ) : (
+                          <span className="text-slate-300 text-sm">—</span>
+                        )}
                       </div>
-                      <div>
-                        <div className="text-3xl font-black text-red-500">{r.incorrect}</div>
-                        <div className="text-xs text-slate-400 mt-1">Wrong</div>
-                      </div>
-                      <div>
-                        <div className="text-3xl font-black text-violet-600">{r.score}</div>
-                        <div className="text-xs text-slate-400 mt-1">Total pts</div>
-                      </div>
-                    </>
-                  )
-                })()}
+                    )
+                  })}
               </div>
-            )}
+            </div>
 
             {/* Lesson progress */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                 Lesson progress
               </p>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {lesson.activities.map((act, i) => {
-                  const past = activityResults.find(r => r.activityIndex === i)
+                  const done = i <= currentActivityIndex
                   const isCurrent = i === currentActivityIndex
                   return (
                     <div
                       key={act.id}
-                      className={`flex items-center gap-3 text-sm p-2 rounded-lg ${
+                      className={`flex items-center gap-3 text-sm px-2 py-1.5 rounded-lg ${
                         isCurrent ? 'bg-violet-50' : ''
                       }`}
                     >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                        past ? 'bg-emerald-100 text-emerald-700'
-                          : isCurrent ? 'bg-violet-100 text-violet-700'
-                          : 'bg-slate-100 text-slate-400'
-                      }`}>
-                        {past ? '✓' : i + 1}
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center
+                        text-xs font-bold shrink-0 ${
+                          done
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-slate-100 text-slate-400'
+                        }`}>
+                        {done ? '✓' : i + 1}
                       </div>
-                      <span className={`flex-1 truncate ${isCurrent ? 'font-semibold text-slate-800' : 'text-slate-500'}`}>
+                      <span className={`flex-1 truncate ${
+                        isCurrent
+                          ? 'font-semibold text-slate-800'
+                          : done
+                          ? 'text-slate-600'
+                          : 'text-slate-400'
+                      }`}>
                         {act.content_set_title}
                       </span>
-                      {past && (
-                        <span className="text-xs font-semibold text-violet-600 tabular-nums">
-                          {past.score} pts
-                        </span>
-                      )}
                     </div>
                   )
                 })}

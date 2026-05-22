@@ -869,9 +869,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             </div>
 
             <p className="text-slate-400 text-sm animate-pulse">
-              {currentActivityIndex + 1 < lesson.activities.length
-                ? 'Get ready for the next activity...'
-                : 'Waiting for teacher to finish the lesson...'}
+              Waiting for teacher to continue...
             </p>
           </div>
         </div>
