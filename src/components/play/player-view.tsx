@@ -9,6 +9,8 @@ import {
 } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { getSessionResults } from '@/lib/queries/session-results'
+import type { ActivityProgress } from '@/lib/queries/session-results'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -98,7 +100,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [gameResult, setGameResult] = useState<GameResult | null>(null)
   const [hostEnded, setHostEnded] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
-  const [completionData, setCompletionData] = useState<Array<{ activity_index: number; score: number }> | null>(null)
+  const [completionData, setCompletionData] = useState<ActivityProgress[] | null>(null)
 
   const currentItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
@@ -244,14 +246,8 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         setPhase('finished')
         const pid = participantIdRef.current
         if (pid) {
-          const sb = createClient()
-          const { data } = await sb
-            .from('participant_progress')
-            .select('activity_index, score')
-            .eq('session_id', session.id)
-            .eq('participant_id', pid)
-            .order('activity_index')
-          if (data && data.length > 0) setCompletionData(data)
+          const results = await getSessionResults(session.id, pid)
+          if (results.length > 0) setCompletionData(results)
         }
       })
       .on('broadcast', { event: 'game_ended' }, () => {
@@ -552,7 +548,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
 
-  const completionEntries = completionData ?? activityScores.map((s, i) => ({ activity_index: i, score: s }))
+  const completionEntries = completionData ?? activityScores.map((s, i) => ({
+    activityIndex: i, score: s, correct: 0, incorrect: 0, totalCards: 0,
+  }))
   const completionTotal = completionEntries.reduce((sum, d) => sum + d.score, 0)
 
   // Waiting room: merge DB list with presence online status
@@ -921,7 +919,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                     </p>
                     {completionEntries.map((entry, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">Activity {entry.activity_index + 1}</span>
+                        <span className="text-slate-400">Activity {entry.activityIndex + 1}</span>
                         <span className="text-violet-400 font-bold">{entry.score} pts</span>
                       </div>
                     ))}
