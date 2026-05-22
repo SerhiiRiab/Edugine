@@ -112,6 +112,10 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const scoreRef = useRef(0)
   const currentActivityIndexRef = useRef(session.currentActivityIndex)
   const timeoutHandlerRef = useRef<() => void>(() => {})
+  // Guard against double-submit on rapid clicks: synchronous flag so the guard
+  // fires before React's async state update propagates.
+  const isProcessingRef = useRef(false)
+  const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => { participantIdRef.current = participantId }, [participantId])
   useEffect(() => { scoreRef.current = score }, [score])
@@ -212,6 +216,8 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
         }
+        isProcessingRef.current = false
+        setIsProcessing(false)
         setPhase('playing')
         setCurrentCardIndex(0)
         setScore(0)
@@ -223,6 +229,8 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         const p = payload as { nextIndex: number; totalCards: number }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
+        isProcessingRef.current = false
+        setIsProcessing(false)
         setPhase('playing')
         setCurrentCardIndex(0)
         setScore(0)
@@ -398,6 +406,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
   // ── Core swipe handler ────────────────────────────────────────────────────────
   const handleSwipeInternal = useCallback((swipedRight: boolean, isTimeout = false) => {
+    // Prevent double-submit: rapid clicks fire before React re-renders with the new cardIndex
+    if (isProcessingRef.current) return
+    isProcessingRef.current = true
+    setIsProcessing(true)
+
     if (timerRef.current) clearInterval(timerRef.current)
 
     const activeItems = isLesson
@@ -456,10 +469,16 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
     const nextIndex = currentCardIndex + 1
     if (nextIndex >= activeItems.length) {
+      // Processing stays locked; finishActivity transitions away from playing phase
       setTimeout(() => finishActivity(), 800)
     } else {
       exitDirRef.current = swipedRight ? 'right' : 'left'
       setCurrentCardIndex(nextIndex)
+      // Unlock after exit animation completes (motion.div exit is 0.25s)
+      setTimeout(() => {
+        isProcessingRef.current = false
+        setIsProcessing(false)
+      }, 300)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCardIndex, items, session.id, nickname, isLesson, lesson])
@@ -495,7 +514,8 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             activity_index: currentActivityIndexRef.current,
             score: scoreRef.current,
             current_card_index: swipesRef.current.length,
-            state: {},
+            // Store breakdown so host completion screen can read it from DB
+            state: { correct, incorrect: swipes.length - correct, totalCards: swipes.length },
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'session_id,participant_id,activity_index' },
@@ -771,7 +791,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                     }}
                     transition={{ duration: 0.2 }}
                   >
-                    <SwipeCard item={renderItems[currentCardIndex]} onSwipe={handleSwipe} />
+                    <SwipeCard item={renderItems[currentCardIndex]} onSwipe={handleSwipe} disabled={isProcessing} />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -780,17 +800,19 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             <div className="flex gap-4 mt-6 w-full max-w-sm">
               <button
                 onClick={() => handleSwipe('left')}
+                disabled={isProcessing}
                 className="flex-1 py-4 rounded-2xl bg-red-500/20 border border-red-500/30
                   text-red-400 font-bold text-base hover:bg-red-500/30 transition-colors
-                  active:scale-95"
+                  active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
               >
                 ✗ Wrong
               </button>
               <button
                 onClick={() => handleSwipe('right')}
+                disabled={isProcessing}
                 className="flex-1 py-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/30
                   text-emerald-400 font-bold text-base hover:bg-emerald-500/30 transition-colors
-                  active:scale-95"
+                  active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
               >
                 ✓ Correct
               </button>
@@ -980,9 +1002,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 function SwipeCard({
   item,
   onSwipe,
+  disabled = false,
 }: {
   item: CardItem
   onSwipe: (direction: 'left' | 'right') => void
+  disabled?: boolean
 }) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-180, 180], [-10, 10])
@@ -995,6 +1019,7 @@ function SwipeCard({
   )
 
   function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
+    if (disabled) return
     const THRESHOLD = 80
     if (info.offset.x > THRESHOLD) onSwipe('right')
     else if (info.offset.x < -THRESHOLD) onSwipe('left')
@@ -1003,10 +1028,10 @@ function SwipeCard({
   return (
     <motion.div
       style={{ x, rotate, backgroundColor: cardBg }}
-      drag="x"
+      drag={disabled ? false : 'x'}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.6}
-      whileDrag={{ scale: 1.03, cursor: 'grabbing' }}
+      whileDrag={disabled ? undefined : { scale: 1.03, cursor: 'grabbing' }}
       onDragEnd={handleDragEnd}
       className="relative bg-slate-800 rounded-3xl border border-slate-700 p-8
         min-h-[240px] flex flex-col items-center justify-center gap-4

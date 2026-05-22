@@ -481,6 +481,57 @@ export function SessionHostView({ session, items, lesson }: Props) {
         payload: { activityResults },
       })
       await endSession(session.id)
+
+      // Load authoritative per-student scores from DB.
+      // MUST filter by session_id — without it, rows from previous sessions for the
+      // same participant IDs would be included, inflating scores.
+      const studentIds = participants.map(p => p.id).filter(Boolean)
+      if (studentIds.length > 0) {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('participant_progress')
+          .select('participant_id, activity_index, score, state')
+          .eq('session_id', session.id)       // strict: current session only
+          .in('participant_id', studentIds)
+          .order('activity_index')
+        if (data && data.length > 0) {
+          const byPid: Record<string, ActivityResult[]> = {}
+          for (const row of data) {
+            if (!byPid[row.participant_id]) byPid[row.participant_id] = []
+            const st = (row.state ?? {}) as { correct?: number; incorrect?: number; totalCards?: number }
+            byPid[row.participant_id].push({
+              activityIndex: row.activity_index,
+              score: row.score,
+              correct: st.correct ?? 0,
+              incorrect: st.incorrect ?? 0,
+              totalCards: st.totalCards ?? 0,
+            })
+          }
+          setPerStudentResults(prev => {
+            const merged = { ...prev }
+            for (const [pid, dbEntries] of Object.entries(byPid)) {
+              if (!merged[pid] || merged[pid].length === 0) {
+                // No broadcast data yet — use DB rows directly
+                merged[pid] = dbEntries
+              } else {
+                // Broadcast data has correct/incorrect; DB score is authoritative
+                merged[pid] = merged[pid].map(r => {
+                  const db = dbEntries.find(e => e.activityIndex === r.activityIndex)
+                  return db ? { ...r, score: db.score } : r
+                })
+                // Add any DB entries missing from broadcast (e.g. student rejoined)
+                for (const db of dbEntries) {
+                  if (!merged[pid].find(r => r.activityIndex === db.activityIndex)) {
+                    merged[pid] = [...merged[pid], db].sort((a, b) => a.activityIndex - b.activityIndex)
+                  }
+                }
+              }
+            }
+            return merged
+          })
+        }
+      }
+
       setPhase('finished')
     } catch {
       toast.error('Failed to end lesson')
