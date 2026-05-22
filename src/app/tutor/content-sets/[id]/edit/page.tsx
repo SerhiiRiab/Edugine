@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { ContentSetEditor } from '@/components/tutor/content-set-editor'
+import { StoryBuilderContentEditor } from '@/lib/mechanics/story-builder/ContentEditor'
 
 export default async function EditContentSetPage({
   params,
@@ -26,6 +27,10 @@ export default async function EditContentSetPage({
     .select('*')
     .eq('set_id', id)
     .order('position', { ascending: true })
+
+  if (set.mechanic_id === 'story_builder') {
+    return <StoryBuilderContentEditor set={set} initialItems={items ?? []} />
+  }
 
   return <ContentSetEditor set={set} initialItems={items ?? []} />
 }

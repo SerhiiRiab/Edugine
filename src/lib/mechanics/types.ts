@@ -4,6 +4,7 @@ import type { ComponentType } from 'react'
 // Add new mechanic IDs here as the engine grows.
 export type MechanicId =
   | 'swipe_battle'
+  | 'story_builder'
   | 'speed_debate'
   | 'roleplay_quest'
 

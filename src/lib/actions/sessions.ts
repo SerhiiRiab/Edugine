@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 
 export async function createLessonSession(lessonId: string) {
   const supabase = await createClient()
@@ -121,6 +122,65 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
 
   if (error) throw new Error(error.message)
   return { turnOrder }
+}
+
+export async function initStoryState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<StoryBuilderState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('config, lesson_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session?.lesson_id) throw new Error('Not a lesson session')
+
+  const turnOrder = ((session.config as Record<string, unknown>).turnOrder as string[]) ?? []
+
+  const { data: activities } = await supabase
+    .from('lesson_activities')
+    .select('content_set_id, position')
+    .eq('lesson_id', session.lesson_id)
+    .order('position', { ascending: true })
+
+  const activity = activities?.[activityIndex]
+  if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description, content_items(data)')
+    .eq('id', activity.content_set_id)
+    .single()
+
+  const prompt = (contentSet?.description as string | null) ?? ''
+  const rawItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown> }>
+  const wordBank = rawItems
+    .map((item) => ({ word: (item.data.word as string) ?? '', used: false }))
+    .filter((w) => w.word)
+
+  const initialState: StoryBuilderState = {
+    prompt,
+    sentences: [],
+    wordBank,
+    turnOrder,
+    currentTurnIndex: 0,
+    status: 'active',
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
 }
 
 export async function endSession(sessionId: string) {

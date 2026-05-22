@@ -11,8 +11,10 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState } from '@/lib/actions/sessions'
 import { getAllStudentsProgress } from '@/lib/queries/session-results'
+import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
+import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostComponent'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -126,6 +128,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
   const [elapsed, setElapsed] = useState(0)
   const [codeCopied, setCodeCopied] = useState(false)
   const [urlCopied, setUrlCopied] = useState(false)
+
+  // Story Builder shared state
+  const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
 
   const [isStarting, startTransition] = useTransition()
   const [isEnding, endTransition] = useTransition()
@@ -289,6 +294,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
         }
       })
       // ── Activity / game complete (per-participant) ──────────────────────────
+      .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
+        const p = payload as { state: StoryBuilderState }
+        if (p.state) setStoryState(p.state)
+      })
       .on('broadcast', { event: 'game_complete' }, ({ payload }) => {
         const p = payload as GameResult & { participantId?: string; activityIndex?: number }
         const pid = p.participantId ?? null
@@ -403,6 +412,17 @@ export function SessionHostView({ session, items, lesson }: Props) {
     startTransition(async () => {
       try {
         const { turnOrder } = await startSession(session.id)
+
+        // Init story state if current activity is story_builder
+        let newStoryState: StoryBuilderState | undefined
+        const firstActivity = lesson?.activities[currentActivityIndex]
+        if (firstActivity?.mechanic_id === 'story_builder') {
+          newStoryState = await initStoryState(session.id, currentActivityIndex)
+          setStoryState(newStoryState)
+        } else {
+          setStoryState(null)
+        }
+
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_started',
@@ -410,6 +430,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             totalCards: currentActivityItems.length,
             activityIndex: currentActivityIndex,
             turnOrder,
+            storyState: newStoryState,
           },
         })
         setPhase('active')
@@ -444,10 +465,20 @@ export function SessionHostView({ session, items, lesson }: Props) {
     try {
       await advanceActivity(session.id, nextIndex)
       const nextActivity = lesson.activities[nextIndex]
+
+      // Init story state if next activity is story_builder
+      let newStoryState: StoryBuilderState | undefined
+      if (nextActivity?.mechanic_id === 'story_builder') {
+        newStoryState = await initStoryState(session.id, nextIndex)
+        setStoryState(newStoryState)
+      } else {
+        setStoryState(null)
+      }
+
       await channelRef.current?.send({
         type: 'broadcast',
         event: 'activity_advance',
-        payload: { nextIndex, totalCards: nextActivity?.items.length ?? 0 },
+        payload: { nextIndex, totalCards: nextActivity?.items.length ?? 0, storyState: newStoryState },
       })
       setCurrentActivityIndex(nextIndex)
       setLessonBetween(false)
@@ -801,6 +832,21 @@ export function SessionHostView({ session, items, lesson }: Props) {
               </div>
             )}
 
+            {/* ── STORY BUILDER PANEL ──────────────────────────────────── */}
+            {isLesson && lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder' && storyState && (
+              <StoryBuilderHostPanel
+                storyState={storyState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
+                onEndLesson={handleEndLesson}
+              />
+            )}
+
+            {/* ── SWIPE BATTLE / DEFAULT UI ─────────────────────────────── */}
+            {!(isLesson && lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder') && (
+              <>
             {/* Participant selector strip */}
             {participants.length > 1 && (
               <div className="flex gap-2 flex-wrap">
@@ -1200,6 +1246,8 @@ export function SessionHostView({ session, items, lesson }: Props) {
                 </button>
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 

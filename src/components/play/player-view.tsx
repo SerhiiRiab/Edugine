@@ -11,6 +11,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { getSessionResults } from '@/lib/queries/session-results'
 import type { ActivityProgress } from '@/lib/queries/session-results'
+import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
+import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerComponent'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -93,6 +95,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [totalScore, setTotalScore] = useState(0)
   const [activityScores, setActivityScores] = useState<number[]>([])
 
+  // Story Builder shared state (null when current activity is not story_builder)
+  const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
+
   const [currentCardIndex, setCurrentCardIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [timeLeft, setTimeLeft] = useState(TIME_PER_CARD)
@@ -101,6 +106,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [hostEnded, setHostEnded] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
   const [completionData, setCompletionData] = useState<ActivityProgress[] | null>(null)
+
+  const currentActivity = isLesson ? lesson.activities[currentActivityIndex] ?? null : null
+  const isStoryActivity = currentActivity?.mechanic_id === 'story_builder'
 
   const currentItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
@@ -122,6 +130,36 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   useEffect(() => { participantIdRef.current = participantId }, [participantId])
   useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
+
+  // Fetch story state from DB when entering playing phase for a story activity (handles reconnections)
+  useEffect(() => {
+    if (phase !== 'playing' || !isStoryActivity || storyState) return
+    const supabase = createClient()
+    supabase.from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state) setStoryState(data.state as unknown as StoryBuilderState)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, isStoryActivity])
+
+  // Fetch participant list for story UI when waitingParticipants is empty (reconnect path)
+  useEffect(() => {
+    if (!storyState || waitingParticipants.length > 0) return
+    const supabase = createClient()
+    supabase.from('session_participants')
+      .select('id, nickname')
+      .eq('session_id', session.id)
+      .eq('is_host', false)
+      .order('joined_at', { ascending: true })
+      .then(({ data }) => {
+        if (data) setWaitingParticipants(data.map(p => ({ ...p, online: false })))
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyState])
 
   // ── On mount: check if already joined (reconnection) ───────────────────────
   useEffect(() => {
@@ -213,10 +251,15 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       })
       // ── Game broadcasts ────────────────────────────────────────────────────
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { totalCards?: number; activityIndex?: number }
+        const p = payload as { totalCards?: number; activityIndex?: number; storyState?: StoryBuilderState }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
+        }
+        if (p.storyState) {
+          setStoryState(p.storyState)
+        } else {
+          setStoryState(null)
         }
         isProcessingRef.current = false
         setIsProcessing(false)
@@ -227,10 +270,22 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         swipesRef.current = []
         setTimeLeft(TIME_PER_CARD)
       })
+      .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
+        const p = payload as { state: StoryBuilderState; participantId: string }
+        // Ignore echo of own broadcasts — we already updated state locally
+        if (p.state && p.participantId !== participantIdRef.current) {
+          setStoryState(p.state)
+        }
+      })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; totalCards: number }
+        const p = payload as { nextIndex: number; totalCards: number; storyState?: StoryBuilderState }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
+        if (p.storyState) {
+          setStoryState(p.storyState)
+        } else {
+          setStoryState(null)
+        }
         isProcessingRef.current = false
         setIsProcessing(false)
         setPhase('playing')
@@ -260,11 +315,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id])
 
-  // ── Timer ─────────────────────────────────────────────────────────────────────
+  // ── Timer (disabled for story activities) ─────────────────────────────────────
   timeoutHandlerRef.current = () => handleSwipeInternal(false, true)
 
   useEffect(() => {
-    if (phase !== 'playing') return
+    if (phase !== 'playing' || isStoryActivity) return
 
     setTimeLeft(TIME_PER_CARD)
     if (timerRef.current) clearInterval(timerRef.current)
@@ -277,15 +332,15 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       if (timerRef.current) clearInterval(timerRef.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCardIndex, phase])
+  }, [currentCardIndex, phase, isStoryActivity])
 
   useEffect(() => {
-    if (phase === 'playing' && timeLeft === 0) {
+    if (phase === 'playing' && timeLeft === 0 && !isStoryActivity) {
       if (timerRef.current) clearInterval(timerRef.current)
       timeoutHandlerRef.current()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, phase])
+  }, [timeLeft, phase, isStoryActivity])
 
   // ── Nickname join ─────────────────────────────────────────────────────────────
   async function handleJoin(e: React.FormEvent) {
@@ -694,7 +749,30 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       )}
 
       {/* ── PLAYING PHASE ─────────────────────────────────────────────────────── */}
-      {phase === 'playing' && (
+      {phase === 'playing' && isStoryActivity && storyState && participantId && (
+        <StoryBuilderPlayerPanel
+          sessionId={session.id}
+          activityIndex={currentActivityIndex}
+          participantId={participantId}
+          nickname={nickname}
+          storyState={storyState}
+          participants={waitingParticipants}
+          channelRef={channelRef}
+          onStateUpdate={setStoryState}
+        />
+      )}
+
+      {phase === 'playing' && isStoryActivity && !storyState && (
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center space-y-3">
+            <div className="text-3xl animate-pulse">📖</div>
+            <p className="text-slate-400">Loading story...</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── PLAYING PHASE (swipe battle) ─────────────────────────────────────── */}
+      {phase === 'playing' && !isStoryActivity && (
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <div className="px-4 pt-4 pb-2">

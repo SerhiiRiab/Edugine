@@ -24,6 +24,23 @@ const LANGUAGES = [
   { value: 'other', label: 'Other' },
 ]
 
+const SELECTABLE_MECHANICS = [
+  {
+    id: 'swipe_battle',
+    name: 'Vocabulary Swipe Battle 🎯',
+    desc: 'Swipe cards left (wrong) or right (correct) to test vocabulary',
+    badge: 'border-violet-300 bg-violet-50',
+    dot: 'border-violet-500 bg-violet-500',
+  },
+  {
+    id: 'story_builder',
+    name: 'Group Story Builder 📖',
+    desc: 'Collaborative turn-based story writing with a shared word bank',
+    badge: 'border-emerald-300 bg-emerald-50',
+    dot: 'border-emerald-500 bg-emerald-500',
+  },
+]
+
 const COMING_SOON = [
   { id: 'speed_debate', name: 'Speed Debate 💬', desc: 'Debate topics in real-time' },
   { id: 'roleplay_quest', name: 'Roleplay Quest 🎭', desc: 'Interactive conversation scenarios' },
@@ -35,13 +52,14 @@ const DESC_MAX = 500
 export function NewContentSetForm() {
   const [state, action, isPending] = useActionState(createContentSet, { error: '' })
   const [language, setLanguage] = useState('en')
+  const [selectedMechanic, setSelectedMechanic] = useState('swipe_battle')
   const [titleLen, setTitleLen] = useState(0)
   const [descLen, setDescLen] = useState(0)
 
   return (
     <form action={action}>
       <input type="hidden" name="language" value={language} />
-      <input type="hidden" name="mechanic_id" value="swipe_battle" />
+      <input type="hidden" name="mechanic_id" value={selectedMechanic} />
 
       <div className="bg-white rounded-2xl border-2 border-slate-100 p-6 shadow-sm space-y-6">
         {/* Title */}
@@ -111,17 +129,33 @@ export function NewContentSetForm() {
         <div className="space-y-3">
           <Label className="text-sm font-semibold text-slate-700">Game Mechanic <span className="text-red-500">*</span></Label>
 
-          <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-violet-300 bg-violet-50">
-            <div className="flex-1">
-              <p className="font-semibold text-violet-800 text-sm">Vocabulary Swipe Battle 🎯</p>
-              <p className="text-xs text-violet-500 mt-0.5">
-                Swipe cards left (wrong) or right (correct) to test vocabulary
-              </p>
-            </div>
-            <div className="w-4 h-4 rounded-full border-2 border-violet-500 flex items-center justify-center shrink-0">
-              <div className="w-2 h-2 rounded-full bg-violet-500" />
-            </div>
-          </div>
+          {SELECTABLE_MECHANICS.map((m) => {
+            const isSelected = selectedMechanic === m.id
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setSelectedMechanic(m.id)}
+                className={`w-full text-left flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                  isSelected ? m.badge : 'border-slate-100 bg-white hover:border-slate-200'
+                }`}
+              >
+                <div className="flex-1">
+                  <p className={`font-semibold text-sm ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>
+                    {m.name}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${isSelected ? 'text-slate-500' : 'text-slate-400'}`}>
+                    {m.desc}
+                  </p>
+                </div>
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                  isSelected ? m.dot : 'border-slate-300'
+                }`}>
+                  {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                </div>
+              </button>
+            )
+          })}
 
           {COMING_SOON.map((m) => (
             <div
