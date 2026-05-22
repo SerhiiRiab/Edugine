@@ -40,6 +40,12 @@ interface LessonInfo {
   activities: LessonActivity[]
 }
 
+interface WaitingParticipant {
+  id: string
+  nickname: string
+  online: boolean
+}
+
 interface Props {
   session: {
     id: string
@@ -52,17 +58,33 @@ interface Props {
 }
 
 const TIME_PER_CARD = 10
+const MAX_PARTICIPANTS = 4
+
+// Stable color palette for avatar circles
+const AVATAR_COLORS = [
+  'bg-violet-500',
+  'bg-emerald-500',
+  'bg-amber-500',
+  'bg-rose-500',
+  'bg-sky-500',
+]
+
+function avatarColor(index: number) {
+  return AVATAR_COLORS[index % AVATAR_COLORS.length]
+}
 
 export function PlayerView({ session, items = [], lesson }: Props) {
   const isLesson = !!lesson
 
-  const [phase, setPhase] = useState<Phase>(
-    session.status === 'active' ? 'playing' : 'nickname',
-  )
+  const [phase, setPhase] = useState<Phase>('nickname')
   const [nickname, setNickname] = useState('')
   const [nicknameError, setNicknameError] = useState('')
   const [isJoining, setIsJoining] = useState(false)
   const [participantId, setParticipantId] = useState<string | null>(null)
+
+  // Waiting room participant list
+  const [waitingParticipants, setWaitingParticipants] = useState<WaitingParticipant[]>([])
+  const [onlineParticipantIds, setOnlineParticipantIds] = useState<Set<string>>(new Set())
 
   // Activity tracking for lesson mode
   const [currentActivityIndex, setCurrentActivityIndex] = useState(session.currentActivityIndex)
@@ -78,7 +100,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [lessonComplete, setLessonComplete] = useState(false)
   const [completionData, setCompletionData] = useState<Array<{ activity_index: number; score: number }> | null>(null)
 
-  // Current items: lesson mode uses activity items, single mode uses props items
   const currentItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
@@ -96,6 +117,57 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
 
+  // ── On mount: check if already joined (reconnection) ───────────────────────
+  useEffect(() => {
+    const stored = (() => {
+      try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? 'null') } catch { return null }
+    })()
+    if (!stored?.id) return
+
+    const supabase = createClient()
+
+    if (session.status === 'active') {
+      // Already in an active game — restore session
+      setParticipantId(stored.id)
+      participantIdRef.current = stored.id
+      setNickname(stored.nickname ?? '')
+      setPhase('playing')
+      return
+    }
+
+    // Session is still waiting — verify row still exists, then reconnect
+    supabase
+      .from('session_participants')
+      .select('id, nickname')
+      .eq('id', stored.id)
+      .single()
+      .then(({ data }) => {
+        if (!data) return
+        setParticipantId(data.id)
+        participantIdRef.current = data.id
+        setNickname(data.nickname)
+
+        // Load current participant list
+        supabase
+          .from('session_participants')
+          .select('id, nickname')
+          .eq('session_id', session.id)
+          .eq('is_host', false)
+          .order('joined_at', { ascending: true })
+          .then(({ data: list }) => {
+            if (list) setWaitingParticipants(list.map(p => ({ ...p, online: false })))
+          })
+
+        // Track presence — channel may not be subscribed yet, retry after a tick
+        setTimeout(() => {
+          channelRef.current?.track({ role: 'player', nickname: data.nickname, participantId: data.id })
+        }, 300)
+
+        setPhase('waiting')
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── Realtime channel ─────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient()
@@ -103,6 +175,37 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     channelRef.current = channel
 
     channel
+      // ── Presence: track who is online in the waiting room ──────────────────
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState<{ role: string; participantId?: string }>()
+        const ids = new Set(
+          Object.values(state)
+            .flat()
+            .filter(p => p.role === 'player' && p.participantId)
+            .map(p => p.participantId!)
+        )
+        setOnlineParticipantIds(ids)
+      })
+      .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const players = (newPresences as unknown as Array<{ role: string; participantId?: string; nickname?: string }>)
+          .filter(p => p.role === 'player')
+        for (const p of players) {
+          if (!p.participantId) continue
+          setOnlineParticipantIds(prev => new Set([...prev, p.participantId!]))
+          // Add to waiting list if not already there
+          setWaitingParticipants(prev => {
+            if (prev.some(x => x.id === p.participantId)) return prev
+            return [...prev, { id: p.participantId!, nickname: p.nickname ?? 'Student', online: true }]
+          })
+        }
+      })
+      .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+        const players = (leftPresences as unknown as Array<{ role: string; participantId?: string }>)
+          .filter(p => p.role === 'player')
+        const leftIds = new Set(players.map(p => p.participantId).filter(Boolean) as string[])
+        setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
+      })
+      // ── Game broadcasts ────────────────────────────────────────────────────
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
         const p = payload as { totalCards?: number; activityIndex?: number }
         if (p.activityIndex !== undefined) {
@@ -192,20 +295,72 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
     const supabase = createClient()
 
+    // Check for reconnection via localStorage (same nickname, same session)
+    const stored = (() => {
+      try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? 'null') } catch { return null }
+    })()
+
+    if (stored?.id && stored?.nickname === name) {
+      const { data: existingRow } = await supabase
+        .from('session_participants')
+        .select('id')
+        .eq('id', stored.id)
+        .single()
+
+      if (existingRow) {
+        setParticipantId(stored.id)
+        participantIdRef.current = stored.id
+        await channelRef.current?.track({ role: 'player', nickname: name, participantId: stored.id })
+
+        const { data: list } = await supabase
+          .from('session_participants')
+          .select('id, nickname')
+          .eq('session_id', session.id)
+          .eq('is_host', false)
+          .order('joined_at', { ascending: true })
+
+        setWaitingParticipants(list?.map(p => ({ ...p, online: false })) ?? [])
+        setPhase('waiting')
+        setIsJoining(false)
+        return
+      }
+    }
+
+    // Verify session is still joinable
+    const { data: currentSession } = await supabase
+      .from('sessions')
+      .select('status')
+      .eq('id', session.id)
+      .single()
+
+    if (currentSession?.status === 'active') {
+      setNicknameError('The game has already started. Ask your teacher for a new session.')
+      setIsJoining(false)
+      return
+    }
+
+    if (currentSession?.status === 'finished') {
+      setNicknameError('This session has already ended.')
+      setIsJoining(false)
+      return
+    }
+
+    // Enforce max participant limit
     const { data: existing } = await supabase
       .from('session_participants')
-      .select('id, nickname')
+      .select('id')
       .eq('session_id', session.id)
+      .eq('is_host', false)
 
-    if (existing && existing.length > 0) {
-      setNicknameError('This session is full. Only one student can join at a time.')
+    if (existing && existing.length >= MAX_PARTICIPANTS) {
+      setNicknameError(`Session is full (max ${MAX_PARTICIPANTS} students).`)
       setIsJoining(false)
       return
     }
 
     const { data: participant, error } = await supabase
       .from('session_participants')
-      .insert({ session_id: session.id, nickname: name })
+      .insert({ session_id: session.id, nickname: name, is_host: false })
       .select('id')
       .single()
 
@@ -222,8 +377,17 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     setParticipantId(participant.id)
     participantIdRef.current = participant.id
 
-    await channelRef.current?.track({ role: 'player', nickname: name })
+    await channelRef.current?.track({ role: 'player', nickname: name, participantId: participant.id })
 
+    // Load full participant list for waiting room
+    const { data: list } = await supabase
+      .from('session_participants')
+      .select('id, nickname')
+      .eq('session_id', session.id)
+      .eq('is_host', false)
+      .order('joined_at', { ascending: true })
+
+    setWaitingParticipants(list?.map(p => ({ ...p, online: false })) ?? [])
     setPhase('waiting')
     setIsJoining(false)
 
@@ -323,7 +487,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     })()
 
     if (isLesson) {
-      // Persist to DB so completion screen always reads current-session data only
       if (participantIdRef.current) {
         createClient().from('participant_progress').upsert(
           {
@@ -338,7 +501,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           { onConflict: 'session_id,participant_id,activity_index' },
         ).then()
       }
-      // Accumulate score and wait for host to advance
       setTotalScore(prev => prev + scoreRef.current)
       setActivityScores(prev => [...prev, scoreRef.current])
       setPhase('activity_transition')
@@ -349,27 +511,38 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           ...result,
           nickname: stored.nickname ?? nickname,
           activityIndex: currentActivityIndexRef.current,
+          participantId: participantIdRef.current,
         },
       })
     } else {
-      // Single mode: show finished
       setPhase('finished')
       channelRef.current?.send({
         type: 'broadcast',
         event: 'game_complete',
-        payload: { ...result, nickname: stored.nickname ?? nickname },
+        payload: {
+          ...result,
+          nickname: stored.nickname ?? nickname,
+          participantId: participantIdRef.current,
+        },
       })
     }
   }
 
-  // Derive current items for rendering (must use state-driven index)
   const renderItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
 
-  // Completion display: DB data (per session_id) preferred, fallback to in-memory
   const completionEntries = completionData ?? activityScores.map((s, i) => ({ activity_index: i, score: s }))
   const completionTotal = completionEntries.reduce((sum, d) => sum + d.score, 0)
+
+  // Waiting room: merge DB list with presence online status
+  const displayParticipants: Array<WaitingParticipant & { isSelf: boolean }> =
+    waitingParticipants.map((p, i) => ({
+      ...p,
+      online: onlineParticipantIds.has(p.id),
+      isSelf: p.id === participantId,
+      _index: i,
+    }))
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -394,35 +567,43 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               </p>
             </div>
 
-            <form onSubmit={handleJoin} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm text-slate-300">Your name</label>
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={e => setNickname(e.target.value)}
-                  placeholder="e.g. Alex"
-                  maxLength={30}
-                  autoFocus
-                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3
-                    text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500
-                    focus:ring-2 focus:ring-violet-500/20 text-lg"
-                />
-                {nicknameError && (
-                  <p className="text-red-400 text-sm">{nicknameError}</p>
-                )}
+            {session.status === 'active' ? (
+              <div className="text-center space-y-3 py-4">
+                <div className="text-3xl">🚀</div>
+                <p className="font-semibold text-slate-300">Game in progress</p>
+                <p className="text-slate-500 text-sm">The session has already started. Ask your teacher for a new one.</p>
               </div>
+            ) : (
+              <form onSubmit={handleJoin} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-300">Your name</label>
+                  <input
+                    type="text"
+                    value={nickname}
+                    onChange={e => setNickname(e.target.value)}
+                    placeholder="e.g. Alex"
+                    maxLength={30}
+                    autoFocus
+                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3
+                      text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500
+                      focus:ring-2 focus:ring-violet-500/20 text-lg"
+                  />
+                  {nicknameError && (
+                    <p className="text-red-400 text-sm">{nicknameError}</p>
+                  )}
+                </div>
 
-              <button
-                type="submit"
-                disabled={isJoining || !nickname.trim()}
-                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50
-                  disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl
-                  text-base transition-colors"
-              >
-                {isJoining ? 'Joining...' : 'Join →'}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={isJoining || !nickname.trim()}
+                  className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50
+                    disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl
+                    text-base transition-colors"
+                >
+                  {isJoining ? 'Joining...' : 'Join →'}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -430,18 +611,58 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       {/* ── WAITING PHASE ─────────────────────────────────────────────────────── */}
       {phase === 'waiting' && (
         <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center space-y-4">
-            <div className="text-5xl">⏳</div>
-            <h2 className="text-xl font-bold">
-              {isLesson ? 'Waiting for teacher to start the lesson...' : 'Waiting for teacher to start...'}
-            </h2>
-            {isLesson && (
-              <p className="text-slate-400 text-sm">
-                {lesson.activities.length} activities · {lesson.activities.reduce((n, a) => n + a.items.length, 0)} cards total
+          <div className="w-full max-w-sm space-y-6">
+            <div className="text-center space-y-2">
+              <div className="text-4xl">⏳</div>
+              <h2 className="text-xl font-bold">
+                {isLesson ? 'Waiting for teacher to start...' : 'Waiting for teacher to start...'}
+              </h2>
+              {isLesson && (
+                <p className="text-slate-400 text-sm">
+                  {lesson.activities.length} {lesson.activities.length === 1 ? 'activity' : 'activities'}
+                  {' · '}{lesson.activities.reduce((n, a) => n + a.items.length, 0)} cards
+                </p>
+              )}
+            </div>
+
+            {/* Participant list */}
+            <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 p-4 space-y-3">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                In this room ({displayParticipants.length})
               </p>
-            )}
-            <p className="text-slate-400">Get ready! The game will begin shortly.</p>
-            <div className="flex justify-center gap-1.5 mt-4">
+              <div className="space-y-2">
+                <AnimatePresence initial={false}>
+                  {displayParticipants.map((p, i) => (
+                    <motion.div
+                      key={p.id}
+                      initial={{ opacity: 0, x: -16 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 16 }}
+                      transition={{ duration: 0.25, delay: i * 0.05 }}
+                      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${
+                        p.isSelf
+                          ? 'bg-violet-600/20 border border-violet-500/40'
+                          : 'bg-slate-700/40'
+                      }`}
+                    >
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center
+                        font-bold text-sm text-white shrink-0 ${avatarColor(i)}`}>
+                        {p.nickname[0].toUpperCase()}
+                      </div>
+                      <span className={`flex-1 font-semibold text-sm ${p.isSelf ? 'text-white' : 'text-slate-200'}`}>
+                        {p.nickname}
+                        {p.isSelf && <span className="ml-1.5 text-violet-300 text-xs font-normal">(you)</span>}
+                      </span>
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                        p.online ? 'bg-emerald-400' : 'bg-slate-600'
+                      }`} />
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            <div className="flex justify-center gap-1.5">
               {[0, 1, 2].map(i => (
                 <span
                   key={i}
@@ -459,7 +680,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <div className="px-4 pt-4 pb-2">
-            {/* Lesson progress */}
             {isLesson && (
               <div className="mb-3">
                 <div className="flex justify-between text-xs text-slate-500 mb-1">
@@ -615,7 +835,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               </div>
             </div>
 
-            {/* Lesson dots */}
             <div className="flex gap-2 justify-center">
               {lesson.activities.map((_, i) => (
                 <div
@@ -643,7 +862,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-6">
             {isLesson && lessonComplete ? (
-              /* Lesson complete summary */
               <>
                 <div className="text-center space-y-2">
                   <div className="text-5xl">
@@ -689,7 +907,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                 )}
               </>
             ) : gameResult ? (
-              /* Single mode or lesson ended by host */
               <>
                 <div className="text-center space-y-2">
                   <div className="text-5xl">

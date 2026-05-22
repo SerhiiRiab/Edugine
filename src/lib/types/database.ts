@@ -76,6 +76,7 @@ export interface SessionParticipant {
   id: string
   session_id: string
   nickname: string
+  is_host: boolean
   score: number
   joined_at: string
   last_seen_at: string

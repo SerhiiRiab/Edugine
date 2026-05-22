@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Copy, Check, Wifi, WifiOff,
-  PlayCircle, StopCircle, RotateCcw, User,
-  Clock, Target, TrendingUp, Eye, ChevronRight,
+  PlayCircle, StopCircle, RotateCcw, Users,
+  Clock, Target, TrendingUp, Eye, ChevronRight, ChevronLeft,
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -20,11 +20,6 @@ interface CardItem {
   word: string
   translation: string
   isCorrect: boolean
-}
-
-interface JoinedPlayer {
-  nickname: string
-  online: boolean
 }
 
 interface SwipeRecord {
@@ -69,6 +64,20 @@ interface ActivityResult {
   totalCards: number
 }
 
+// Per-participant runtime state tracked during an active game
+interface ParticipantGameState {
+  id: string
+  nickname: string
+  online: boolean
+  cardIndex: number      // next card they'll see (0-based)
+  score: number
+  activityIndex: number
+  correctCount: number
+  totalSwipes: number
+  recentSwipes: SwipeRecord[]
+  gameResult: GameResult | null
+}
+
 interface Props {
   session: {
     id: string
@@ -83,20 +92,23 @@ interface Props {
   lesson?: LessonInfo
 }
 
+const AVATAR_COLORS = [
+  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
+  'bg-rose-500', 'bg-sky-500',
+]
+
+function avatarBg(index: number) {
+  return AVATAR_COLORS[index % AVATAR_COLORS.length]
+}
+
 export function SessionHostView({ session, items, lesson }: Props) {
   const isLesson = !!lesson
 
   const [phase, setPhase] = useState<SessionStatus>(session.status)
-  const [player, setPlayer] = useState<JoinedPlayer | null>(null)
-  const [swipes, setSwipes] = useState<SwipeRecord[]>([])
-  const [currentCardIndex, setCurrentCardIndex] = useState(0)
-  const [playerScore, setPlayerScore] = useState(0)
-  const [result, setResult] = useState<GameResult | null>(null)
-  const [elapsed, setElapsed] = useState(0)
-  const [codeCopied, setCodeCopied] = useState(false)
-  const [urlCopied, setUrlCopied] = useState(false)
+  const [participants, setParticipants] = useState<ParticipantGameState[]>([])
+  const [selectedParticipantId, setSelectedParticipantId] = useState<string | null>(null)
 
-  // Mirror state
+  // Mirror view state (for the selected participant)
   const [mirrorCardIndex, setMirrorCardIndex] = useState(0)
   const [mirrorFlash, setMirrorFlash] = useState<'correct' | 'wrong' | null>(null)
   const [mirrorTimeLeft, setMirrorTimeLeft] = useState(10)
@@ -106,6 +118,11 @@ export function SessionHostView({ session, items, lesson }: Props) {
   const [activityResults, setActivityResults] = useState<ActivityResult[]>([])
   const [lessonBetween, setLessonBetween] = useState(false)
   const [isAdvancing, setIsAdvancing] = useState(false)
+  const [completedCountCurrentActivity, setCompletedCountCurrentActivity] = useState(0)
+
+  const [elapsed, setElapsed] = useState(0)
+  const [codeCopied, setCodeCopied] = useState(false)
+  const [urlCopied, setUrlCopied] = useState(false)
 
   const [isStarting, startTransition] = useTransition()
   const [isEnding, endTransition] = useTransition()
@@ -116,11 +133,11 @@ export function SessionHostView({ session, items, lesson }: Props) {
   const mirrorExitDirRef = useRef<'left' | 'right'>('right')
   const cardStartTimeRef = useRef<number>(Date.now())
   const currentActivityIndexRef = useRef(lesson?.initialActivityIndex ?? 0)
+  // Track completed participants for current activity (lesson) or game (single)
+  const completedParticipantIdsRef = useRef<Set<string>>(new Set())
 
-  // Keep ref in sync
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
 
-  // Current activity's items (lesson mode uses activity items, single mode uses props items)
   const currentActivityItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
@@ -129,6 +146,39 @@ export function SessionHostView({ session, items, lesson }: Props) {
     ? `${window.location.origin}/play/${session.code}`
     : `/play/${session.code}`
 
+  // Derived: selected participant's state
+  const selectedParticipant = participants.find(p => p.id === selectedParticipantId) ?? null
+
+  // ── Initial DB load of participants ──────────────────────────────────────────
+  useEffect(() => {
+    const supabase = createClient()
+    supabase
+      .from('session_participants')
+      .select('id, nickname')
+      .eq('session_id', session.id)
+      .eq('is_host', false)
+      .order('joined_at', { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) {
+          setParticipants(data.map(p => ({
+            id: p.id,
+            nickname: p.nickname,
+            online: false,
+            cardIndex: 0,
+            score: 0,
+            activityIndex: currentActivityIndexRef.current,
+            correctCount: 0,
+            totalSwipes: 0,
+            recentSwipes: [],
+            gameResult: null,
+          })))
+          // Auto-select if only one participant
+          if (data.length === 1) setSelectedParticipantId(data[0].id)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id])
+
   // ── Realtime channel ─────────────────────────────────────────────────────────
   useEffect(() => {
     const supabase = createClient()
@@ -136,72 +186,161 @@ export function SessionHostView({ session, items, lesson }: Props) {
     channelRef.current = channel
 
     channel
+      // ── Presence ────────────────────────────────────────────────────────────
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ role: string; nickname?: string }>()
+        const state = channel.presenceState<{ role: string; nickname?: string; participantId?: string }>()
         const presences = Object.values(state).flat()
-        const playerPresence = presences.find(p => p.role === 'player')
-        if (playerPresence) {
-          setPlayer({ nickname: playerPresence.nickname ?? 'Student', online: true })
-        } else {
-          setPlayer(prev => prev ? { ...prev, online: false } : null)
-        }
+        const onlinePlayerIds = new Set(
+          presences
+            .filter(p => p.role === 'player' && p.participantId)
+            .map(p => p.participantId!)
+        )
+        setParticipants(prev => prev.map(p => ({ ...p, online: onlinePlayerIds.has(p.id) })))
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
-        const p = (newPresences as unknown as Array<{ role: string; nickname?: string }>)
-          .find(x => x.role === 'player')
-        if (p) {
-          setPlayer({ nickname: p.nickname ?? 'Student', online: true })
-          toast.success(`${p.nickname ?? 'Student'} joined!`)
+        const players = (newPresences as unknown as Array<{ role: string; nickname?: string; participantId?: string }>)
+          .filter(p => p.role === 'player')
+
+        for (const p of players) {
+          if (!p.participantId) continue
+          const nickname = p.nickname ?? 'Student'
+          toast.success(`${nickname} joined!`)
+          setParticipants(prev => {
+            // Already in list → mark online
+            if (prev.some(x => x.id === p.participantId)) {
+              return prev.map(x =>
+                x.id === p.participantId ? { ...x, online: true } : x
+              )
+            }
+            // New participant — add to list
+            const newEntry: ParticipantGameState = {
+              id: p.participantId!,
+              nickname,
+              online: true,
+              cardIndex: 0,
+              score: 0,
+              activityIndex: currentActivityIndexRef.current,
+              correctCount: 0,
+              totalSwipes: 0,
+              recentSwipes: [],
+              gameResult: null,
+            }
+            const updated = [...prev, newEntry]
+            // Auto-select if this is the first (and only) participant
+            if (updated.length === 1) setSelectedParticipantId(p.participantId!)
+            return updated
+          })
         }
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
-        const p = (leftPresences as unknown as Array<{ role: string; nickname?: string }>)
-          .find(x => x.role === 'player')
-        if (p) {
-          setPlayer(prev => prev ? { ...prev, online: false } : null)
+        const players = (leftPresences as unknown as Array<{ role: string; nickname?: string; participantId?: string }>)
+          .filter(p => p.role === 'player')
+
+        for (const p of players) {
+          if (!p.participantId) continue
           toast.warning(`${p.nickname ?? 'Student'} disconnected`)
+          setParticipants(prev =>
+            prev.map(x => x.id === p.participantId ? { ...x, online: false } : x)
+          )
         }
       })
+      // ── Swipe events (per-participant) ──────────────────────────────────────
       .on('broadcast', { event: 'swipe' }, ({ payload }) => {
         const p = payload as {
-          cardIndex: number; word: string; translation: string
-          swipedRight: boolean; correct: boolean; score: number
+          participantId: string; cardIndex: number; word: string; translation: string
+          swipedRight: boolean; correct: boolean; score: number; activityIndex?: number
         }
+        if (!p.participantId) return
+
         const timeTaken = ((Date.now() - cardStartTimeRef.current) / 1000).toFixed(1)
-        setSwipes(prev => [{ ...p, timeTaken }, ...prev])
-        setCurrentCardIndex(p.cardIndex + 1)
-        setPlayerScore(p.score)
-        mirrorExitDirRef.current = p.swipedRight ? 'right' : 'left'
-        setMirrorFlash(p.correct ? 'correct' : 'wrong')
-        setTimeout(() => {
-          setMirrorCardIndex(p.cardIndex + 1)
-          setMirrorFlash(null)
-        }, 700)
+        const swipeRecord: SwipeRecord = {
+          cardIndex: p.cardIndex,
+          word: p.word,
+          translation: p.translation,
+          swipedRight: p.swipedRight,
+          correct: p.correct,
+          score: p.score,
+          timeTaken,
+        }
+
+        setParticipants(prev => prev.map(x => {
+          if (x.id !== p.participantId) return x
+          return {
+            ...x,
+            cardIndex: p.cardIndex + 1,
+            score: p.score,
+            correctCount: x.correctCount + (p.correct ? 1 : 0),
+            totalSwipes: x.totalSwipes + 1,
+            recentSwipes: [swipeRecord, ...x.recentSwipes].slice(0, 10),
+          }
+        }))
+
+        // Update mirror view only for selected participant
+        if (p.participantId === selectedParticipantId) {
+          mirrorExitDirRef.current = p.swipedRight ? 'right' : 'left'
+          setMirrorFlash(p.correct ? 'correct' : 'wrong')
+          setTimeout(() => {
+            setMirrorCardIndex(p.cardIndex + 1)
+            setMirrorFlash(null)
+          }, 700)
+        }
       })
+      // ── Activity / game complete (per-participant) ──────────────────────────
       .on('broadcast', { event: 'game_complete' }, ({ payload }) => {
-        const p = payload as GameResult
-        setResult(p)
-        setMirrorFlash(null)
+        const p = payload as GameResult & { participantId?: string; activityIndex?: number }
+        const pid = p.participantId ?? null
+
         if (elapsedRef.current) clearInterval(elapsedRef.current)
         if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current)
 
+        // Update participant's result
+        if (pid) {
+          setParticipants(prev => prev.map(x =>
+            x.id === pid ? { ...x, gameResult: p } : x
+          ))
+        }
+
         if (isLesson) {
-          const idx = currentActivityIndexRef.current
+          const idx = p.activityIndex ?? currentActivityIndexRef.current
+          if (pid) {
+            completedParticipantIdsRef.current.add(pid)
+            setCompletedCountCurrentActivity(completedParticipantIdsRef.current.size)
+          }
           setActivityResults(prev => {
             const without = prev.filter(r => r.activityIndex !== idx)
-            return [...without, {
+            const entry = {
               activityIndex: idx,
               score: p.score,
               correct: p.correct,
               incorrect: p.incorrect,
               totalCards: p.totalCards,
-            }].sort((a, b) => a.activityIndex - b.activityIndex)
+            }
+            // Aggregate scores across participants (sum)
+            const existing = prev.find(r => r.activityIndex === idx)
+            if (existing) {
+              return [...without, {
+                activityIndex: idx,
+                score: existing.score + p.score,
+                correct: existing.correct + p.correct,
+                incorrect: existing.incorrect + p.incorrect,
+                totalCards: Math.max(existing.totalCards, p.totalCards),
+              }]
+            }
+            return [...without, entry].sort((a, b) => a.activityIndex - b.activityIndex)
           })
           setLessonBetween(true)
         } else {
-          // Single mode: end session immediately
-          setPhase('finished')
-          endTransition(() => endSession(session.id))
+          // Single mode: end when all participants have completed
+          if (pid) completedParticipantIdsRef.current.add(pid)
+          setParticipants(prev => {
+            const totalCount = prev.length
+            const completedCount = completedParticipantIdsRef.current.size
+            if (totalCount > 0 && completedCount >= totalCount) {
+              setPhase('finished')
+              endTransition(() => endSession(session.id))
+            }
+            return prev
+          })
         }
       })
       .subscribe(async (status) => {
@@ -220,12 +359,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
       setElapsed(0)
       elapsedRef.current = setInterval(() => setElapsed(s => s + 1), 1000)
     }
-    return () => {
-      if (elapsedRef.current) clearInterval(elapsedRef.current)
-    }
+    return () => { if (elapsedRef.current) clearInterval(elapsedRef.current) }
   }, [phase, lessonBetween])
 
-  // ── Mirror countdown ──────────────────────────────────────────────────────────
+  // ── Mirror countdown (for selected participant) ───────────────────────────────
   useEffect(() => {
     if (phase !== 'active' || lessonBetween) return
     cardStartTimeRef.current = Date.now()
@@ -236,25 +373,46 @@ export function SessionHostView({ session, items, lesson }: Props) {
     return () => { if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current) }
   }, [mirrorCardIndex, phase, lessonBetween])
 
+  // Reset mirror when selected participant changes
+  useEffect(() => {
+    if (!selectedParticipant) return
+    setMirrorCardIndex(selectedParticipant.cardIndex)
+    setMirrorFlash(null)
+  }, [selectedParticipantId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Handlers ──────────────────────────────────────────────────────────────────
   function handleStartGame() {
     startTransition(async () => {
       try {
-        await startSession(session.id)
+        const { turnOrder } = await startSession(session.id)
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_started',
           payload: {
             totalCards: currentActivityItems.length,
             activityIndex: currentActivityIndex,
+            turnOrder,
           },
         })
         setPhase('active')
-        setCurrentCardIndex(0)
+        setParticipants(prev => prev.map(p => ({
+          ...p,
+          cardIndex: 0,
+          score: 0,
+          activityIndex: currentActivityIndex,
+          correctCount: 0,
+          totalSwipes: 0,
+          recentSwipes: [],
+          gameResult: null,
+        })))
         setMirrorCardIndex(0)
-        setPlayerScore(0)
-        setSwipes([])
         setMirrorFlash(null)
+        completedParticipantIdsRef.current = new Set()
+        setCompletedCountCurrentActivity(0)
+        // Auto-select first participant if none selected
+        if (!selectedParticipantId && participants.length > 0) {
+          setSelectedParticipantId(participants[0].id)
+        }
       } catch {
         toast.error('Failed to start game')
       }
@@ -275,12 +433,20 @@ export function SessionHostView({ session, items, lesson }: Props) {
       })
       setCurrentActivityIndex(nextIndex)
       setLessonBetween(false)
-      setSwipes([])
-      setPlayerScore(0)
-      setResult(null)
-      setCurrentCardIndex(0)
+      setParticipants(prev => prev.map(p => ({
+        ...p,
+        cardIndex: 0,
+        score: 0,
+        activityIndex: nextIndex,
+        correctCount: 0,
+        totalSwipes: 0,
+        recentSwipes: [],
+        gameResult: null,
+      })))
       setMirrorCardIndex(0)
       setMirrorFlash(null)
+      completedParticipantIdsRef.current = new Set()
+      setCompletedCountCurrentActivity(0)
     } catch {
       toast.error('Failed to advance activity')
     } finally {
@@ -336,10 +502,6 @@ export function SessionHostView({ session, items, lesson }: Props) {
     setTimeout(() => setUrlCopied(false), 2000)
   }
 
-  const correctCount = swipes.filter(s => s.correct).length
-  const incorrectCount = swipes.filter(s => !s.correct).length
-  const accuracy = swipes.length > 0 ? Math.round((correctCount / swipes.length) * 100) : 0
-
   const formatTime = useCallback((s: number) => {
     const m = Math.floor(s / 60)
     const sec = s % 60
@@ -347,9 +509,14 @@ export function SessionHostView({ session, items, lesson }: Props) {
   }, [])
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(shareUrl)}&format=svg&margin=4`
-  const mirrorItem = currentActivityItems[mirrorCardIndex]
-
   const isLastActivity = isLesson && currentActivityIndex >= lesson.activities.length - 1
+
+  // ── Computed per selected participant ─────────────────────────────────────────
+  const selSwipes = selectedParticipant?.recentSwipes ?? []
+  const selCorrect = selectedParticipant?.correctCount ?? 0
+  const selTotal = selectedParticipant?.totalSwipes ?? 0
+  const selAccuracy = selTotal > 0 ? Math.round((selCorrect / selTotal) * 100) : 0
+  const mirrorItem = currentActivityItems[mirrorCardIndex]
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -406,7 +573,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8
               flex flex-col items-center gap-6">
               <p className="text-sm font-semibold text-slate-400 uppercase tracking-wide">
-                Share this with your student
+                Share with your students
               </p>
               <div className="text-center">
                 <div className="text-6xl font-black tracking-[0.15em] text-violet-600
@@ -452,57 +619,89 @@ export function SessionHostView({ session, items, lesson }: Props) {
               </div>
             </div>
 
-            {/* Waiting / player joined */}
+            {/* Participants waiting room */}
             <div className="flex flex-col gap-6">
-              {!player ? (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8
-                  flex flex-col items-center gap-4 text-center">
-                  <div className="w-14 h-14 rounded-full bg-slate-100
-                    flex items-center justify-center">
-                    <User className="w-7 h-7 text-slate-300" />
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex-1">
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-400" />
+                    <span className="font-semibold text-slate-700">
+                      Students joined
+                    </span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+                      {participants.length}/4
+                    </span>
                   </div>
-                  <p className="font-semibold text-slate-500">
-                    Waiting for student to join...
-                  </p>
-                  <div className="flex gap-1">
-                    {[0, 1, 2].map(i => (
-                      <span
-                        key={i}
-                        className="w-2 h-2 rounded-full bg-violet-300 animate-bounce"
-                        style={{ animationDelay: `${i * 0.15}s` }}
-                      />
-                    ))}
-                  </div>
+                  {participants.length >= 4 && (
+                    <span className="text-xs text-amber-600 font-semibold">Session full</span>
+                  )}
                 </div>
-              ) : (
-                <div className="bg-white rounded-2xl border border-emerald-200 shadow-sm p-8
-                  flex flex-col items-center gap-4 text-center">
-                  <div className="w-14 h-14 rounded-full bg-emerald-50 border-2
-                    border-emerald-200 flex items-center justify-center text-2xl font-bold
-                    text-emerald-700">
-                    {player.nickname[0].toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-bold text-slate-800 text-lg">{player.nickname}</p>
-                    <div className="flex items-center justify-center gap-1.5 mt-1">
-                      {player.online
-                        ? <><Wifi className="w-3.5 h-3.5 text-emerald-500" /><span className="text-xs text-emerald-600 font-medium">Connected</span></>
-                        : <><WifiOff className="w-3.5 h-3.5 text-amber-400" /><span className="text-xs text-amber-600 font-medium">Disconnected</span></>
-                      }
+
+                {participants.length === 0 ? (
+                  <div className="flex flex-col items-center gap-4 py-8 text-center">
+                    <div className="w-14 h-14 rounded-full bg-slate-100
+                      flex items-center justify-center">
+                      <Users className="w-7 h-7 text-slate-300" />
+                    </div>
+                    <p className="text-slate-500 font-medium">Waiting for students to join...</p>
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map(i => (
+                        <span
+                          key={i}
+                          className="w-2 h-2 rounded-full bg-violet-300 animate-bounce"
+                          style={{ animationDelay: `${i * 0.15}s` }}
+                        />
+                      ))}
                     </div>
                   </div>
-                  <button
-                    onClick={handleStartGame}
-                    disabled={isStarting || !player.online}
-                    className="mt-2 flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
-                      disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold
-                      px-8 py-3 rounded-xl text-base transition-colors shadow-sm"
-                  >
-                    <PlayCircle className="w-5 h-5" />
-                    {isStarting ? 'Starting...' : isLesson ? 'Start lesson! 🚀' : 'Start game! 🎮'}
-                  </button>
-                </div>
-              )}
+                ) : (
+                  <div className="space-y-2">
+                    <AnimatePresence initial={false}>
+                      {participants.map((p, i) => (
+                        <motion.div
+                          key={p.id}
+                          initial={{ opacity: 0, y: -8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, x: 16 }}
+                          transition={{ duration: 0.22 }}
+                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl
+                            bg-slate-50 border border-slate-100"
+                        >
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center
+                            font-bold text-sm text-white shrink-0 ${avatarBg(i)}`}>
+                            {p.nickname[0].toUpperCase()}
+                          </div>
+                          <span className="flex-1 font-semibold text-slate-700 text-sm">
+                            {p.nickname}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {p.online
+                              ? <><span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" /><span className="text-xs text-emerald-600 font-medium">Connected</span></>
+                              : <><span className="w-2 h-2 rounded-full bg-slate-300 shrink-0" /><span className="text-xs text-slate-400">Offline</span></>
+                            }
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleStartGame}
+                  disabled={isStarting || participants.length === 0 || !participants.some(p => p.online)}
+                  className="mt-5 w-full flex items-center justify-center gap-2 bg-emerald-500
+                    hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed
+                    text-white font-bold px-8 py-3 rounded-xl text-base transition-colors shadow-sm"
+                >
+                  <PlayCircle className="w-5 h-5" />
+                  {isStarting
+                    ? 'Starting...'
+                    : isLesson
+                    ? `Start lesson! 🚀 (${participants.filter(p => p.online).length} student${participants.filter(p => p.online).length !== 1 ? 's' : ''})`
+                    : `Start game! 🎮 (${participants.filter(p => p.online).length} student${participants.filter(p => p.online).length !== 1 ? 's' : ''})`
+                  }
+                </button>
+              </div>
 
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
@@ -530,300 +729,430 @@ export function SessionHostView({ session, items, lesson }: Props) {
 
         {/* ── ACTIVE PHASE ───────────────────────────────────────────────────── */}
         {phase === 'active' && !lessonBetween && (
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <div className="space-y-4">
 
-            {/* LEFT — Mirror view */}
-            <div className="lg:col-span-3 space-y-4">
-
-              {/* Lesson progress bar */}
-              {isLesson && (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3">
-                  <div className="flex justify-between text-xs text-slate-500 mb-2">
-                    <span className="font-semibold">
-                      Activity {currentActivityIndex + 1} of {lesson.activities.length}
-                    </span>
-                    <span className="text-slate-400">{lesson.activities[currentActivityIndex]?.content_set_title}</span>
-                  </div>
-                  <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-violet-400 transition-all"
-                      style={{ width: `${((currentActivityIndex) / lesson.activities.length) * 100}%` }}
-                    />
-                  </div>
-                  <div className="flex gap-1 mt-2">
-                    {lesson.activities.map((_, i) => (
-                      <div
-                        key={i}
-                        className={`flex-1 h-1 rounded-full transition-colors ${
-                          i < currentActivityIndex
-                            ? 'bg-emerald-400'
-                            : i === currentActivityIndex
-                            ? 'bg-violet-500'
-                            : 'bg-slate-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Mirror panel */}
-              <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-7">
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <Eye className="w-4 h-4" />
-                    <span className="text-sm font-semibold">
-                      What <span className="text-white">{player?.nickname ?? 'student'}</span> sees
-                    </span>
-                  </div>
-                  <div className={`text-xl font-black tabular-nums transition-colors ${
-                    mirrorTimeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-slate-300'
-                  }`}>
-                    {mirrorTimeLeft}s
-                  </div>
-                </div>
-
-                <div className="flex justify-between text-xs font-semibold mb-3 px-1">
-                  <span className="text-red-500/60">← Wrong ✗</span>
-                  <span className="text-emerald-500/60">Correct ✓ →</span>
-                </div>
-
-                <div className="relative min-h-[220px] sm:min-h-[260px]">
-                  <AnimatePresence>
-                    {player && !player.online && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="absolute inset-0 bg-slate-900/85 rounded-2xl
-                          flex flex-col items-center justify-center z-20 gap-2"
-                      >
-                        <WifiOff className="w-8 h-8 text-amber-400" />
-                        <p className="text-amber-400 font-semibold text-sm">
-                          ⚠ Student disconnected
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <AnimatePresence>
-                    {mirrorFlash && (
-                      <motion.div
-                        key={mirrorFlash}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.15 }}
-                        className={`absolute inset-0 rounded-2xl flex items-center
-                          justify-center z-10 pointer-events-none ${
-                          mirrorFlash === 'correct'
-                            ? 'bg-emerald-500/25'
-                            : 'bg-red-500/25'
-                        }`}
-                      >
-                        <motion.div
-                          initial={{ scale: 0.4 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                          className={`text-6xl font-black ${
-                            mirrorFlash === 'correct' ? 'text-emerald-400' : 'text-red-400'
-                          }`}
-                        >
-                          {mirrorFlash === 'correct' ? '✓' : '✗'}
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <AnimatePresence mode="wait">
-                    {mirrorItem ? (
-                      <motion.div
-                        key={mirrorCardIndex}
-                        initial={{ scale: 0.92, opacity: 0, y: 16 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{
-                          x: mirrorExitDirRef.current === 'right' ? 350 : -350,
-                          rotate: mirrorExitDirRef.current === 'right' ? 10 : -10,
-                          opacity: 0,
-                          transition: { duration: 0.22 },
-                        }}
-                        transition={{ duration: 0.18 }}
-                        className="bg-slate-800 rounded-2xl border border-slate-700 p-6 sm:p-8
-                          flex flex-col items-center justify-center gap-4 min-h-[220px] sm:min-h-[260px]"
-                      >
-                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
-                          mirrorItem.isCorrect
-                            ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700'
-                            : 'bg-red-900/50 text-red-400 border-red-700'
-                        }`}>
-                          {mirrorItem.isCorrect ? '✓ Correct pair' : '✗ Wrong pair'}
-                        </span>
-                        <div className="text-center space-y-3">
-                          <div className="text-3xl sm:text-4xl font-black text-white leading-tight">
-                            {mirrorItem.word}
-                          </div>
-                          <div className="w-10 h-0.5 bg-slate-600 mx-auto rounded-full" />
-                          <div className="text-2xl sm:text-3xl text-slate-300 font-semibold leading-tight">
-                            {mirrorItem.translation}
-                          </div>
-                        </div>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="done"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="bg-slate-800 rounded-2xl border border-slate-700 p-8
-                          flex items-center justify-center min-h-[220px] sm:min-h-[260px]"
-                      >
-                        <p className="text-slate-500 text-sm">All cards answered</p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-
-                <div className="flex gap-3 mt-4">
-                  <div className="flex-1 py-3 rounded-2xl border border-red-800/60
-                    text-red-500/50 text-center text-sm font-bold select-none">
-                    ✗ Wrong
-                  </div>
-                  <div className="flex-1 py-3 rounded-2xl border border-emerald-800/60
-                    text-emerald-500/50 text-center text-sm font-bold select-none">
-                    ✓ Correct
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress bar */}
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+            {/* Lesson progress bar */}
+            {isLesson && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3">
                 <div className="flex justify-between text-xs text-slate-500 mb-2">
                   <span className="font-semibold">
-                    Card {Math.min(mirrorCardIndex + 1, currentActivityItems.length)} of {currentActivityItems.length}
+                    Activity {currentActivityIndex + 1} of {lesson.activities.length}
                   </span>
-                  <span>{accuracy > 0 ? `${accuracy}% accuracy` : 'Waiting...'}</span>
+                  <span className="text-slate-400">{lesson.activities[currentActivityIndex]?.content_set_title}</span>
                 </div>
-                <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
-                  <motion.div
-                    className="h-full rounded-full bg-violet-500"
-                    animate={{ width: `${(mirrorCardIndex / currentActivityItems.length) * 100}%` }}
-                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                  />
+                <div className="flex gap-1">
+                  {lesson.activities.map((_, i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 h-1.5 rounded-full transition-colors ${
+                        i < currentActivityIndex ? 'bg-emerald-400'
+                          : i === currentActivityIndex ? 'bg-violet-500'
+                          : 'bg-slate-200'
+                      }`}
+                    />
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* RIGHT — Analytics */}
-            <div className="lg:col-span-2 space-y-4">
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-violet-50 border-2 border-violet-200
-                    flex items-center justify-center font-black text-violet-700 text-lg shrink-0">
-                    {player?.nickname?.[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-slate-800 truncate">
-                      {player?.nickname ?? 'Student'}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {player?.online
-                        ? <><Wifi className="w-3 h-3 text-emerald-500" /><span className="text-xs text-emerald-600 font-medium">Live</span></>
-                        : <><WifiOff className="w-3 h-3 text-amber-400" /><span className="text-xs text-amber-500 font-medium">Disconnected</span></>
-                      }
+            {/* Participant selector strip */}
+            {participants.length > 1 && (
+              <div className="flex gap-2 flex-wrap">
+                {participants.map((p, i) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedParticipantId(p.id)}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold
+                      border transition-all ${
+                      selectedParticipantId === p.id
+                        ? 'bg-violet-600 border-violet-500 text-white shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-700 hover:border-violet-300'
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center
+                      text-xs font-bold text-white shrink-0 ${avatarBg(i)}`}>
+                      {p.nickname[0].toUpperCase()}
                     </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <motion.div
-                      key={playerScore}
-                      initial={{ scale: 1.3, color: '#7c3aed' }}
-                      animate={{ scale: 1, color: '#7c3aed' }}
-                      transition={{ duration: 0.3 }}
-                      className="text-2xl font-black text-violet-600 tabular-nums"
-                    >
-                      {playerScore}
-                    </motion.div>
-                    <div className="text-xs text-slate-400">pts</div>
-                  </div>
-                </div>
+                    <span className="hidden sm:inline">{p.nickname}</span>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      p.online ? 'bg-emerald-400' : 'bg-slate-300'
+                    }`} />
+                  </button>
+                ))}
               </div>
+            )}
 
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5">
-                <StatRow
-                  icon={<Clock className="w-4 h-4 text-slate-400" />}
-                  label="Elapsed"
-                  value={formatTime(elapsed)}
-                />
-                <StatRow
-                  icon={<Target className="w-4 h-4 text-emerald-500" />}
-                  label="Correct"
-                  value={correctCount}
-                  valueClass="text-emerald-600"
-                />
-                <StatRow
-                  icon={<Target className="w-4 h-4 text-red-400" />}
-                  label="Wrong"
-                  value={incorrectCount}
-                  valueClass="text-red-500"
-                />
-                <StatRow
-                  icon={<TrendingUp className="w-4 h-4 text-violet-500" />}
-                  label="Accuracy"
-                  value={swipes.length > 0 ? `${accuracy}%` : '—'}
-                  valueClass="text-violet-600"
-                />
-              </div>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
 
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-                  Recent answers
-                </p>
-                {swipes.length === 0 ? (
-                  <p className="text-sm text-slate-400">Waiting for first swipe...</p>
+              {/* LEFT — Mirror view (selected participant) OR participant grid */}
+              <div className="lg:col-span-3 space-y-4">
+
+                {!selectedParticipant ? (
+                  <div className="bg-slate-100 rounded-2xl border border-slate-200 p-8
+                    flex items-center justify-center min-h-[300px]">
+                    <p className="text-slate-400 text-sm">
+                      Select a participant above to see their view
+                    </p>
+                  </div>
                 ) : (
-                  <div className="space-y-2">
-                    {swipes.slice(0, 5).map((s, i) => (
-                      <motion.div
-                        key={i}
-                        initial={i === 0 ? { opacity: 0, x: -8 } : {}}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex items-start gap-2 text-xs"
-                      >
-                        <span className={`w-4 h-4 rounded-full flex items-center justify-center
-                          text-[10px] font-black shrink-0 mt-0.5 ${
-                          s.correct
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-red-100 text-red-600'
+                  <>
+                    {/* Mirror panel */}
+                    <div className="bg-slate-900 rounded-2xl border border-slate-800 p-5 sm:p-7">
+                      <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-2 text-slate-400">
+                          <Eye className="w-4 h-4" />
+                          <span className="text-sm font-semibold">
+                            What <span className="text-white">{selectedParticipant.nickname}</span> sees
+                          </span>
+                        </div>
+                        <div className={`text-xl font-black tabular-nums transition-colors ${
+                          mirrorTimeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-slate-300'
                         }`}>
-                          {s.correct ? '✓' : '✗'}
+                          {mirrorTimeLeft}s
+                        </div>
+                      </div>
+
+                      <div className="flex justify-between text-xs font-semibold mb-3 px-1">
+                        <span className="text-red-500/60">← Wrong ✗</span>
+                        <span className="text-emerald-500/60">Correct ✓ →</span>
+                      </div>
+
+                      <div className="relative min-h-[220px] sm:min-h-[260px]">
+                        <AnimatePresence>
+                          {!selectedParticipant.online && (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute inset-0 bg-slate-900/85 rounded-2xl
+                                flex flex-col items-center justify-center z-20 gap-2"
+                            >
+                              <WifiOff className="w-8 h-8 text-amber-400" />
+                              <p className="text-amber-400 font-semibold text-sm">
+                                ⚠ Student disconnected
+                              </p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <AnimatePresence>
+                          {mirrorFlash && (
+                            <motion.div
+                              key={mirrorFlash}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.15 }}
+                              className={`absolute inset-0 rounded-2xl flex items-center
+                                justify-center z-10 pointer-events-none ${
+                                mirrorFlash === 'correct'
+                                  ? 'bg-emerald-500/25'
+                                  : 'bg-red-500/25'
+                              }`}
+                            >
+                              <motion.div
+                                initial={{ scale: 0.4 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                                className={`text-6xl font-black ${
+                                  mirrorFlash === 'correct' ? 'text-emerald-400' : 'text-red-400'
+                                }`}
+                              >
+                                {mirrorFlash === 'correct' ? '✓' : '✗'}
+                              </motion.div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <AnimatePresence mode="wait">
+                          {mirrorItem ? (
+                            <motion.div
+                              key={mirrorCardIndex}
+                              initial={{ scale: 0.92, opacity: 0, y: 16 }}
+                              animate={{ scale: 1, opacity: 1, y: 0 }}
+                              exit={{
+                                x: mirrorExitDirRef.current === 'right' ? 350 : -350,
+                                rotate: mirrorExitDirRef.current === 'right' ? 10 : -10,
+                                opacity: 0,
+                                transition: { duration: 0.22 },
+                              }}
+                              transition={{ duration: 0.18 }}
+                              className="bg-slate-800 rounded-2xl border border-slate-700 p-6 sm:p-8
+                                flex flex-col items-center justify-center gap-4 min-h-[220px] sm:min-h-[260px]"
+                            >
+                              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${
+                                mirrorItem.isCorrect
+                                  ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700'
+                                  : 'bg-red-900/50 text-red-400 border-red-700'
+                              }`}>
+                                {mirrorItem.isCorrect ? '✓ Correct pair' : '✗ Wrong pair'}
+                              </span>
+                              <div className="text-center space-y-3">
+                                <div className="text-3xl sm:text-4xl font-black text-white leading-tight">
+                                  {mirrorItem.word}
+                                </div>
+                                <div className="w-10 h-0.5 bg-slate-600 mx-auto rounded-full" />
+                                <div className="text-2xl sm:text-3xl text-slate-300 font-semibold leading-tight">
+                                  {mirrorItem.translation}
+                                </div>
+                              </div>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="done"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              className="bg-slate-800 rounded-2xl border border-slate-700 p-8
+                                flex items-center justify-center min-h-[220px] sm:min-h-[260px]"
+                            >
+                              <p className="text-slate-500 text-sm">All cards answered</p>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+
+                      <div className="flex gap-3 mt-4">
+                        <div className="flex-1 py-3 rounded-2xl border border-red-800/60
+                          text-red-500/50 text-center text-sm font-bold select-none">
+                          ✗ Wrong
+                        </div>
+                        <div className="flex-1 py-3 rounded-2xl border border-emerald-800/60
+                          text-emerald-500/50 text-center text-sm font-bold select-none">
+                          ✓ Correct
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress bar for selected participant */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+                      <div className="flex justify-between text-xs text-slate-500 mb-2">
+                        <span className="font-semibold">
+                          Card {Math.min(mirrorCardIndex + 1, currentActivityItems.length)} of {currentActivityItems.length}
                         </span>
-                        <span className="flex-1 min-w-0">
-                          <span className={`font-semibold ${s.correct ? 'text-slate-700' : 'text-slate-500 line-through'}`}>
-                            {s.word}
-                          </span>
-                          <span className="text-slate-400 mx-1">→</span>
-                          <span className="text-slate-500">{s.translation}</span>
-                        </span>
-                        {s.timeTaken && (
-                          <span className="text-slate-400 shrink-0 tabular-nums">
-                            {s.timeTaken}s
-                          </span>
-                        )}
-                      </motion.div>
-                    ))}
+                        <span>{selAccuracy > 0 ? `${selAccuracy}% accuracy` : 'Waiting...'}</span>
+                      </div>
+                      <div className="h-2.5 rounded-full bg-slate-100 overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full bg-violet-500"
+                          animate={{ width: `${(mirrorCardIndex / currentActivityItems.length) * 100}%` }}
+                          transition={{ duration: 0.4, ease: 'easeOut' }}
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* All participants compact grid (only when 2+ participants) */}
+                {participants.length > 1 && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {participants.map((p, i) => {
+                      const accuracy = p.totalSwipes > 0
+                        ? Math.round((p.correctCount / p.totalSwipes) * 100)
+                        : 0
+                      const isSelected = p.id === selectedParticipantId
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setSelectedParticipantId(p.id)}
+                          className={`text-left p-3.5 rounded-xl border transition-all ${
+                            isSelected
+                              ? 'bg-violet-50 border-violet-200'
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className={`w-7 h-7 rounded-full flex items-center justify-center
+                              text-xs font-bold text-white shrink-0 ${avatarBg(i)}`}>
+                              {p.nickname[0].toUpperCase()}
+                            </div>
+                            <span className="font-semibold text-slate-800 text-sm truncate flex-1">
+                              {p.nickname}
+                            </span>
+                            <span className={`w-2 h-2 rounded-full shrink-0 ${
+                              p.online ? 'bg-emerald-400' : 'bg-slate-300'
+                            }`} />
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500">
+                            <span>Card {p.cardIndex}/{currentActivityItems.length}</span>
+                            <span className="font-semibold text-violet-600">{p.score} pts</span>
+                          </div>
+                          {p.totalSwipes > 0 && (
+                            <div className="mt-1.5 h-1 rounded-full bg-slate-100 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-violet-400 transition-all"
+                                style={{ width: `${(p.cardIndex / currentActivityItems.length) * 100}%` }}
+                              />
+                            </div>
+                          )}
+                          {p.totalSwipes > 0 && (
+                            <div className="mt-1 text-xs text-slate-400">
+                              {accuracy}% accuracy
+                            </div>
+                          )}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
 
-              <button
-                onClick={handleEndGame}
-                disabled={isEnding}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                  border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
-                  hover:text-red-600 text-slate-400 text-sm font-semibold
-                  disabled:opacity-50 transition-colors"
-              >
-                <StopCircle className="w-4 h-4" />
-                {isEnding ? 'Ending...' : 'End game'}
-              </button>
+              {/* RIGHT — Analytics for selected participant */}
+              <div className="lg:col-span-2 space-y-4">
+                {selectedParticipant ? (
+                  <>
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-11 h-11 rounded-full flex items-center justify-center
+                          font-black text-lg text-white shrink-0 ${avatarBg(
+                            participants.findIndex(p => p.id === selectedParticipantId)
+                          )}`}>
+                          {selectedParticipant.nickname[0].toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-slate-800 truncate">
+                            {selectedParticipant.nickname}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {selectedParticipant.online
+                              ? <><Wifi className="w-3 h-3 text-emerald-500" /><span className="text-xs text-emerald-600 font-medium">Live</span></>
+                              : <><WifiOff className="w-3 h-3 text-amber-400" /><span className="text-xs text-amber-500 font-medium">Disconnected</span></>
+                            }
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <motion.div
+                            key={selectedParticipant.score}
+                            initial={{ scale: 1.3, color: '#7c3aed' }}
+                            animate={{ scale: 1, color: '#7c3aed' }}
+                            transition={{ duration: 0.3 }}
+                            className="text-2xl font-black text-violet-600 tabular-nums"
+                          >
+                            {selectedParticipant.score}
+                          </motion.div>
+                          <div className="text-xs text-slate-400">pts</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5">
+                      <StatRow
+                        icon={<Clock className="w-4 h-4 text-slate-400" />}
+                        label="Elapsed"
+                        value={formatTime(elapsed)}
+                      />
+                      <StatRow
+                        icon={<Target className="w-4 h-4 text-emerald-500" />}
+                        label="Correct"
+                        value={selCorrect}
+                        valueClass="text-emerald-600"
+                      />
+                      <StatRow
+                        icon={<Target className="w-4 h-4 text-red-400" />}
+                        label="Wrong"
+                        value={selTotal - selCorrect}
+                        valueClass="text-red-500"
+                      />
+                      <StatRow
+                        icon={<TrendingUp className="w-4 h-4 text-violet-500" />}
+                        label="Accuracy"
+                        value={selTotal > 0 ? `${selAccuracy}%` : '—'}
+                        valueClass="text-violet-600"
+                      />
+                    </div>
+
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+                        Recent answers
+                      </p>
+                      {selSwipes.length === 0 ? (
+                        <p className="text-sm text-slate-400">Waiting for first swipe...</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selSwipes.slice(0, 5).map((s, i) => (
+                            <motion.div
+                              key={i}
+                              initial={i === 0 ? { opacity: 0, x: -8 } : {}}
+                              animate={{ opacity: 1, x: 0 }}
+                              className="flex items-start gap-2 text-xs"
+                            >
+                              <span className={`w-4 h-4 rounded-full flex items-center justify-center
+                                text-[10px] font-black shrink-0 mt-0.5 ${
+                                s.correct
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : 'bg-red-100 text-red-600'
+                              }`}>
+                                {s.correct ? '✓' : '✗'}
+                              </span>
+                              <span className="flex-1 min-w-0">
+                                <span className={`font-semibold ${s.correct ? 'text-slate-700' : 'text-slate-500 line-through'}`}>
+                                  {s.word}
+                                </span>
+                                <span className="text-slate-400 mx-1">→</span>
+                                <span className="text-slate-500">{s.translation}</span>
+                              </span>
+                              {s.timeTaken && (
+                                <span className="text-slate-400 shrink-0 tabular-nums">
+                                  {s.timeTaken}s
+                                </span>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {participants.length > 1 && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => {
+                            const idx = participants.findIndex(p => p.id === selectedParticipantId)
+                            const prev = participants[(idx - 1 + participants.length) % participants.length]
+                            setSelectedParticipantId(prev.id)
+                          }}
+                          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg
+                            border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                        >
+                          <ChevronLeft className="w-3.5 h-3.5" /> Prev
+                        </button>
+                        <button
+                          onClick={() => {
+                            const idx = participants.findIndex(p => p.id === selectedParticipantId)
+                            const next = participants[(idx + 1) % participants.length]
+                            setSelectedParticipantId(next.id)
+                          }}
+                          className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg
+                            border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
+                        >
+                          Next <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6
+                    flex flex-col items-center gap-3 text-center min-h-[200px] justify-center">
+                    <Users className="w-8 h-8 text-slate-300" />
+                    <p className="text-slate-400 text-sm">
+                      {participants.length === 0
+                        ? 'No participants yet'
+                        : 'Select a participant to view details'
+                      }
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  onClick={handleEndGame}
+                  disabled={isEnding}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                    border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
+                    hover:text-red-600 text-slate-400 text-sm font-semibold
+                    disabled:opacity-50 transition-colors"
+                >
+                  <StopCircle className="w-4 h-4" />
+                  {isEnding ? 'Ending...' : 'End game'}
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -831,11 +1160,8 @@ export function SessionHostView({ session, items, lesson }: Props) {
         {/* ── BETWEEN ACTIVITIES (lesson only) ──────────────────────────────── */}
         {phase === 'active' && lessonBetween && lesson && (
           <div className="max-w-2xl mx-auto space-y-6">
-            {/* Activity complete banner */}
             <div className="text-center py-4">
-              <div className="text-4xl mb-2">
-                {isLastActivity ? '🎉' : '✅'}
-              </div>
+              <div className="text-4xl mb-2">{isLastActivity ? '🎉' : '✅'}</div>
               <h2 className="text-2xl font-black text-slate-800">
                 Activity {currentActivityIndex + 1} complete!
               </h2>
@@ -846,24 +1172,37 @@ export function SessionHostView({ session, items, lesson }: Props) {
                   </span>
                 </p>
               )}
+              {participants.length > 1 && (
+                <p className="text-slate-400 text-sm mt-2">
+                  <span className="font-semibold text-emerald-600">{completedCountCurrentActivity}</span>
+                  /{participants.length} students completed this activity
+                </p>
+              )}
             </div>
 
-            {/* Activity stats */}
-            {result && (
+            {/* Activity stats — aggregate or single participant */}
+            {activityResults.find(r => r.activityIndex === currentActivityIndex) && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6
                 grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-3xl font-black text-emerald-600">{result.correct}</div>
-                  <div className="text-xs text-slate-400 mt-1">Correct</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-black text-red-500">{result.incorrect}</div>
-                  <div className="text-xs text-slate-400 mt-1">Wrong</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-black text-violet-600">{result.score}</div>
-                  <div className="text-xs text-slate-400 mt-1">Points</div>
-                </div>
+                {(() => {
+                  const r = activityResults.find(r => r.activityIndex === currentActivityIndex)!
+                  return (
+                    <>
+                      <div>
+                        <div className="text-3xl font-black text-emerald-600">{r.correct}</div>
+                        <div className="text-xs text-slate-400 mt-1">Correct</div>
+                      </div>
+                      <div>
+                        <div className="text-3xl font-black text-red-500">{r.incorrect}</div>
+                        <div className="text-xs text-slate-400 mt-1">Wrong</div>
+                      </div>
+                      <div>
+                        <div className="text-3xl font-black text-violet-600">{r.score}</div>
+                        <div className="text-xs text-slate-400 mt-1">Total pts</div>
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             )}
 
@@ -904,7 +1243,6 @@ export function SessionHostView({ session, items, lesson }: Props) {
               </div>
             </div>
 
-            {/* Action buttons */}
             <div className="flex gap-3">
               <button
                 onClick={handleEndLesson}
@@ -959,10 +1297,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
                   </span>{' '}
                   across {lesson!.activities.length} {lesson!.activities.length === 1 ? 'activity' : 'activities'}
                 </p>
-              ) : result && (
+              ) : participants.length > 0 && (
                 <p className="text-slate-500 mt-1">
-                  {result.nickname} scored{' '}
-                  <span className="font-bold text-violet-600">{result.score} points</span>
+                  {participants.length} student{participants.length !== 1 ? 's' : ''} participated
                 </p>
               )}
             </div>
@@ -998,45 +1335,37 @@ export function SessionHostView({ session, items, lesson }: Props) {
               </div>
             )}
 
-            {/* Single mode result */}
-            {!isLesson && result && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6
-                grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-3xl font-black text-emerald-600">{result.correct}</div>
-                  <div className="text-xs text-slate-400 mt-1">Correct</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-black text-red-500">{result.incorrect}</div>
-                  <div className="text-xs text-slate-400 mt-1">Wrong</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-black text-violet-600">
-                    {result.totalCards > 0
-                      ? Math.round((result.correct / result.totalCards) * 100)
-                      : 0}%
-                  </div>
-                  <div className="text-xs text-slate-400 mt-1">Accuracy</div>
-                </div>
-              </div>
-            )}
-
-            {!isLesson && result && result.swipes.filter(s => !s.correct).length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
-                  Cards to review ({result.swipes.filter(s => !s.correct).length})
+            {/* Per-participant results */}
+            {!isLesson && participants.some(p => p.gameResult) && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                  Student results
                 </p>
-                <div className="space-y-2">
-                  {result.swipes.filter(s => !s.correct).map((s, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm">
-                      <span className="w-5 h-5 rounded-full bg-red-100 text-red-600
-                        flex items-center justify-center text-xs font-bold shrink-0">✗</span>
-                      <span className="font-medium text-slate-700">{s.word}</span>
-                      <span className="text-slate-300">→</span>
-                      <span className="text-slate-500">{s.translation}</span>
+                {participants.map((p, i) => {
+                  const r = p.gameResult
+                  const acc = r && r.totalCards > 0
+                    ? Math.round((r.correct / r.totalCards) * 100)
+                    : 0
+                  return (
+                    <div key={p.id} className="flex items-center gap-3 text-sm py-1">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center
+                        text-xs font-bold text-white shrink-0 ${avatarBg(i)}`}>
+                        {p.nickname[0].toUpperCase()}
+                      </div>
+                      <span className="flex-1 font-medium text-slate-700 truncate">{p.nickname}</span>
+                      {r ? (
+                        <>
+                          <span className="text-emerald-600 text-xs tabular-nums">
+                            {r.correct}/{r.totalCards} ({acc}%)
+                          </span>
+                          <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400 text-xs">did not finish</span>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  )
+                })}
               </div>
             )}
 

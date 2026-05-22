@@ -87,18 +87,40 @@ export async function createSession(contentSetId: string) {
   redirect(`/tutor/sessions/${session.id}/host`)
 }
 
-export async function startSession(sessionId: string) {
+export async function startSession(sessionId: string): Promise<{ turnOrder: string[] }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
+  // Capture participants in join order — this becomes the canonical turn order
+  const { data: participants } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+
+  const turnOrder = (participants ?? []).map(p => p.id)
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('config')
+    .eq('id', sessionId)
+    .eq('host_id', user.id)
+    .single()
+
   const { error } = await supabase
     .from('sessions')
-    .update({ status: 'active', started_at: new Date().toISOString() })
+    .update({
+      status: 'active',
+      started_at: new Date().toISOString(),
+      config: { ...(session?.config ?? {}), turnOrder },
+    })
     .eq('id', sessionId)
     .eq('host_id', user.id)
 
   if (error) throw new Error(error.message)
+  return { turnOrder }
 }
 
 export async function endSession(sessionId: string) {
