@@ -76,6 +76,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [gameResult, setGameResult] = useState<GameResult | null>(null)
   const [hostEnded, setHostEnded] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
+  const [completionData, setCompletionData] = useState<Array<{ activity_index: number; score: number }> | null>(null)
 
   // Current items: lesson mode uses activity items, single mode uses props items
   const currentItems = isLesson
@@ -127,9 +128,20 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         setSwipeResult(null)
         setTimeLeft(TIME_PER_CARD)
       })
-      .on('broadcast', { event: 'lesson_complete' }, () => {
+      .on('broadcast', { event: 'lesson_complete' }, async () => {
         setLessonComplete(true)
         setPhase('finished')
+        const pid = participantIdRef.current
+        if (pid) {
+          const sb = createClient()
+          const { data } = await sb
+            .from('participant_progress')
+            .select('activity_index, score')
+            .eq('session_id', session.id)
+            .eq('participant_id', pid)
+            .order('activity_index')
+          if (data && data.length > 0) setCompletionData(data)
+        }
       })
       .on('broadcast', { event: 'game_ended' }, () => {
         setHostEnded(true)
@@ -311,6 +323,21 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     })()
 
     if (isLesson) {
+      // Persist to DB so completion screen always reads current-session data only
+      if (participantIdRef.current) {
+        createClient().from('participant_progress').upsert(
+          {
+            session_id: session.id,
+            participant_id: participantIdRef.current,
+            activity_index: currentActivityIndexRef.current,
+            score: scoreRef.current,
+            current_card_index: swipesRef.current.length,
+            state: {},
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'session_id,participant_id,activity_index' },
+        ).then()
+      }
       // Accumulate score and wait for host to advance
       setTotalScore(prev => prev + scoreRef.current)
       setActivityScores(prev => [...prev, scoreRef.current])
@@ -339,6 +366,10 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const renderItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
+
+  // Completion display: DB data (per session_id) preferred, fallback to in-memory
+  const completionEntries = completionData ?? activityScores.map((s, i) => ({ activity_index: i, score: s }))
+  const completionTotal = completionEntries.reduce((sum, d) => sum + d.score, 0)
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -616,42 +647,42 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               <>
                 <div className="text-center space-y-2">
                   <div className="text-5xl">
-                    {totalScore / Math.max(activityScores.length, 1) >= 80 ? '🏆' : '🎉'}
+                    {completionTotal / Math.max(lesson.activities.length, 1) >= 80 ? '🏆' : '🎉'}
                   </div>
                   <h2 className="text-2xl font-black">Lesson complete!</h2>
                   <p className="text-slate-400">
-                    Total: <span className="text-violet-400 font-bold">{totalScore} points</span>
+                    Total: <span className="text-violet-400 font-bold">{completionTotal} points</span>
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-                    <div className="text-xl font-black text-emerald-400">{activityScores.length}</div>
+                    <div className="text-xl font-black text-emerald-400">{lesson.activities.length}</div>
                     <div className="text-xs text-slate-500 mt-0.5">Activities</div>
                   </div>
                   <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-                    <div className="text-xl font-black text-violet-400">{totalScore}</div>
+                    <div className="text-xl font-black text-violet-400">{completionTotal}</div>
                     <div className="text-xs text-slate-500 mt-0.5">Total pts</div>
                   </div>
                   <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
                     <div className="text-xl font-black text-slate-300">
-                      {activityScores.length > 0
-                        ? Math.round(totalScore / activityScores.length)
+                      {lesson.activities.length > 0
+                        ? Math.round(completionTotal / lesson.activities.length)
                         : 0}
                     </div>
                     <div className="text-xs text-slate-500 mt-0.5">Avg/activity</div>
                   </div>
                 </div>
 
-                {activityScores.length > 0 && (
+                {completionEntries.length > 0 && (
                   <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
                     <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
                       Per activity
                     </p>
-                    {activityScores.map((s, i) => (
+                    {completionEntries.map((entry, i) => (
                       <div key={i} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">Activity {i + 1}</span>
-                        <span className="text-violet-400 font-bold">{s} pts</span>
+                        <span className="text-slate-400">Activity {entry.activity_index + 1}</span>
+                        <span className="text-violet-400 font-bold">{entry.score} pts</span>
                       </div>
                     ))}
                   </div>

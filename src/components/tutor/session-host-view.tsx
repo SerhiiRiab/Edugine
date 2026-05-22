@@ -186,17 +186,17 @@ export function SessionHostView({ session, items, lesson }: Props) {
         if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current)
 
         if (isLesson) {
-          // Accumulate result and show between-activity UI
-          setActivityResults(prev => [
-            ...prev,
-            {
-              activityIndex: currentActivityIndexRef.current,
+          const idx = currentActivityIndexRef.current
+          setActivityResults(prev => {
+            const without = prev.filter(r => r.activityIndex !== idx)
+            return [...without, {
+              activityIndex: idx,
               score: p.score,
               correct: p.correct,
               incorrect: p.incorrect,
               totalCards: p.totalCards,
-            },
-          ])
+            }].sort((a, b) => a.activityIndex - b.activityIndex)
+          })
           setLessonBetween(true)
         } else {
           // Single mode: end session immediately
@@ -957,7 +957,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
                   Total: <span className="font-bold text-violet-600">
                     {activityResults.reduce((s, r) => s + r.score, 0)} points
                   </span>{' '}
-                  across {activityResults.length} {activityResults.length === 1 ? 'activity' : 'activities'}
+                  across {lesson!.activities.length} {lesson!.activities.length === 1 ? 'activity' : 'activities'}
                 </p>
               ) : result && (
                 <p className="text-slate-500 mt-1">
