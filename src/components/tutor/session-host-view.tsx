@@ -116,6 +116,8 @@ export function SessionHostView({ session, items, lesson }: Props) {
   // Lesson-mode state
   const [currentActivityIndex, setCurrentActivityIndex] = useState(lesson?.initialActivityIndex ?? 0)
   const [activityResults, setActivityResults] = useState<ActivityResult[]>([])
+  // Per-student breakdown: participantId → their activity results (for completion screen)
+  const [perStudentResults, setPerStudentResults] = useState<Record<string, ActivityResult[]>>({})
   const [lessonBetween, setLessonBetween] = useState(false)
   const [isAdvancing, setIsAdvancing] = useState(false)
   const [completedCountCurrentActivity, setCompletedCountCurrentActivity] = useState(0)
@@ -315,7 +317,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
               incorrect: p.incorrect,
               totalCards: p.totalCards,
             }
-            // Aggregate scores across participants (sum)
+            // Aggregate scores across participants (sum) — used for between-activity class stats
             const existing = prev.find(r => r.activityIndex === idx)
             if (existing) {
               return [...without, {
@@ -328,6 +330,21 @@ export function SessionHostView({ session, items, lesson }: Props) {
             }
             return [...without, entry].sort((a, b) => a.activityIndex - b.activityIndex)
           })
+          // Track per-student results separately for the completion screen
+          if (pid) {
+            setPerStudentResults(prev => {
+              const existing = prev[pid] ?? []
+              const entry: ActivityResult = {
+                activityIndex: idx,
+                score: p.score,
+                correct: p.correct,
+                incorrect: p.incorrect,
+                totalCards: p.totalCards,
+              }
+              const without = existing.filter(r => r.activityIndex !== idx)
+              return { ...prev, [pid]: [...without, entry].sort((a, b) => a.activityIndex - b.activityIndex) }
+            })
+          }
           setLessonBetween(true)
         } else {
           // Single mode: end when all participants have completed
@@ -1292,10 +1309,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
               </h2>
               {isLesson ? (
                 <p className="text-slate-500 mt-1">
-                  Total: <span className="font-bold text-violet-600">
-                    {activityResults.reduce((s, r) => s + r.score, 0)} points
-                  </span>{' '}
-                  across {lesson!.activities.length} {lesson!.activities.length === 1 ? 'activity' : 'activities'}
+                  {participants.length} student{participants.length !== 1 ? 's' : ''} &bull; {lesson!.activities.length} {lesson!.activities.length === 1 ? 'activity' : 'activities'}
                 </p>
               ) : participants.length > 0 && (
                 <p className="text-slate-500 mt-1">
@@ -1304,34 +1318,56 @@ export function SessionHostView({ session, items, lesson }: Props) {
               )}
             </div>
 
-            {/* Lesson activity breakdown */}
-            {isLesson && activityResults.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-3">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                  Activity breakdown
-                </p>
-                {activityResults.map((r, i) => {
-                  const act = lesson.activities[r.activityIndex]
-                  const acc = r.totalCards > 0 ? Math.round((r.correct / r.totalCards) * 100) : 0
-                  return (
-                    <div key={i} className="flex items-center gap-3 text-sm py-1">
-                      <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
-                        {r.activityIndex + 1}
+            {/* Per-student lesson results */}
+            {isLesson && (
+              <div className="space-y-4">
+                {[...participants]
+                  .map((student, originalIndex) => {
+                    const results = perStudentResults[student.id] ?? []
+                    const total = results.reduce((s, r) => s + r.score, 0)
+                    return { student, originalIndex, results, total }
+                  })
+                  .sort((a, b) => b.total - a.total)
+                  .map(({ student, originalIndex, results, total }) => (
+                    <div key={student.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${avatarBg(originalIndex)}`}>
+                          {student.nickname[0].toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="font-bold text-slate-800 truncate">{student.nickname}</div>
+                          <div className="text-sm text-violet-600 font-semibold">{total} pts total</div>
+                        </div>
                       </div>
-                      <span className="flex-1 text-slate-700 font-medium truncate">
-                        {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
-                      </span>
-                      <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
-                      <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                      {results.length > 0 ? (
+                        <div className="space-y-2">
+                          {results.map((r) => {
+                            const act = lesson!.activities[r.activityIndex]
+                            const acc = r.totalCards > 0 ? Math.round((r.correct / r.totalCards) * 100) : 0
+                            return (
+                              <div key={r.activityIndex} className="flex items-center gap-3 text-sm py-1">
+                                <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                  {r.activityIndex + 1}
+                                </div>
+                                <span className="flex-1 text-slate-600 truncate">
+                                  {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
+                                </span>
+                                <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
+                                <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                              </div>
+                            )
+                          })}
+                          <div className="border-t border-slate-100 pt-2 flex justify-between text-sm font-bold">
+                            <span className="text-slate-600">Total</span>
+                            <span className="text-violet-600">{total} pts</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-400">No results recorded</p>
+                      )}
                     </div>
-                  )
-                })}
-                <div className="border-t border-slate-100 pt-3 flex justify-between text-sm font-bold">
-                  <span className="text-slate-600">Total</span>
-                  <span className="text-violet-600">
-                    {activityResults.reduce((s, r) => s + r.score, 0)} pts
-                  </span>
-                </div>
+                  ))
+                }
               </div>
             )}
 
