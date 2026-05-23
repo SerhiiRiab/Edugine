@@ -4,13 +4,16 @@ import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import {
-  ArrowLeft, Plus, X, Check, AlertCircle, Loader2, BookOpen,
+  ArrowLeft, Plus, X, Check, AlertCircle, Loader2, BookOpen, ClipboardList,
 } from 'lucide-react'
 import {
   updateContentSet,
   createContentItem,
   deleteContentItem,
+  bulkCreateContentItems,
 } from '@/lib/actions/content-sets'
+import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
+import { storyBuilderDefinition } from '@/lib/mechanics/story-builder/index'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -51,6 +54,7 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [addingWord, startAddWord] = useTransition()
+  const [showBulkImport, setShowBulkImport] = useState(false)
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -97,6 +101,18 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
         toast.error('Failed to add word')
       }
     })
+  }
+
+  async function handleBulkImport(rows: Record<string, unknown>[]) {
+    try {
+      const created = await bulkCreateContentItems(set.id, rows)
+      const newWords = created.map(c => ({ id: c.id, word: (c.data.word as string) ?? '' }))
+      setWords(prev => [...prev, ...newWords])
+      setShowBulkImport(false)
+      toast.success(`Added ${rows.length} word${rows.length !== 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Bulk import failed')
+    }
   }
 
   async function handleDeleteWord(id: string) {
@@ -281,9 +297,28 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
               {addingWord ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
               Add
             </button>
+            <button
+              type="button"
+              onClick={() => setShowBulkImport(true)}
+              className="flex items-center gap-1.5 border-2 border-slate-200 hover:border-emerald-300
+                hover:bg-emerald-50 text-slate-400 hover:text-emerald-600
+                font-semibold px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap"
+            >
+              <ClipboardList className="w-4 h-4" />
+              Bulk add
+            </button>
           </div>
         </div>
       </div>
+
+      {/* ── Bulk import modal ─────────────────────────────────────────── */}
+      {showBulkImport && storyBuilderDefinition.bulkImport && (
+        <BulkImportModal
+          config={storyBuilderDefinition.bulkImport}
+          onImport={handleBulkImport}
+          onClose={() => setShowBulkImport(false)}
+        />
+      )}
 
       {/* ── Right side panel ──────────────────────────────────────────── */}
       <div className="hidden lg:block fixed right-6 top-24 w-56 space-y-3">
