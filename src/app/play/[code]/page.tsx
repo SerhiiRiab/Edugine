@@ -111,13 +111,19 @@ export default async function PlayPage({ params }: Props) {
         code: session.code,
         status: session.status as 'waiting' | 'active',
         currentActivityIndex: 0,
+        mechanicId: session.mechanic_id ?? undefined,
       }}
-      items={(items ?? []).map((i) => ({
-        id: i.id,
-        word: (i.data as { word?: string }).word ?? '',
-        translation: (i.data as { translation?: string }).translation ?? '',
-        isCorrect: (i.data as { isCorrect?: boolean }).isCorrect ?? true,
-      }))}
+      items={(items ?? []).map((i) => {
+        const d = i.data as Record<string, unknown>
+        return {
+          id: i.id,
+          word: (d.word as string | undefined) ?? (d.front as string | undefined) ?? '',
+          translation: (d.translation as string | undefined) ?? (d.back as string | undefined) ?? '',
+          isCorrect: (d.isCorrect as boolean | undefined) ?? true,
+          front: (d.front as string | undefined) ?? (d.word as string | undefined) ?? '',
+          back: (d.back as string | undefined) ?? (d.translation as string | undefined) ?? '',
+        }
+      })}
     />
   )
 }

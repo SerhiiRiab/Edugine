@@ -59,6 +59,7 @@ interface Props {
     code: string
     status: 'waiting' | 'active'
     currentActivityIndex: number
+    mechanicId?: string   // set for single-game sessions (no lesson)
   }
   items?: CardItem[]
   lesson?: LessonInfo
@@ -113,8 +114,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [teamCompletionData, setTeamCompletionData] = useState<TeamActivityResult[]>([])
 
   const currentActivity = isLesson ? lesson.activities[currentActivityIndex] ?? null : null
-  const isStoryActivity = currentActivity?.mechanic_id === 'story_builder'
-  const isSpeedMatchActivity = currentActivity?.mechanic_id === 'speed_match'
+  const currentMechanicId = currentActivity?.mechanic_id ?? session.mechanicId
+  const isStoryActivity = currentMechanicId === 'story_builder'
+  const isSpeedMatchActivity = currentMechanicId === 'speed_match'
 
   const currentItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
