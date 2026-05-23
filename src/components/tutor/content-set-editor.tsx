@@ -11,6 +11,7 @@ import {
   Check,
   AlertCircle,
   Loader2,
+  ClipboardList,
 } from 'lucide-react'
 import { createSession } from '@/lib/actions/sessions'
 import {
@@ -36,7 +37,10 @@ import {
   createContentItem,
   deleteContentItem,
   reorderContentItems,
+  bulkCreateContentItems,
 } from '@/lib/actions/content-sets'
+import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
+import type { ParsedPair } from '@/lib/utils/bulk-import-parser'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -199,6 +203,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)
   const [addingCard, setAddingCard] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -324,6 +329,26 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       toast.success('Card deleted')
     } catch {
       toast.error('Failed to delete card')
+    }
+  }
+
+  async function handleBulkImport(pairs: ParsedPair[], markCorrect: boolean) {
+    try {
+      const rows = pairs.map(({ front, back }) => ({
+        word: front,
+        translation: back,
+        isCorrect: markCorrect,
+      }))
+      const created = await bulkCreateContentItems(set.id, rows)
+      const newItems = created.map(c => {
+        const d = c.data as { word?: string; translation?: string; isCorrect?: boolean }
+        return { id: c.id, word: d.word ?? '', translation: d.translation ?? '', isCorrect: d.isCorrect ?? true }
+      })
+      setItems(prev => [...prev, ...newItems])
+      setShowBulkImport(false)
+      toast.success(`Added ${pairs.length} card${pairs.length !== 1 ? 's' : ''}`)
+    } catch {
+      toast.error('Bulk import failed')
     }
   }
 
@@ -485,23 +510,32 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           </SortableContext>
         </DndContext>
 
-        {/* Add card button */}
-        <button
-          type="button"
-          onClick={handleAddItem}
-          disabled={addingCard}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-3.5 rounded-xl
-            border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
-            text-slate-400 hover:text-violet-500 font-medium text-sm transition-all
-            disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {addingCard ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Plus className="w-4 h-4" />
-          )}
-          Add card
-        </button>
+        {/* Add card / Bulk import buttons */}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={handleAddItem}
+            disabled={addingCard}
+            className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl
+              border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
+              text-slate-400 hover:text-violet-500 font-medium text-sm transition-all
+              disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {addingCard ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Add card
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowBulkImport(true)}
+            className="flex items-center gap-2 px-4 py-3.5 rounded-xl
+              border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
+              text-slate-400 hover:text-violet-500 font-medium text-sm transition-all whitespace-nowrap"
+          >
+            <ClipboardList className="w-4 h-4" />
+            Bulk add
+          </button>
+        </div>
 
         {/* Progress hint */}
         {items.length > 0 && items.length < 4 && (
@@ -516,6 +550,14 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           </p>
         )}
       </div>
+
+      {/* ── Bulk import modal ─────────────────────────────────────────────── */}
+      {showBulkImport && (
+        <BulkImportModal
+          onImport={handleBulkImport}
+          onClose={() => setShowBulkImport(false)}
+        />
+      )}
 
       {/* ── Right side panel (desktop only) ───────────────────────────────── */}
       <div className="hidden lg:block fixed right-6 top-24 w-56 space-y-3">

@@ -149,6 +149,36 @@ export async function createContentItem(
   return item as { id: string; position: number; data: Record<string, unknown> }
 }
 
+export async function bulkCreateContentItems(
+  setId: string,
+  rows: Array<Record<string, unknown>>,
+): Promise<{ id: string; position: number; data: Record<string, unknown> }[]> {
+  const supabase = await createClient()
+
+  const { data: existing } = await supabase
+    .from('content_items')
+    .select('position')
+    .eq('set_id', setId)
+    .order('position', { ascending: false })
+    .limit(1)
+
+  const startPosition = existing && existing.length > 0 ? (existing[0].position as number) + 1 : 0
+
+  const insertRows = rows.map((data, i) => ({
+    set_id: setId,
+    position: startPosition + i,
+    data,
+  }))
+
+  const { data: created, error } = await supabase
+    .from('content_items')
+    .insert(insertRows)
+    .select()
+
+  if (error || !created) throw new Error(error?.message ?? 'Bulk insert failed')
+  return created as { id: string; position: number; data: Record<string, unknown> }[]
+}
+
 export async function updateContentItem(id: string, data: Record<string, unknown>) {
   const supabase = await createClient()
   const { error } = await supabase
