@@ -207,14 +207,15 @@ export function StoryBuilderPlayerPanel({
       </div>
 
       {/* Story feed */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-900/50">
-        {storyState.sentences.length === 0 ? (
+      <div className="flex-1 overflow-y-auto px-4 py-3 bg-slate-900/50">
+        {storyState.sentences.length === 0 && (
           <div className="py-8 text-center">
             <div className="text-3xl mb-2">📖</div>
             <p className="text-slate-500 text-sm">The story is just beginning...</p>
           </div>
-        ) : (
-          <AnimatePresence initial={false}>
+        )}
+        <div className="space-y-3">
+          <AnimatePresence>
             {storyState.sentences.map((s, i) => {
               const isSelf = s.author_id === participantId
               const pIdx = participants.findIndex(p => p.id === s.author_id)
@@ -247,7 +248,7 @@ export function StoryBuilderPlayerPanel({
               )
             })}
           </AnimatePresence>
-        )}
+        </div>
         <div ref={storyEndRef} />
       </div>
 

@@ -137,8 +137,8 @@ export function StoryBuilderHostPanel({
           </p>
         </div>
 
-        <div className="px-5 py-4 space-y-3 max-h-80 overflow-y-auto">
-          {storyState.sentences.length === 0 ? (
+        <div className="px-5 py-4 max-h-80 overflow-y-auto">
+          {storyState.sentences.length === 0 && (
             <div className="py-8 text-center">
               <div className="text-3xl mb-2">✍️</div>
               <p className="text-slate-400 text-sm">
@@ -148,8 +148,9 @@ export function StoryBuilderHostPanel({
                 }
               </p>
             </div>
-          ) : (
-            <AnimatePresence initial={false}>
+          )}
+          <div className="space-y-3">
+            <AnimatePresence>
               {storyState.sentences.map((s, i) => {
                 const pIdx = participants.findIndex(x => x.id === s.author_id)
                 return (
@@ -177,7 +178,7 @@ export function StoryBuilderHostPanel({
                 )
               })}
             </AnimatePresence>
-          )}
+          </div>
         </div>
       </div>
 
