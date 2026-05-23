@@ -1,5 +1,6 @@
 'use client'
 
+import { AnimatePresence, motion } from 'framer-motion'
 import { BookOpen, ChevronRight, StopCircle, Users } from 'lucide-react'
 import type { StoryBuilderState } from './types'
 
@@ -16,6 +17,7 @@ export interface StoryBuilderHostPanelProps {
   isAdvancing: boolean
   onNextActivity: () => void
   onEndLesson: () => void
+  typingUser?: { participantId: string; name: string } | null
 }
 
 export function StoryBuilderHostPanel({
@@ -25,6 +27,7 @@ export function StoryBuilderHostPanel({
   isAdvancing,
   onNextActivity,
   onEndLesson,
+  typingUser,
 }: StoryBuilderHostPanelProps) {
   const currentPlayerId = storyState.turnOrder[storyState.currentTurnIndex] ?? null
   const currentPlayer = participants.find(p => p.id === currentPlayerId)
@@ -93,12 +96,24 @@ export function StoryBuilderHostPanel({
                 <span className={`text-sm font-semibold ${isCurrent ? 'text-emerald-700' : 'text-slate-600'}`}>
                   {p?.nickname ?? '???'}
                 </span>
-                {isCurrent && (
+                {isCurrent && typingUser?.participantId === pid ? (
+                  <span className="flex items-center gap-1">
+                    <span className="text-xs text-emerald-600 font-medium">typing</span>
+                    <span className="flex gap-0.5">
+                      {[0, 1, 2].map(j => (
+                        <span
+                          key={j}
+                          className="w-1 h-1 rounded-full bg-emerald-500 animate-bounce"
+                          style={{ animationDelay: `${j * 0.15}s`, animationDuration: '0.9s' }}
+                        />
+                      ))}
+                    </span>
+                  </span>
+                ) : isCurrent ? (
                   <span className="text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-medium">
                     writing
                   </span>
-                )}
-                {!isCurrent && (
+                ) : (
                   <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
                 )}
               </div>
@@ -134,26 +149,34 @@ export function StoryBuilderHostPanel({
               </p>
             </div>
           ) : (
-            storyState.sentences.map((s, i) => {
-              const pIdx = participants.findIndex(x => x.id === s.author_id)
-              return (
-                <div key={i} className="flex gap-3">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center
-                    text-xs font-bold text-white shrink-0 mt-0.5
-                    ${avatarBg(pIdx >= 0 ? pIdx : i)}`}>
-                    {s.author_name[0]?.toUpperCase() ?? '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-xs font-semibold text-slate-500 mr-1">
-                      {s.author_name}:
-                    </span>
-                    <span className="text-slate-800 text-sm leading-relaxed">
-                      {s.text}
-                    </span>
-                  </div>
-                </div>
-              )
-            })
+            <AnimatePresence initial={false}>
+              {storyState.sentences.map((s, i) => {
+                const pIdx = participants.findIndex(x => x.id === s.author_id)
+                return (
+                  <motion.div
+                    key={s.ts + i}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    className="flex gap-3"
+                  >
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center
+                      text-xs font-bold text-white shrink-0 mt-0.5
+                      ${avatarBg(pIdx >= 0 ? pIdx : i)}`}>
+                      {s.author_name[0]?.toUpperCase() ?? '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs font-semibold text-slate-500 mr-1">
+                        {s.author_name}:
+                      </span>
+                      <span className="text-slate-800 text-sm leading-relaxed">
+                        {s.text}
+                      </span>
+                    </div>
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
           )}
         </div>
       </div>

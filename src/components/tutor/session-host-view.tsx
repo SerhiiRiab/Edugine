@@ -131,6 +131,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
 
   // Story Builder shared state
   const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
+  const [typingUser, setTypingUser] = useState<{ participantId: string; name: string } | null>(null)
 
   const [isStarting, startTransition] = useTransition()
   const [isEnding, endTransition] = useTransition()
@@ -297,6 +298,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
         const p = payload as { state: StoryBuilderState }
         if (p.state) setStoryState(p.state)
+      })
+      .on('broadcast', { event: 'typing_indicator' }, ({ payload }) => {
+        const p = payload as { participantId: string; name: string; isTyping: boolean }
+        setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'game_complete' }, ({ payload }) => {
         const p = payload as GameResult & { participantId?: string; activityIndex?: number }
@@ -841,6 +846,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
                 isAdvancing={isAdvancing}
                 onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
                 onEndLesson={handleEndLesson}
+                typingUser={typingUser}
               />
             )}
 

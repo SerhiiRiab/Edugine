@@ -97,6 +97,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
   // Story Builder shared state (null when current activity is not story_builder)
   const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
+  const [typingUser, setTypingUser] = useState<{ participantId: string; name: string } | null>(null)
 
   const [currentCardIndex, setCurrentCardIndex] = useState(0)
   const [score, setScore] = useState(0)
@@ -276,6 +277,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         if (p.state && p.participantId !== participantIdRef.current) {
           setStoryState(p.state)
         }
+      })
+      .on('broadcast', { event: 'typing_indicator' }, ({ payload }) => {
+        const p = payload as { participantId: string; name: string; isTyping: boolean }
+        if (p.participantId === participantIdRef.current) return
+        setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
         const p = payload as { nextIndex: number; totalCards: number; storyState?: StoryBuilderState }
@@ -759,6 +765,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           participants={waitingParticipants}
           channelRef={channelRef}
           onStateUpdate={setStoryState}
+          typingUser={typingUser}
         />
       )}
 

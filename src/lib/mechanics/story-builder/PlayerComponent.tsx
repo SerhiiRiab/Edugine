@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import type { StoryBuilderState, StorySentence } from './types'
@@ -21,6 +22,7 @@ export interface StoryBuilderPlayerPanelProps {
   participants: { id: string; nickname: string }[]
   channelRef: { current: RealtimeChannel | null }
   onStateUpdate: (newState: StoryBuilderState) => void
+  typingUser?: { participantId: string; name: string } | null
 }
 
 export function StoryBuilderPlayerPanel({
@@ -32,16 +34,50 @@ export function StoryBuilderPlayerPanel({
   participants,
   channelRef,
   onStateUpdate,
+  typingUser,
 }: StoryBuilderPlayerPanelProps) {
   const [inputText, setInputText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const storyEndRef = useRef<HTMLDivElement>(null)
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isTypingRef = useRef(false)
 
   const myPosition = storyState.turnOrder.indexOf(participantId)
   const isMyTurn = storyState.currentTurnIndex === myPosition && myPosition >= 0
   const currentPlayerId = storyState.turnOrder[storyState.currentTurnIndex] ?? null
   const currentPlayerName = participants.find(p => p.id === currentPlayerId)?.nickname
     ?? (currentPlayerId === participantId ? nickname : 'Someone')
+
+  const broadcastTyping = useCallback((isTyping: boolean) => {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing_indicator',
+      payload: { participantId, name: nickname, isTyping },
+    })
+    isTypingRef.current = isTyping
+  }, [channelRef, participantId, nickname])
+
+  function handleInputChange(value: string) {
+    setInputText(value)
+    if (!isMyTurn) return
+
+    if (!isTypingRef.current) {
+      broadcastTyping(true)
+    }
+
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      broadcastTyping(false)
+    }, 2500)
+  }
+
+  // Clear typing on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+      if (isTypingRef.current) broadcastTyping(false)
+    }
+  }, [broadcastTyping])
 
   function insertWord(word: string) {
     if (!isMyTurn) return
@@ -52,6 +88,10 @@ export function StoryBuilderPlayerPanel({
   async function handleSubmit() {
     const text = inputText.trim()
     if (!text || !isMyTurn || isSubmitting) return
+
+    // Clear typing indicator before submit
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    if (isTypingRef.current) broadcastTyping(false)
 
     setIsSubmitting(true)
     setInputText('')
@@ -85,16 +125,19 @@ export function StoryBuilderPlayerPanel({
         payload: { state: newState, participantId },
       })
 
-      // scroll to bottom of story feed
       setTimeout(() => storyEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
     } catch {
-      // restore on failure
       setInputText(text)
       onStateUpdate(storyState)
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  // Someone else is typing (not me, and it's the current player's turn)
+  const showTypingIndicator = typingUser
+    && typingUser.participantId !== participantId
+    && !isMyTurn
 
   return (
     <div className="flex-1 flex flex-col gap-0 overflow-hidden">
@@ -136,15 +179,31 @@ export function StoryBuilderPlayerPanel({
       )}
 
       {/* Turn indicator */}
-      <div className={`px-4 py-2.5 text-sm font-semibold border-b ${
+      <div className={`px-4 py-2.5 border-b ${
         isMyTurn
-          ? 'bg-emerald-900/30 border-emerald-800/50 text-emerald-300'
-          : 'bg-slate-800/50 border-slate-800 text-slate-400'
+          ? 'bg-emerald-900/30 border-emerald-800/50'
+          : 'bg-slate-800/50 border-slate-800'
       }`}>
-        {isMyTurn
-          ? '🟢 Your turn! Write the next sentence.'
-          : `⏳ Waiting for ${currentPlayerName}...`
-        }
+        <div className={`text-sm font-semibold ${isMyTurn ? 'text-emerald-300' : 'text-slate-400'}`}>
+          {isMyTurn
+            ? '🟢 Your turn! Write the next sentence.'
+            : `⏳ Waiting for ${currentPlayerName}...`
+          }
+        </div>
+        {showTypingIndicator && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className="text-xs text-slate-500">{typingUser!.name} is typing</span>
+            <span className="flex gap-0.5">
+              {[0, 1, 2].map(i => (
+                <span
+                  key={i}
+                  className="w-1 h-1 rounded-full bg-slate-500 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.9s' }}
+                />
+              ))}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Story feed */}
@@ -155,34 +214,39 @@ export function StoryBuilderPlayerPanel({
             <p className="text-slate-500 text-sm">The story is just beginning...</p>
           </div>
         ) : (
-          storyState.sentences.map((s, i) => {
-            const isSelf = s.author_id === participantId
-            const pIdx = participants.findIndex(p => p.id === s.author_id)
-            return (
-              <div
-                key={i}
-                className={`flex gap-2.5 ${isSelf ? 'flex-row-reverse' : ''}`}
-              >
-                <div className={`w-7 h-7 rounded-full flex items-center justify-center
-                  text-xs font-bold text-white shrink-0 mt-0.5
-                  ${avatarBg(pIdx >= 0 ? pIdx : i)}`}>
-                  {s.author_name[0]?.toUpperCase() ?? '?'}
-                </div>
-                <div className={`max-w-[80%] ${isSelf ? 'items-end' : 'items-start'} flex flex-col`}>
-                  <span className={`text-[10px] font-semibold text-slate-500 mb-0.5 ${isSelf ? 'text-right' : ''}`}>
-                    {isSelf ? 'You' : s.author_name}
-                  </span>
-                  <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                    isSelf
-                      ? 'bg-violet-600 text-white rounded-tr-sm'
-                      : 'bg-slate-800 text-slate-200 rounded-tl-sm'
-                  }`}>
-                    {s.text}
+          <AnimatePresence initial={false}>
+            {storyState.sentences.map((s, i) => {
+              const isSelf = s.author_id === participantId
+              const pIdx = participants.findIndex(p => p.id === s.author_id)
+              return (
+                <motion.div
+                  key={s.ts + i}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.35, ease: 'easeOut' }}
+                  className={`flex gap-2.5 ${isSelf ? 'flex-row-reverse' : ''}`}
+                >
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center
+                    text-xs font-bold text-white shrink-0 mt-0.5
+                    ${avatarBg(pIdx >= 0 ? pIdx : i)}`}>
+                    {s.author_name[0]?.toUpperCase() ?? '?'}
                   </div>
-                </div>
-              </div>
-            )
-          })
+                  <div className={`max-w-[80%] ${isSelf ? 'items-end' : 'items-start'} flex flex-col`}>
+                    <span className={`text-[10px] font-semibold text-slate-500 mb-0.5 ${isSelf ? 'text-right' : ''}`}>
+                      {isSelf ? 'You' : s.author_name}
+                    </span>
+                    <div className={`px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                      isSelf
+                        ? 'bg-violet-600 text-white rounded-tr-sm'
+                        : 'bg-slate-800 text-slate-200 rounded-tl-sm'
+                    }`}>
+                      {s.text}
+                    </div>
+                  </div>
+                </motion.div>
+              )
+            })}
+          </AnimatePresence>
         )}
         <div ref={storyEndRef} />
       </div>
@@ -192,7 +256,7 @@ export function StoryBuilderPlayerPanel({
         <div className="flex gap-2">
           <textarea
             value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
