@@ -1,7 +1,7 @@
 /**
- * Typed helpers for reading participant_progress.
+ * Typed helpers for reading participant_progress and shared_activity_state.
  *
- * Both functions require session_id as the first argument so the caller
+ * All functions require session_id as the first argument so callers
  * cannot accidentally omit it and pull rows from other sessions.
  */
 
@@ -77,4 +77,35 @@ export async function getAllStudentsProgress(
     result[row.participant_id].push(mapRow(row))
   }
   return result
+}
+
+// ── Shared (team) activity results ──────────────────────────────────────────
+
+export interface TeamActivityResult {
+  activityIndex: number
+  teamScore: number
+  usedWordsCount: number
+  totalWords: number
+}
+
+/**
+ * Returns team scores from shared_activity_state for a session.
+ * Used in the lesson completion screen to display Story Builder results.
+ */
+export async function getTeamActivityResults(sessionId: string): Promise<TeamActivityResult[]> {
+  const supabase = createClient()
+  const { data } = await supabase
+    .from('shared_activity_state')
+    .select('activity_index, state')
+    .eq('session_id', sessionId)
+    .order('activity_index')
+  return (data ?? []).map(row => {
+    const s = (row.state ?? {}) as { teamScore?: number; wordBank?: Array<{ used: boolean }> }
+    return {
+      activityIndex: row.activity_index as number,
+      teamScore: s.teamScore ?? 0,
+      usedWordsCount: (s.wordBank ?? []).filter(w => w.used).length,
+      totalWords: (s.wordBank ?? []).length,
+    }
+  })
 }

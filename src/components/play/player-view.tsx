@@ -9,8 +9,8 @@ import {
 } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { getSessionResults } from '@/lib/queries/session-results'
-import type { ActivityProgress } from '@/lib/queries/session-results'
+import { getSessionResults, getTeamActivityResults } from '@/lib/queries/session-results'
+import type { ActivityProgress, TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerComponent'
 
@@ -107,6 +107,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [hostEnded, setHostEnded] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
   const [completionData, setCompletionData] = useState<ActivityProgress[] | null>(null)
+  const [teamCompletionData, setTeamCompletionData] = useState<TeamActivityResult[]>([])
 
   const currentActivity = isLesson ? lesson.activities[currentActivityIndex] ?? null : null
   const isStoryActivity = currentActivity?.mechanic_id === 'story_builder'
@@ -306,10 +307,12 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         setLessonComplete(true)
         setPhase('finished')
         const pid = participantIdRef.current
-        if (pid) {
-          const results = await getSessionResults(session.id, pid)
-          if (results.length > 0) setCompletionData(results)
-        }
+        const [individualResults, teamResults] = await Promise.all([
+          pid ? getSessionResults(session.id, pid) : Promise.resolve([]),
+          getTeamActivityResults(session.id),
+        ])
+        if (individualResults.length > 0) setCompletionData(individualResults)
+        if (teamResults.length > 0) setTeamCompletionData(teamResults)
       })
       .on('broadcast', { event: 'game_ended' }, () => {
         setHostEnded(true)
@@ -968,44 +971,61 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               <>
                 <div className="text-center space-y-2">
                   <div className="text-5xl">
-                    {completionTotal / Math.max(lesson.activities.length, 1) >= 80 ? '🏆' : '🎉'}
+                    {completionTotal >= 80 ? '🏆' : '🎉'}
                   </div>
                   <h2 className="text-2xl font-black">Lesson complete!</h2>
-                  <p className="text-slate-400">
-                    Total: <span className="text-violet-400 font-bold">{completionTotal} points</span>
-                  </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-                    <div className="text-xl font-black text-emerald-400">{lesson.activities.length}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Activities</div>
-                  </div>
-                  <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-                    <div className="text-xl font-black text-violet-400">{completionTotal}</div>
-                    <div className="text-xs text-slate-500 mt-0.5">Total pts</div>
-                  </div>
-                  <div className="bg-slate-800 rounded-xl p-3 border border-slate-700">
-                    <div className="text-xl font-black text-slate-300">
-                      {lesson.activities.length > 0
-                        ? Math.round(completionTotal / lesson.activities.length)
-                        : 0}
-                    </div>
-                    <div className="text-xs text-slate-500 mt-0.5">Avg/activity</div>
-                  </div>
-                </div>
-
+                {/* Individual scores section */}
                 {completionEntries.length > 0 && (
                   <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
-                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
-                      Per activity
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
+                      👤 Your Scores
                     </p>
-                    {completionEntries.map((entry, i) => (
-                      <div key={i} className="flex items-center justify-between text-sm">
-                        <span className="text-slate-400">Activity {entry.activityIndex + 1}</span>
-                        <span className="text-violet-400 font-bold">{entry.score} pts</span>
-                      </div>
-                    ))}
+                    {completionEntries.map((entry, i) => {
+                      const act = lesson.activities[entry.activityIndex]
+                      const label = act?.mechanic_id === 'story_builder'
+                        ? 'Group Story Builder'
+                        : `Activity ${entry.activityIndex + 1}`
+                      return (
+                        <div key={i} className="flex items-center justify-between text-sm">
+                          <span className="text-slate-400">{label}</span>
+                          <span className="text-violet-400 font-bold tabular-nums">{entry.score} pts</span>
+                        </div>
+                      )
+                    })}
+                    <div className="border-t border-slate-700 pt-2 flex items-center justify-between text-sm font-bold">
+                      <span className="text-slate-300">Total</span>
+                      <span className="text-violet-400 tabular-nums">{completionTotal} pts</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Team activities section */}
+                {teamCompletionData.length > 0 && (
+                  <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
+                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
+                      🤝 Team Activities
+                    </p>
+                    {teamCompletionData.map((r) => {
+                      const act = lesson.activities[r.activityIndex]
+                      const label = act?.mechanic_id === 'story_builder'
+                        ? 'Group Story Builder'
+                        : `Activity ${r.activityIndex + 1}`
+                      return (
+                        <div key={r.activityIndex} className="flex items-center justify-between text-sm">
+                          <div>
+                            <span className="text-slate-400">{label}</span>
+                            {r.totalWords > 0 && (
+                              <span className="text-slate-600 text-xs ml-2">
+                                ({r.usedWordsCount}/{r.totalWords} words)
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-emerald-400 font-bold tabular-nums">🏆 {r.teamScore} pts</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </>

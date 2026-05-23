@@ -7,12 +7,13 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Copy, Check, Wifi, WifiOff,
   PlayCircle, StopCircle, RotateCcw, Users,
-  Clock, Target, TrendingUp, Eye, ChevronRight, ChevronLeft,
+  Clock, Target, TrendingUp, Eye, ChevronRight, ChevronLeft, Trophy,
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { startSession, endSession, advanceActivity, initStoryState } from '@/lib/actions/sessions'
-import { getAllStudentsProgress } from '@/lib/queries/session-results'
+import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
+import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostComponent'
 
@@ -132,6 +133,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
   // Story Builder shared state
   const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
   const [typingUser, setTypingUser] = useState<{ participantId: string; name: string } | null>(null)
+
+  // Lesson completion data
+  const [teamActivityResults, setTeamActivityResults] = useState<TeamActivityResult[]>([])
 
   const [isStarting, startTransition] = useTransition()
   const [isEnding, endTransition] = useTransition()
@@ -545,6 +549,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
           return merged
         })
       }
+
+      // Load team (shared activity) scores from shared_activity_state
+      const teamResults = await getTeamActivityResults(session.id)
+      if (teamResults.length > 0) setTeamActivityResults(teamResults)
 
       setPhase('finished')
     } catch {
@@ -1462,56 +1470,100 @@ export function SessionHostView({ session, items, lesson }: Props) {
               )}
             </div>
 
-            {/* Per-student lesson results */}
+            {/* ── SECTION 1: Individual Scores ───────────────────────────────── */}
             {isLesson && (
-              <div className="space-y-4">
-                {[...participants]
-                  .map((student, originalIndex) => {
-                    const results = perStudentResults[student.id] ?? []
-                    const total = results.reduce((s, r) => s + r.score, 0)
-                    return { student, originalIndex, results, total }
-                  })
-                  .sort((a, b) => b.total - a.total)
-                  .map(({ student, originalIndex, results, total }) => (
-                    <div key={student.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${avatarBg(originalIndex)}`}>
-                          {student.nickname[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-bold text-slate-800 truncate">{student.nickname}</div>
-                          <div className="text-sm text-violet-600 font-semibold">{total} pts total</div>
-                        </div>
-                      </div>
-                      {results.length > 0 ? (
-                        <div className="space-y-2">
-                          {results.map((r) => {
-                            const act = lesson!.activities[r.activityIndex]
-                            const acc = r.totalCards > 0 ? Math.round((r.correct / r.totalCards) * 100) : 0
-                            return (
-                              <div key={r.activityIndex} className="flex items-center gap-3 text-sm py-1">
-                                <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
-                                  {r.activityIndex + 1}
-                                </div>
-                                <span className="flex-1 text-slate-600 truncate">
-                                  {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
-                                </span>
-                                <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
-                                <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
-                              </div>
-                            )
-                          })}
-                          <div className="border-t border-slate-100 pt-2 flex justify-between text-sm font-bold">
-                            <span className="text-slate-600">Total</span>
-                            <span className="text-violet-600">{total} pts</span>
+              <div>
+                <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">
+                  👤 Individual Scores
+                </h3>
+                <div className="space-y-4">
+                  {[...participants]
+                    .map((student, originalIndex) => {
+                      const results = (perStudentResults[student.id] ?? [])
+                        .filter(r => lesson!.activities[r.activityIndex]?.mode !== 'shared')
+                      const total = results.reduce((s, r) => s + r.score, 0)
+                      return { student, originalIndex, results, total }
+                    })
+                    .sort((a, b) => b.total - a.total)
+                    .map(({ student, originalIndex, results, total }) => (
+                      <div key={student.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${avatarBg(originalIndex)}`}>
+                            {student.nickname[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-bold text-slate-800 truncate">{student.nickname}</div>
+                            <div className="text-sm text-violet-600 font-semibold">{total} pts</div>
                           </div>
                         </div>
-                      ) : (
-                        <p className="text-sm text-slate-400">No results recorded</p>
-                      )}
-                    </div>
-                  ))
-                }
+                        {results.length > 0 ? (
+                          <div className="space-y-2">
+                            {results.map((r) => {
+                              const act = lesson!.activities[r.activityIndex]
+                              const acc = r.totalCards > 0 ? Math.round((r.correct / r.totalCards) * 100) : 0
+                              return (
+                                <div key={r.activityIndex} className="flex items-center gap-3 text-sm py-1">
+                                  <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                    {r.activityIndex + 1}
+                                  </div>
+                                  <span className="flex-1 text-slate-600 truncate">
+                                    {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
+                                  </span>
+                                  <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
+                                  <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                                </div>
+                              )
+                            })}
+                            <div className="border-t border-slate-100 pt-2 flex justify-between text-sm font-bold">
+                              <span className="text-slate-600">Total</span>
+                              <span className="text-violet-600">{total} pts</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-slate-400 italic">No individual activities</p>
+                        )}
+                      </div>
+                    ))
+                  }
+                </div>
+              </div>
+            )}
+
+            {/* ── SECTION 2: Team Activities ──────────────────────────────────── */}
+            {isLesson && teamActivityResults.length > 0 && (
+              <div>
+                <h3 className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">
+                  🤝 Team Activities
+                </h3>
+                <div className="space-y-3">
+                  {teamActivityResults.map((r) => {
+                    const act = lesson!.activities[r.activityIndex]
+                    return (
+                      <div key={r.activityIndex} className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold shrink-0">
+                            {r.activityIndex + 1}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-800 text-sm truncate">
+                              {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
+                            </div>
+                            {r.totalWords > 0 && (
+                              <div className="text-xs text-slate-500 mt-0.5">
+                                Words used: {r.usedWordsCount}/{r.totalWords}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <Trophy className="w-4 h-4 text-yellow-500" />
+                            <span className="text-lg font-bold text-violet-600 tabular-nums">{r.teamScore}</span>
+                            <span className="text-sm text-slate-400">pts</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             )}
 
