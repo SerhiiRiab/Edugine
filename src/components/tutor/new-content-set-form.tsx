@@ -33,6 +33,13 @@ const SELECTABLE_MECHANICS = [
     dot: 'border-violet-500 bg-violet-500',
   },
   {
+    id: 'speed_match',
+    name: 'Speed Match ⚡',
+    desc: 'Match pairs against the clock — two columns, click to connect',
+    badge: 'border-sky-300 bg-sky-50',
+    dot: 'border-sky-500 bg-sky-500',
+  },
+  {
     id: 'story_builder',
     name: 'Group Story Builder 📖',
     desc: 'Collaborative turn-based story writing with a shared word bank',

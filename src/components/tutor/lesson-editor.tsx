@@ -80,6 +80,11 @@ const MECHANIC_META: Record<string, { label: string; icon: string; classes: stri
     icon: '🎯',
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
+  speed_match: {
+    label: 'Speed Match',
+    icon: '⚡',
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
   story_builder: {
     label: 'Story Builder',
     icon: '📖',
@@ -98,7 +103,7 @@ const MECHANIC_META: Record<string, { label: string; icon: string; classes: stri
 }
 
 // Mechanics that only support individual mode (shared unavailable)
-const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_debate', 'roleplay_quest'])
+const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest'])
 
 // ── Save indicator ────────────────────────────────────────────────────────────
 

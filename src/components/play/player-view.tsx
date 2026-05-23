@@ -13,6 +13,7 @@ import { getSessionResults, getTeamActivityResults } from '@/lib/queries/session
 import type { ActivityProgress, TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerComponent'
+import { SpeedMatchPlayerPanel } from '@/lib/mechanics/speed-match/PlayerComponent'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -21,6 +22,8 @@ interface CardItem {
   word: string
   translation: string
   isCorrect: boolean
+  front?: string   // speed_match
+  back?: string    // speed_match
 }
 
 interface GameResult {
@@ -111,6 +114,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
   const currentActivity = isLesson ? lesson.activities[currentActivityIndex] ?? null : null
   const isStoryActivity = currentActivity?.mechanic_id === 'story_builder'
+  const isSpeedMatchActivity = currentActivity?.mechanic_id === 'speed_match'
 
   const currentItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
@@ -324,11 +328,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id])
 
-  // ── Timer (disabled for story activities) ─────────────────────────────────────
+  // ── Timer (disabled for story and speed_match activities) ─────────────────────
   timeoutHandlerRef.current = () => handleSwipeInternal(false, true)
 
   useEffect(() => {
-    if (phase !== 'playing' || isStoryActivity) return
+    if (phase !== 'playing' || isStoryActivity || isSpeedMatchActivity) return
 
     setTimeLeft(TIME_PER_CARD)
     if (timerRef.current) clearInterval(timerRef.current)
@@ -344,7 +348,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   }, [currentCardIndex, phase, isStoryActivity])
 
   useEffect(() => {
-    if (phase === 'playing' && timeLeft === 0 && !isStoryActivity) {
+    if (phase === 'playing' && timeLeft === 0 && !isStoryActivity && !isSpeedMatchActivity) {
       if (timerRef.current) clearInterval(timerRef.current)
       timeoutHandlerRef.current()
     }
@@ -781,8 +785,67 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         </div>
       )}
 
+      {/* ── PLAYING PHASE (speed match) ──────────────────────────────────────── */}
+      {phase === 'playing' && isSpeedMatchActivity && participantId && (
+        <SpeedMatchPlayerPanel
+          sessionId={session.id}
+          activityIndex={currentActivityIndex}
+          participantId={participantId}
+          items={currentItems.map(i => ({
+            id: i.id,
+            front: i.front || i.word,
+            back: i.back || i.translation,
+          }))}
+          channelRef={channelRef}
+          onFinish={(score, stats) => {
+            const result: GameResult = {
+              totalCards: stats.total,
+              correct: stats.matched,
+              incorrect: stats.wrongAttempts,
+              score,
+              swipes: [],
+            }
+            setGameResult(result)
+            scoreRef.current = score
+
+            const stored = (() => {
+              try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? '{}') } catch { return {} }
+            })()
+
+            if (isLesson) {
+              setTotalScore(prev => prev + score)
+              setActivityScores(prev => [...prev, score])
+              setPhase('activity_transition')
+              channelRef.current?.send({
+                type: 'broadcast',
+                event: 'game_complete',
+                payload: {
+                  totalCards: stats.total, correct: stats.matched,
+                  incorrect: stats.wrongAttempts, score,
+                  swipes: [], nickname: stored.nickname ?? nickname,
+                  activityIndex: currentActivityIndexRef.current,
+                  participantId: participantIdRef.current,
+                },
+              })
+            } else {
+              setPhase('finished')
+              channelRef.current?.send({
+                type: 'broadcast',
+                event: 'game_complete',
+                payload: {
+                  totalCards: stats.total, correct: stats.matched,
+                  incorrect: stats.wrongAttempts, score,
+                  swipes: [], nickname: stored.nickname ?? nickname,
+                  participantId: participantIdRef.current,
+                },
+              })
+            }
+          }}
+        />
+      )}
+
       {/* ── PLAYING PHASE (swipe battle) ─────────────────────────────────────── */}
-      {phase === 'playing' && !isStoryActivity && (
+      {phase === 'playing' && !isStoryActivity && !isSpeedMatchActivity && (
         <div className="flex-1 flex flex-col">
           {/* Header */}
           <div className="px-4 pt-4 pb-2">
@@ -986,6 +1049,8 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                       const act = lesson.activities[entry.activityIndex]
                       const label = act?.mechanic_id === 'story_builder'
                         ? 'Group Story Builder'
+                        : act?.mechanic_id === 'speed_match'
+                        ? 'Speed Match'
                         : `Activity ${entry.activityIndex + 1}`
                       return (
                         <div key={i} className="flex items-center justify-between text-sm">

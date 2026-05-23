@@ -16,6 +16,8 @@ import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/se
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostComponent'
+import type { SpeedMatchProgress } from '@/lib/mechanics/speed-match/types'
+import { SpeedMatchHostPanel } from '@/lib/mechanics/speed-match/HostComponent'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -133,6 +135,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
   // Story Builder shared state
   const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
   const [typingUser, setTypingUser] = useState<{ participantId: string; name: string } | null>(null)
+
+  // Speed Match per-participant progress
+  const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
   // Lesson completion data
   const [teamActivityResults, setTeamActivityResults] = useState<TeamActivityResult[]>([])
@@ -307,6 +312,26 @@ export function SessionHostView({ session, items, lesson }: Props) {
         const p = payload as { participantId: string; name: string; isTyping: boolean }
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
+      .on('broadcast', { event: 'speed_match_progress' }, ({ payload }) => {
+        const p = payload as SpeedMatchProgress & { participantId: string }
+        if (!p.participantId) return
+        setSpeedMatchProgress(prev => ({
+          ...prev,
+          [p.participantId]: {
+            matched: p.matched,
+            total: p.total,
+            score: p.score,
+            elapsed: p.elapsed,
+            wrongAttempts: p.wrongAttempts,
+            finished: p.finished,
+          },
+        }))
+        if (p.participantId) {
+          setParticipants(prev => prev.map(x =>
+            x.id === p.participantId ? { ...x, score: p.score } : x
+          ))
+        }
+      })
       .on('broadcast', { event: 'game_complete' }, ({ payload }) => {
         const p = payload as GameResult & { participantId?: string; activityIndex?: number }
         const pid = p.participantId ?? null
@@ -443,6 +468,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
           },
         })
         setPhase('active')
+        setSpeedMatchProgress({})
         setParticipants(prev => prev.map(p => ({
           ...p,
           cardIndex: 0,
@@ -491,6 +517,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
       })
       setCurrentActivityIndex(nextIndex)
       setLessonBetween(false)
+      setSpeedMatchProgress({})
       setParticipants(prev => prev.map(p => ({
         ...p,
         cardIndex: 0,
@@ -892,8 +919,29 @@ export function SessionHostView({ session, items, lesson }: Props) {
               />
             )}
 
+            {/* ── SPEED MATCH PANEL ────────────────────────────────────── */}
+            {(isLesson
+              ? lesson.activities[currentActivityIndex]?.mechanic_id === 'speed_match'
+              : session.mechanic_id === 'speed_match'
+            ) && (
+              <SpeedMatchHostPanel
+                participants={participants}
+                progress={speedMatchProgress}
+                totalPairs={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
+                onEndLesson={handleEndLesson}
+                onEndGame={handleEndGame}
+                isLesson={isLesson}
+              />
+            )}
+
             {/* ── SWIPE BATTLE / DEFAULT UI ─────────────────────────────── */}
-            {!(isLesson && lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder') && (
+            {!(isLesson && (
+              lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder' ||
+              lesson.activities[currentActivityIndex]?.mechanic_id === 'speed_match'
+            )) && !(session.mechanic_id === 'speed_match') && (
               <>
             {/* Participant selector strip */}
             {participants.length > 1 && (

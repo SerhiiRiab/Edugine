@@ -6,6 +6,7 @@ import type { BulkSeparator } from '@/lib/utils/bulk-import-parser'
 export type MechanicId =
   | 'swipe_battle'
   | 'story_builder'
+  | 'speed_match'
   | 'speed_debate'
   | 'roleplay_quest'
 
