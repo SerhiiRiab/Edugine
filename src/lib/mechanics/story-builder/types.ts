@@ -25,4 +25,6 @@ export interface StoryBuilderState {
   turnOrder: string[]        // participant IDs in play order
   currentTurnIndex: number
   status: 'active' | 'finished'
+  teamScore: number          // collective score for all players
+  usedWords: string[]        // lowercase word bank entries that have been used (for dedup)
 }

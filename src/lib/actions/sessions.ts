@@ -168,6 +168,8 @@ export async function initStoryState(
     turnOrder,
     currentTurnIndex: 0,
     status: 'active',
+    teamScore: 0,
+    usedWords: [],
   }
 
   await supabase.from('shared_activity_state').upsert(

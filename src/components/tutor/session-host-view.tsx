@@ -554,6 +554,37 @@ export function SessionHostView({ session, items, lesson }: Props) {
     }
   }
 
+  async function storyStateUpdate(newState: StoryBuilderState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setStoryState(newState)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'story_state_update',
+      payload: { state: newState },
+    })
+  }
+
+  async function handleFinishStory() {
+    if (!storyState) return
+    await storyStateUpdate({ ...storyState, status: 'finished' })
+  }
+
+  async function handleSkipTurn() {
+    if (!storyState) return
+    const next = (storyState.currentTurnIndex + 1) % Math.max(storyState.turnOrder.length, 1)
+    await storyStateUpdate({ ...storyState, currentTurnIndex: next })
+  }
+
+  async function handleBonusPoints(amount: number) {
+    if (!storyState) return
+    const newScore = Math.max(0, (storyState.teamScore ?? 0) + amount)
+    await storyStateUpdate({ ...storyState, teamScore: newScore })
+  }
+
   function handleEndGame() {
     endTransition(async () => {
       try {
@@ -847,6 +878,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
                 onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
                 onEndLesson={handleEndLesson}
                 typingUser={typingUser}
+                onFinishStory={handleFinishStory}
+                onSkipTurn={handleSkipTurn}
+                onBonusPoints={handleBonusPoints}
               />
             )}
 
