@@ -160,9 +160,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
 
-  const shareUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/play/${session.code}`
-    : `/play/${session.code}`
+  const [shareUrl, setShareUrl] = useState(`/play/${session.code}`)
+  useEffect(() => {
+    setShareUrl(`${window.location.origin}/play/${session.code}`)
+  }, [session.code])
 
   // Derived: selected participant's state
   const selectedParticipant = participants.find(p => p.id === selectedParticipantId) ?? null
@@ -699,14 +700,14 @@ export function SessionHostView({ session, items, lesson }: Props) {
 
           {phase === 'active' && !lessonBetween && (
             <button
-              onClick={handleEndGame}
-              disabled={isEnding}
+              onClick={isLesson ? handleEndLesson : handleEndGame}
+              disabled={isLesson ? isAdvancing : isEnding}
               className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg
                 border border-red-200 text-red-500 hover:bg-red-50 disabled:opacity-50
                 transition-colors shrink-0"
             >
               <StopCircle className="w-3.5 h-3.5" />
-              {isEnding ? 'Ending...' : 'End game'}
+              {(isLesson ? isAdvancing : isEnding) ? 'Ending...' : isLesson ? 'End lesson' : 'End game'}
             </button>
           )}
         </div>

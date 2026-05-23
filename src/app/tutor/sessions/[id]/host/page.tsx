@@ -61,8 +61,8 @@ export default async function HostPage({
           .sort((a, b) => a.position - b.position)
           .map((i) => ({
             id: i.id,
-            word: (i.data.word as string | undefined) ?? '',
-            translation: (i.data.translation as string | undefined) ?? '',
+            word: (i.data.word as string | undefined) ?? (i.data.front as string | undefined) ?? '',
+            translation: (i.data.translation as string | undefined) ?? (i.data.back as string | undefined) ?? '',
             isCorrect: (i.data.isCorrect as boolean | undefined) ?? true,
           })),
       }))

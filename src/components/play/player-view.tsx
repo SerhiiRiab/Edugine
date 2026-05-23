@@ -129,6 +129,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const participantIdRef = useRef<string | null>(null)
   const scoreRef = useRef(0)
   const currentActivityIndexRef = useRef(session.currentActivityIndex)
+  const currentMechanicIdRef = useRef(currentMechanicId)
   const timeoutHandlerRef = useRef<() => void>(() => {})
   // Guard against double-submit on rapid clicks: synchronous flag so the guard
   // fires before React's async state update propagates.
@@ -138,6 +139,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   useEffect(() => { participantIdRef.current = participantId }, [participantId])
   useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
+  useEffect(() => { currentMechanicIdRef.current = currentMechanicId }, [currentMechanicId])
 
   // Fetch story state from DB when entering playing phase for a story activity (handles reconnections)
   useEffect(() => {
@@ -322,7 +324,12 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       })
       .on('broadcast', { event: 'game_ended' }, () => {
         setHostEnded(true)
-        finishActivity()
+        if (currentMechanicIdRef.current === 'speed_match') {
+          // Speed match manages its own score/result; just end immediately
+          setPhase('finished')
+        } else {
+          finishActivity()
+        }
       })
       .subscribe()
 
