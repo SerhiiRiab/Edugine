@@ -40,7 +40,8 @@ import {
   bulkCreateContentItems,
 } from '@/lib/actions/content-sets'
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
-import type { ParsedPair } from '@/lib/utils/bulk-import-parser'
+import { MECHANICS } from '@/lib/mechanics/registry'
+import type { MechanicId } from '@/lib/mechanics/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -209,6 +210,8 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const itemTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
+  const bulkConfig = MECHANICS[set.mechanic_id as MechanicId]?.bulkImport ?? null
+
   const canStartSession = items.length >= 4
   const correctCount = items.filter((i) => i.isCorrect).length
   const incorrectCount = items.length - correctCount
@@ -332,21 +335,13 @@ export function ContentSetEditor({ set, initialItems }: Props) {
     }
   }
 
-  async function handleBulkImport(pairs: ParsedPair[], markCorrect: boolean) {
+  async function handleBulkImport(rows: Record<string, unknown>[]) {
     try {
-      const rows = pairs.map(({ front, back }) => ({
-        word: front,
-        translation: back,
-        isCorrect: markCorrect,
-      }))
       const created = await bulkCreateContentItems(set.id, rows)
-      const newItems = created.map(c => {
-        const d = c.data as { word?: string; translation?: string; isCorrect?: boolean }
-        return { id: c.id, word: d.word ?? '', translation: d.translation ?? '', isCorrect: d.isCorrect ?? true }
-      })
+      const newItems = created.map(c => rawToEditor(c as RawItem))
       setItems(prev => [...prev, ...newItems])
       setShowBulkImport(false)
-      toast.success(`Added ${pairs.length} card${pairs.length !== 1 ? 's' : ''}`)
+      toast.success(`Added ${rows.length} item${rows.length !== 1 ? 's' : ''}`)
     } catch {
       toast.error('Bulk import failed')
     }
@@ -525,16 +520,18 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             Add card
           </button>
 
-          <button
-            type="button"
-            onClick={() => setShowBulkImport(true)}
-            className="flex items-center gap-2 px-4 py-3.5 rounded-xl
-              border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
-              text-slate-400 hover:text-violet-500 font-medium text-sm transition-all whitespace-nowrap"
-          >
-            <ClipboardList className="w-4 h-4" />
-            Bulk add
-          </button>
+          {bulkConfig?.enabled && (
+            <button
+              type="button"
+              onClick={() => setShowBulkImport(true)}
+              className="flex items-center gap-2 px-4 py-3.5 rounded-xl
+                border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
+                text-slate-400 hover:text-violet-500 font-medium text-sm transition-all whitespace-nowrap"
+            >
+              <ClipboardList className="w-4 h-4" />
+              Bulk add
+            </button>
+          )}
         </div>
 
         {/* Progress hint */}
@@ -552,8 +549,9 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       </div>
 
       {/* ── Bulk import modal ─────────────────────────────────────────────── */}
-      {showBulkImport && (
+      {showBulkImport && bulkConfig && (
         <BulkImportModal
+          config={bulkConfig}
           onImport={handleBulkImport}
           onClose={() => setShowBulkImport(false)}
         />

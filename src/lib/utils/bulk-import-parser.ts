@@ -1,5 +1,9 @@
-// Reusable bulk-import parser for any mechanic that needs pair-based input.
-// Splits pasted text into front/back pairs using a configurable separator.
+/**
+ * Generic bulk-import parser.
+ *
+ * parseLine is supplied by the mechanic definition — this file is format-agnostic.
+ * Mechanics declare *what* to parse; this function handles the line-splitting loop.
+ */
 
 export type BulkSeparator = 'comma' | 'tab' | 'dash' | 'semicolon'
 
@@ -10,48 +14,37 @@ export const SEPARATOR_OPTIONS: { value: BulkSeparator; label: string; char: str
   { value: 'semicolon', label: 'Semicolon  ;', char: ';' },
 ]
 
-export interface ParsedPair {
-  front: string
-  back: string
-}
-
-export interface BulkParseResult {
-  pairs: ParsedPair[]   // valid (both sides present)
-  partial: number       // lines missing the separator (skipped)
-  empty: number         // blank lines (ignored silently)
-  total: number         // non-empty lines seen
-}
-
-function sepChar(sep: BulkSeparator): string {
+export function separatorChar(sep: BulkSeparator): string {
   return SEPARATOR_OPTIONS.find(o => o.value === sep)!.char
 }
 
+export interface BulkParseResult {
+  items: Record<string, unknown>[]  // valid parsed items (parseLine returned non-null)
+  partial: number                    // lines where parseLine returned null (skipped with warning)
+  empty: number                      // blank lines (ignored silently)
+  total: number                      // non-empty lines processed
+}
+
 /**
- * Parse pasted text into word pairs.
- * Splits on the FIRST occurrence of the separator per line so that
- * values containing the separator (e.g. commas inside a phrase) are preserved.
+ * Split text into lines and call parseLine() on each.
+ * Returns only items where parseLine returned non-null.
  */
-export function parseBulkText(text: string, separator: BulkSeparator): BulkParseResult {
-  const char = sepChar(separator)
+export function parseBulkText(
+  text: string,
+  parseLine: (line: string, separator: string) => Record<string, unknown> | null,
+  separator: BulkSeparator,
+): BulkParseResult {
+  const char = separatorChar(separator)
   const lines = text.split('\n')
-  const pairs: ParsedPair[] = []
+  const items: Record<string, unknown>[] = []
   let partial = 0
   let empty = 0
 
   for (const line of lines) {
-    const trimmed = line.trim()
-    if (!trimmed) { empty++; continue }
-
-    const idx = trimmed.indexOf(char)
-    if (idx === -1) { partial++; continue }
-
-    const front = trimmed.slice(0, idx).trim()
-    const back  = trimmed.slice(idx + 1).trim()
-
-    // Both sides must have content
-    if (!front && !back) { partial++; continue }
-    pairs.push({ front, back })
+    if (!line.trim()) { empty++; continue }
+    const result = parseLine(line, char)
+    if (result === null) { partial++ } else { items.push(result) }
   }
 
-  return { pairs, partial, empty, total: lines.length - empty }
+  return { items, partial, empty, total: lines.length - empty }
 }

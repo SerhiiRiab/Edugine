@@ -34,4 +34,30 @@ export const swipeBattleDefinition: MechanicDefinition<
   },
 
   validateItem: validateSwipeBattleItem,
+
+  bulkImport: {
+    enabled: true,
+    fields: [
+      { key: 'word',        label: 'Word',        required: true },
+      { key: 'translation', label: 'Translation', required: true },
+    ],
+    placeholder: 'apple, яблуко\ndog, пес\ncat, кіт',
+    description: 'Paste word pairs — one per line',
+    defaultSeparator: 'comma',
+    parseLine: (line, sep) => {
+      const idx = line.indexOf(sep)
+      if (idx === -1) return null
+      const word        = line.slice(0, idx).trim()
+      const translation = line.slice(idx + 1).trim()
+      if (!word && !translation) return null
+      return { word, translation }
+    },
+    itemDefaults: { isCorrect: true },
+    correctToggle: {
+      field:   'isCorrect',
+      label:   'Mark all as correct pairs',
+      hint:    'Swipe Battle: student swipes right',
+      default: true,
+    },
+  },
 }

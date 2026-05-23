@@ -30,4 +30,16 @@ export const storyBuilderDefinition: MechanicDefinition<
 
   defaultConfig: {},
   validateItem: validateStoryBuilderItem,
+
+  bulkImport: {
+    enabled: true,
+    fields: [{ key: 'word', label: 'Word', required: true }],
+    placeholder: 'airport\nsuitcase\ndelayed\npassport',
+    description: 'Paste target words — one per line',
+    defaultSeparator: 'comma',
+    parseLine: (line) => {
+      const word = line.trim()
+      return word ? { word } : null
+    },
+  },
 }

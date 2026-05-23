@@ -1,4 +1,5 @@
 import type { ComponentType } from 'react'
+import type { BulkSeparator } from '@/lib/utils/bulk-import-parser'
 
 // ── Mechanic IDs ────────────────────────────────────────────────────────────
 // Add new mechanic IDs here as the engine grows.
@@ -29,6 +30,32 @@ export interface ContentEditorProps<TItem = unknown> {
   onChange: (items: TItem[]) => void
 }
 
+// ── Bulk Import ──────────────────────────────────────────────────────────────
+
+export interface BulkImportField {
+  key: string
+  label: string
+  required: boolean
+}
+
+export interface BulkImportCorrectToggle {
+  field: string
+  label: string
+  hint?: string
+  default: boolean
+}
+
+export interface BulkImportConfig {
+  enabled: boolean
+  fields: BulkImportField[]
+  placeholder: string
+  description: string
+  defaultSeparator: BulkSeparator
+  parseLine: (line: string, separator: string) => Record<string, unknown> | null
+  itemDefaults?: Record<string, unknown>
+  correctToggle?: BulkImportCorrectToggle
+}
+
 // ── Mechanic Definition ──────────────────────────────────────────────────────
 // TConfig  — runtime configuration stored in sessions.config
 // TItem    — shape of a single content_items.data record
@@ -51,4 +78,7 @@ export interface MechanicDefinition<
   // Config helpers
   defaultConfig: TConfig
   validateItem: (data: unknown) => data is TItem
+
+  // Optional bulk import config — mechanic declares how to parse pasted text
+  bulkImport?: BulkImportConfig
 }
