@@ -64,8 +64,12 @@ export interface SpeedMatchPlayerPanelProps {
   sessionId: string
   activityIndex: number
   participantId: string
+  nickname: string
   items: SpeedMatchPair[]
   channelRef: { current: RealtimeChannel | null }
+  isLesson: boolean
+  /** When true the host force-ended the session — finalize immediately without broadcasting game_complete */
+  hostEnded?: boolean
   onFinish: (score: number, stats: {
     matched: number; total: number; elapsed: number; wrongAttempts: number
   }) => void
@@ -75,8 +79,11 @@ export function SpeedMatchPlayerPanel({
   sessionId,
   activityIndex,
   participantId,
+  nickname,
   items,
   channelRef,
+  isLesson,
+  hostEnded = false,
   onFinish,
 }: SpeedMatchPlayerPanelProps) {
   const totalPairs = items.length
@@ -148,8 +155,40 @@ export function SpeedMatchPlayerPanel({
       payload: { participantId, matched: finalMatched, total: totalPairs, score: finalScore, elapsed: el, wrongAttempts: finalWrong, finished: true },
     })
 
+    // game_complete so host view knows this participant finished
+    const stored = (() => {
+      try { return JSON.parse(localStorage.getItem(`participant_${sessionId}`) ?? '{}') } catch { return {} }
+    })()
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'game_complete',
+      payload: {
+        totalCards: totalPairs,
+        correct: finalMatched,
+        incorrect: finalWrong,
+        score: finalScore,
+        swipes: [],
+        nickname: stored.nickname ?? nickname,
+        participantId,
+        ...(isLesson && { activityIndex }),
+      },
+    })
+
     onFinish(finalScore, { matched: finalMatched, total: totalPairs, elapsed: el, wrongAttempts: finalWrong })
-  }, [sessionId, participantId, activityIndex, totalPairs, channelRef, onFinish])
+  }, [sessionId, participantId, activityIndex, totalPairs, channelRef, onFinish, nickname, isLesson])
+
+  // Host force-ended the game — finalize with current state, no game_complete broadcast
+  useEffect(() => {
+    if (!hostEnded) return
+    setPhase('finished')
+    onFinish(scoreRef.current, {
+      matched: totalMatchedRef.current,
+      total: totalPairs,
+      elapsed: elapsedRef.current,
+      wrongAttempts: wrongRef.current,
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hostEnded])
 
   function advanceBatch(newBatchIdx: number, currentScore: number, currentMatched: number) {
     const batch = batches[newBatchIdx]

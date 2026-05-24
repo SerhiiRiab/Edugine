@@ -1,12 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  AnimatePresence,
-  motion,
-  useMotionValue,
-  useTransform,
-} from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { getSessionResults, getTeamActivityResults } from '@/lib/queries/session-results'
@@ -14,6 +9,8 @@ import type { ActivityProgress, TeamActivityResult } from '@/lib/queries/session
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerComponent'
 import { SpeedMatchPlayerPanel } from '@/lib/mechanics/speed-match/PlayerComponent'
+import { SwipeBattlePlayerPanel } from '@/lib/mechanics/swipe-battle/PlayerComponent'
+import type { SwipeBattleResult } from '@/lib/mechanics/swipe-battle/PlayerComponent'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -22,16 +19,8 @@ interface CardItem {
   word: string
   translation: string
   isCorrect: boolean
-  front?: string   // speed_match
-  back?: string    // speed_match
-}
-
-interface GameResult {
-  totalCards: number
-  correct: number
-  incorrect: number
-  score: number
-  swipes: Array<{ word: string; translation: string; correct: boolean }>
+  front?: string
+  back?: string
 }
 
 interface LessonActivity {
@@ -59,16 +48,14 @@ interface Props {
     code: string
     status: 'waiting' | 'active'
     currentActivityIndex: number
-    mechanicId?: string   // set for single-game sessions (no lesson)
+    mechanicId?: string
   }
   items?: CardItem[]
   lesson?: LessonInfo
 }
 
-const TIME_PER_CARD = 10
 const MAX_PARTICIPANTS = 4
 
-// Stable color palette for avatar circles
 const AVATAR_COLORS = [
   'bg-violet-500',
   'bg-emerald-500',
@@ -84,68 +71,53 @@ function avatarColor(index: number) {
 export function PlayerView({ session, items = [], lesson }: Props) {
   const isLesson = !!lesson
 
+  // ── Session / participant state ───────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('nickname')
   const [nickname, setNickname] = useState('')
   const [nicknameError, setNicknameError] = useState('')
   const [isJoining, setIsJoining] = useState(false)
   const [participantId, setParticipantId] = useState<string | null>(null)
-
-  // Waiting room participant list
   const [waitingParticipants, setWaitingParticipants] = useState<WaitingParticipant[]>([])
   const [onlineParticipantIds, setOnlineParticipantIds] = useState<Set<string>>(new Set())
 
-  // Activity tracking for lesson mode
+  // ── Lesson progression ───────────────────────────────────────────────────────
   const [currentActivityIndex, setCurrentActivityIndex] = useState(session.currentActivityIndex)
   const [totalScore, setTotalScore] = useState(0)
   const [activityScores, setActivityScores] = useState<number[]>([])
 
-  // Story Builder shared state (null when current activity is not story_builder)
+  // ── Story Builder (stays here — driven by channel broadcasts) ─────────────────
   const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
   const [typingUser, setTypingUser] = useState<{ participantId: string; name: string } | null>(null)
 
-  const [currentCardIndex, setCurrentCardIndex] = useState(0)
-  const [score, setScore] = useState(0)
-  const [timeLeft, setTimeLeft] = useState(TIME_PER_CARD)
-  const [swipeResult, setSwipeResult] = useState<'correct' | 'wrong' | null>(null)
-  const [gameResult, setGameResult] = useState<GameResult | null>(null)
+  // ── Completion state ─────────────────────────────────────────────────────────
+  const [lastActivityResult, setLastActivityResult] = useState<SwipeBattleResult | null>(null)
   const [hostEnded, setHostEnded] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
   const [completionData, setCompletionData] = useState<ActivityProgress[] | null>(null)
   const [teamCompletionData, setTeamCompletionData] = useState<TeamActivityResult[]>([])
 
+  // ── Derived ──────────────────────────────────────────────────────────────────
   const currentActivity = isLesson ? lesson.activities[currentActivityIndex] ?? null : null
-  const currentMechanicId = currentActivity?.mechanic_id ?? session.mechanicId
-  const isStoryActivity = currentMechanicId === 'story_builder'
-  const isSpeedMatchActivity = currentMechanicId === 'speed_match'
+  const currentMechanicId = currentActivity?.mechanic_id ?? session.mechanicId ?? 'swipe_battle'
 
   const currentItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
     : items
 
-  const exitDirRef = useRef<'left' | 'right'>('right')
-  const swipesRef = useRef<GameResult['swipes']>([])
+  // ── Refs ─────────────────────────────────────────────────────────────────────
   const channelRef = useRef<RealtimeChannel | null>(null)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const participantIdRef = useRef<string | null>(null)
-  const scoreRef = useRef(0)
   const currentActivityIndexRef = useRef(session.currentActivityIndex)
-  const currentMechanicIdRef = useRef(currentMechanicId)
-  const timeoutHandlerRef = useRef<() => void>(() => {})
-  // Guard against double-submit on rapid clicks: synchronous flag so the guard
-  // fires before React's async state update propagates.
-  const isProcessingRef = useRef(false)
-  const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => { participantIdRef.current = participantId }, [participantId])
-  useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
-  useEffect(() => { currentMechanicIdRef.current = currentMechanicId }, [currentMechanicId])
 
-  // Fetch story state from DB when entering playing phase for a story activity (handles reconnections)
+  // ── Story: fetch state from DB on reconnect ───────────────────────────────────
   useEffect(() => {
-    if (phase !== 'playing' || !isStoryActivity || storyState) return
+    if (phase !== 'playing' || currentMechanicId !== 'story_builder' || storyState) return
     const supabase = createClient()
-    supabase.from('shared_activity_state')
+    supabase
+      .from('shared_activity_state')
       .select('state')
       .eq('session_id', session.id)
       .eq('activity_index', currentActivityIndex)
@@ -154,13 +126,14 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         if (data?.state) setStoryState(data.state as unknown as StoryBuilderState)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, currentActivityIndex, isStoryActivity])
+  }, [phase, currentActivityIndex, currentMechanicId])
 
-  // Fetch participant list for story UI when waitingParticipants is empty (reconnect path)
+  // ── Story: fetch participant list when empty (reconnect path) ─────────────────
   useEffect(() => {
     if (!storyState || waitingParticipants.length > 0) return
     const supabase = createClient()
-    supabase.from('session_participants')
+    supabase
+      .from('session_participants')
       .select('id, nickname')
       .eq('session_id', session.id)
       .eq('is_host', false)
@@ -171,7 +144,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storyState])
 
-  // ── On mount: check if already joined (reconnection) ───────────────────────
+  // ── On mount: reconnect if already joined ────────────────────────────────────
   useEffect(() => {
     const stored = (() => {
       try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? 'null') } catch { return null }
@@ -181,13 +154,10 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     const supabase = createClient()
 
     if (session.status === 'active') {
-      // Already in an active game — restore session
       setParticipantId(stored.id)
       participantIdRef.current = stored.id
       setNickname(stored.nickname ?? '')
 
-      // For speed_match: check if player already finished this activity to avoid
-      // restarting a completed game on tab restore / page reload.
       if (currentMechanicId === 'speed_match') {
         Promise.resolve(
           supabase
@@ -201,15 +171,14 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           .then(({ data }) => {
             if (data) {
               const st = data.state as { matched?: number; total?: number; wrongAttempts?: number } | null
-              const result: GameResult = {
+              const result: SwipeBattleResult = {
                 totalCards: st?.total ?? 0,
                 correct: st?.matched ?? 0,
                 incorrect: st?.wrongAttempts ?? 0,
                 score: data.score,
                 swipes: [],
               }
-              setGameResult(result)
-              scoreRef.current = data.score
+              setLastActivityResult(result)
               if (isLesson) {
                 setTotalScore(data.score)
                 setActivityScores([data.score])
@@ -229,7 +198,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       return
     }
 
-    // Session is still waiting — verify row still exists, then reconnect
     supabase
       .from('session_participants')
       .select('id, nickname')
@@ -241,7 +209,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         participantIdRef.current = data.id
         setNickname(data.nickname)
 
-        // Load current participant list
         supabase
           .from('session_participants')
           .select('id, nickname')
@@ -252,7 +219,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             if (list) setWaitingParticipants(list.map(p => ({ ...p, online: false })))
           })
 
-        // Track presence — channel may not be subscribed yet, retry after a tick
         setTimeout(() => {
           channelRef.current?.track({ role: 'player', nickname: data.nickname, participantId: data.id })
         }, 300)
@@ -269,7 +235,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     channelRef.current = channel
 
     channel
-      // ── Presence: track who is online in the waiting room ──────────────────
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<{ role: string; participantId?: string }>()
         const ids = new Set(
@@ -286,7 +251,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         for (const p of players) {
           if (!p.participantId) continue
           setOnlineParticipantIds(prev => new Set([...prev, p.participantId!]))
-          // Add to waiting list if not already there
           setWaitingParticipants(prev => {
             if (prev.some(x => x.id === p.participantId)) return prev
             return [...prev, { id: p.participantId!, nickname: p.nickname ?? 'Student', online: true }]
@@ -299,30 +263,17 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         const leftIds = new Set(players.map(p => p.participantId).filter(Boolean) as string[])
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
-      // ── Game broadcasts ────────────────────────────────────────────────────
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { totalCards?: number; activityIndex?: number; storyState?: StoryBuilderState }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
         }
-        if (p.storyState) {
-          setStoryState(p.storyState)
-        } else {
-          setStoryState(null)
-        }
-        isProcessingRef.current = false
-        setIsProcessing(false)
+        setStoryState(p.storyState ?? null)
         setPhase('playing')
-        setCurrentCardIndex(0)
-        setScore(0)
-        scoreRef.current = 0
-        swipesRef.current = []
-        setTimeLeft(TIME_PER_CARD)
       })
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
         const p = payload as { state: StoryBuilderState; participantId: string }
-        // Ignore echo of own broadcasts — we already updated state locally
         if (p.state && p.participantId !== participantIdRef.current) {
           setStoryState(p.state)
         }
@@ -333,23 +284,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; totalCards: number; storyState?: StoryBuilderState }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
-        if (p.storyState) {
-          setStoryState(p.storyState)
-        } else {
-          setStoryState(null)
-        }
-        isProcessingRef.current = false
-        setIsProcessing(false)
+        setStoryState(p.storyState ?? null)
         setPhase('playing')
-        setCurrentCardIndex(0)
-        setScore(0)
-        scoreRef.current = 0
-        swipesRef.current = []
-        setSwipeResult(null)
-        setTimeLeft(TIME_PER_CARD)
       })
       .on('broadcast', { event: 'lesson_complete' }, async () => {
         setLessonComplete(true)
@@ -364,12 +303,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       })
       .on('broadcast', { event: 'game_ended' }, () => {
         setHostEnded(true)
-        if (currentMechanicIdRef.current === 'speed_match') {
-          // Speed match manages its own score/result; just end immediately
-          setPhase('finished')
-        } else {
-          finishActivity()
-        }
+        // Each panel handles hostEnded via its own prop — SwipeBattle and SpeedMatch
+        // call onComplete/onFinish which transitions the phase. Story Builder has no
+        // host-end concept so no action is needed for it here.
       })
       .subscribe()
 
@@ -377,34 +313,32 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id])
 
-  // ── Timer (disabled for story and speed_match activities) ─────────────────────
-  timeoutHandlerRef.current = () => handleSwipeInternal(false, true)
-
-  useEffect(() => {
-    if (phase !== 'playing' || isStoryActivity || isSpeedMatchActivity) return
-
-    setTimeLeft(TIME_PER_CARD)
-    if (timerRef.current) clearInterval(timerRef.current)
-
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => Math.max(0, prev - 1))
-    }, 1000)
-
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
+  // ── Unified panel completion handler ─────────────────────────────────────────
+  // Called by whichever mechanic panel finishes — updates lesson state and phase.
+  const handlePanelComplete = useCallback((result: {
+    score: number
+    correct: number
+    incorrect: number
+    totalCards: number
+    swipes?: Array<{ word: string; translation: string; correct: boolean }>
+  }) => {
+    setLastActivityResult({
+      score: result.score,
+      correct: result.correct,
+      incorrect: result.incorrect,
+      totalCards: result.totalCards,
+      swipes: result.swipes ?? [],
+    })
+    if (isLesson) {
+      setTotalScore(prev => prev + result.score)
+      setActivityScores(prev => [...prev, result.score])
+      setPhase('activity_transition')
+    } else {
+      setPhase('finished')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCardIndex, phase, isStoryActivity])
+  }, [isLesson])
 
-  useEffect(() => {
-    if (phase === 'playing' && timeLeft === 0 && !isStoryActivity && !isSpeedMatchActivity) {
-      if (timerRef.current) clearInterval(timerRef.current)
-      timeoutHandlerRef.current()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, phase, isStoryActivity])
-
-  // ── Nickname join ─────────────────────────────────────────────────────────────
+  // ── Join handler ─────────────────────────────────────────────────────────────
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault()
     const name = nickname.trim()
@@ -416,7 +350,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
     const supabase = createClient()
 
-    // Check for reconnection via localStorage (same nickname, same session)
     const stored = (() => {
       try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? 'null') } catch { return null }
     })()
@@ -447,7 +380,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       }
     }
 
-    // Verify session is still joinable
     const { data: currentSession } = await supabase
       .from('sessions')
       .select('status')
@@ -466,7 +398,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       return
     }
 
-    // Enforce max participant limit
     const { data: existing } = await supabase
       .from('session_participants')
       .select('id')
@@ -500,7 +431,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
     await channelRef.current?.track({ role: 'player', nickname: name, participantId: participant.id })
 
-    // Load full participant list for waiting room
     const { data: list } = await supabase
       .from('session_participants')
       .select('id, nickname')
@@ -517,160 +447,12 @@ export function PlayerView({ session, items = [], lesson }: Props) {
     } catch { /* ignore */ }
   }
 
-  // ── Core swipe handler ────────────────────────────────────────────────────────
-  const handleSwipeInternal = useCallback((swipedRight: boolean, isTimeout = false) => {
-    // Prevent double-submit: rapid clicks fire before React re-renders with the new cardIndex
-    if (isProcessingRef.current) return
-    isProcessingRef.current = true
-    setIsProcessing(true)
-
-    if (timerRef.current) clearInterval(timerRef.current)
-
-    const activeItems = isLesson
-      ? (lesson?.activities[currentActivityIndexRef.current]?.items ?? [])
-      : items
-    const item = activeItems[currentCardIndex]
-    if (!item) return
-
-    const correct = swipedRight === item.isCorrect
-    const points = correct ? 10 : -5
-    const newScore = Math.max(0, scoreRef.current + points)
-    scoreRef.current = newScore
-    setScore(newScore)
-
-    swipesRef.current.push({ word: item.word, translation: item.translation, correct })
-
-    setSwipeResult(correct ? 'correct' : 'wrong')
-    setTimeout(() => setSwipeResult(null), 700)
-
-    const stored = (() => {
-      try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? '{}') } catch { return {} }
-    })()
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'swipe',
-      payload: {
-        participantId: participantIdRef.current,
-        nickname: stored.nickname ?? nickname,
-        cardIndex: currentCardIndex,
-        word: item.word,
-        translation: item.translation,
-        swipedRight,
-        correct,
-        score: newScore,
-        isTimeout,
-        activityIndex: currentActivityIndexRef.current,
-      },
-    })
-
-    if (participantIdRef.current) {
-      const supabase = createClient()
-      supabase.from('session_events').insert({
-        session_id: session.id,
-        participant_id: participantIdRef.current,
-        event_type: 'swipe',
-        payload: {
-          card_id: item.id,
-          card_index: currentCardIndex,
-          activity_index: currentActivityIndexRef.current,
-          swiped_right: swipedRight,
-          correct,
-          is_timeout: isTimeout,
-        },
-      }).then(undefined, () => {})
-    }
-
-    const nextIndex = currentCardIndex + 1
-    if (nextIndex >= activeItems.length) {
-      // Processing stays locked; finishActivity transitions away from playing phase
-      setTimeout(() => finishActivity(), 800)
-    } else {
-      exitDirRef.current = swipedRight ? 'right' : 'left'
-      setCurrentCardIndex(nextIndex)
-      // Unlock after exit animation completes (motion.div exit is 0.25s)
-      setTimeout(() => {
-        isProcessingRef.current = false
-        setIsProcessing(false)
-      }, 300)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCardIndex, items, session.id, nickname, isLesson, lesson])
-
-  function handleSwipe(direction: 'left' | 'right') {
-    exitDirRef.current = direction
-    handleSwipeInternal(direction === 'right')
-  }
-
-  function finishActivity() {
-    if (timerRef.current) clearInterval(timerRef.current)
-    const swipes = swipesRef.current
-    const correct = swipes.filter(s => s.correct).length
-    const result: GameResult = {
-      totalCards: swipes.length,
-      correct,
-      incorrect: swipes.length - correct,
-      score: scoreRef.current,
-      swipes,
-    }
-    setGameResult(result)
-
-    const stored = (() => {
-      try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? '{}') } catch { return {} }
-    })()
-
-    if (isLesson) {
-      if (participantIdRef.current) {
-        createClient().from('participant_progress').upsert(
-          {
-            session_id: session.id,
-            participant_id: participantIdRef.current,
-            activity_index: currentActivityIndexRef.current,
-            score: scoreRef.current,
-            current_card_index: swipesRef.current.length,
-            // Store breakdown so host completion screen can read it from DB
-            state: { correct, incorrect: swipes.length - correct, totalCards: swipes.length },
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'session_id,participant_id,activity_index' },
-        ).then(undefined, () => {})
-      }
-      setTotalScore(prev => prev + scoreRef.current)
-      setActivityScores(prev => [...prev, scoreRef.current])
-      setPhase('activity_transition')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'game_complete',
-        payload: {
-          ...result,
-          nickname: stored.nickname ?? nickname,
-          activityIndex: currentActivityIndexRef.current,
-          participantId: participantIdRef.current,
-        },
-      })
-    } else {
-      setPhase('finished')
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'game_complete',
-        payload: {
-          ...result,
-          nickname: stored.nickname ?? nickname,
-          participantId: participantIdRef.current,
-        },
-      })
-    }
-  }
-
-  const renderItems = isLesson
-    ? (lesson.activities[currentActivityIndex]?.items ?? [])
-    : items
-
+  // ── Derived for render ───────────────────────────────────────────────────────
   const completionEntries = completionData ?? activityScores.map((s, i) => ({
     activityIndex: i, score: s, correct: 0, incorrect: 0, totalCards: 0,
   }))
   const completionTotal = completionEntries.reduce((sum, d) => sum + d.score, 0)
 
-  // Waiting room: merge DB list with presence online status
   const displayParticipants: Array<WaitingParticipant & { isSelf: boolean }> =
     waitingParticipants.map((p, i) => ({
       ...p,
@@ -679,11 +461,11 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       _index: i,
     }))
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <main className="min-h-screen bg-slate-900 text-white flex flex-col">
 
-      {/* ── NICKNAME PHASE ────────────────────────────────────────────────────── */}
+      {/* ── NICKNAME ─────────────────────────────────────────────────────────── */}
       {phase === 'nickname' && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-6">
@@ -743,15 +525,13 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         </div>
       )}
 
-      {/* ── WAITING PHASE ─────────────────────────────────────────────────────── */}
+      {/* ── WAITING ──────────────────────────────────────────────────────────── */}
       {phase === 'waiting' && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-6">
             <div className="text-center space-y-2">
               <div className="text-4xl">⏳</div>
-              <h2 className="text-xl font-bold">
-                {isLesson ? 'Waiting for teacher to start...' : 'Waiting for teacher to start...'}
-              </h2>
+              <h2 className="text-xl font-bold">Waiting for teacher to start...</h2>
               {isLesson && (
                 <p className="text-slate-400 text-sm">
                   {lesson.activities.length} {lesson.activities.length === 1 ? 'activity' : 'activities'}
@@ -760,7 +540,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               )}
             </div>
 
-            {/* Participant list */}
             <div className="bg-slate-800/60 rounded-2xl border border-slate-700/50 p-4 space-y-3">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                 In this room ({displayParticipants.length})
@@ -810,219 +589,76 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         </div>
       )}
 
-      {/* ── PLAYING PHASE ─────────────────────────────────────────────────────── */}
-      {phase === 'playing' && isStoryActivity && storyState && participantId && (
-        <StoryBuilderPlayerPanel
-          sessionId={session.id}
-          activityIndex={currentActivityIndex}
-          participantId={participantId}
-          nickname={nickname}
-          storyState={storyState}
-          participants={waitingParticipants}
-          channelRef={channelRef}
-          onStateUpdate={setStoryState}
-          typingUser={typingUser}
-        />
-      )}
-
-      {phase === 'playing' && isStoryActivity && !storyState && (
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center space-y-3">
-            <div className="text-3xl animate-pulse">📖</div>
-            <p className="text-slate-400">Loading story...</p>
-          </div>
-        </div>
-      )}
-
-      {/* ── PLAYING PHASE (speed match) ──────────────────────────────────────── */}
-      {phase === 'playing' && isSpeedMatchActivity && participantId && (
-        <SpeedMatchPlayerPanel
-          sessionId={session.id}
-          activityIndex={currentActivityIndex}
-          participantId={participantId}
-          items={currentItems.map(i => ({
-            id: i.id,
-            front: i.front || i.word,
-            back: i.back || i.translation,
-          }))}
-          channelRef={channelRef}
-          onFinish={(score, stats) => {
-            const result: GameResult = {
-              totalCards: stats.total,
-              correct: stats.matched,
-              incorrect: stats.wrongAttempts,
-              score,
-              swipes: [],
-            }
-            setGameResult(result)
-            scoreRef.current = score
-
-            const stored = (() => {
-              try { return JSON.parse(localStorage.getItem(`participant_${session.id}`) ?? '{}') } catch { return {} }
-            })()
-
-            if (isLesson) {
-              setTotalScore(prev => prev + score)
-              setActivityScores(prev => [...prev, score])
-              setPhase('activity_transition')
-              channelRef.current?.send({
-                type: 'broadcast',
-                event: 'game_complete',
-                payload: {
-                  totalCards: stats.total, correct: stats.matched,
-                  incorrect: stats.wrongAttempts, score,
-                  swipes: [], nickname: stored.nickname ?? nickname,
-                  activityIndex: currentActivityIndexRef.current,
-                  participantId: participantIdRef.current,
-                },
-              })
-            } else {
-              setPhase('finished')
-              channelRef.current?.send({
-                type: 'broadcast',
-                event: 'game_complete',
-                payload: {
-                  totalCards: stats.total, correct: stats.matched,
-                  incorrect: stats.wrongAttempts, score,
-                  swipes: [], nickname: stored.nickname ?? nickname,
-                  participantId: participantIdRef.current,
-                },
-              })
-            }
-          }}
-        />
-      )}
-
-      {/* ── PLAYING PHASE (swipe battle) ─────────────────────────────────────── */}
-      {phase === 'playing' && !isStoryActivity && !isSpeedMatchActivity && (
-        <div className="flex-1 flex flex-col">
-          {/* Header */}
-          <div className="px-4 pt-4 pb-2">
-            {isLesson && (
-              <div className="mb-3">
-                <div className="flex justify-between text-xs text-slate-500 mb-1">
-                  <span>Activity {currentActivityIndex + 1} of {lesson.activities.length}</span>
-                  <span className="text-violet-400 font-semibold">{totalScore + score} pts total</span>
+      {/* ── PLAYING — dispatched to the active mechanic's panel ──────────────── */}
+      {phase === 'playing' && (
+        <>
+          {/* Story Builder */}
+          {currentMechanicId === 'story_builder' && participantId && (
+            storyState
+              ? (
+                <StoryBuilderPlayerPanel
+                  sessionId={session.id}
+                  activityIndex={currentActivityIndex}
+                  participantId={participantId}
+                  nickname={nickname}
+                  storyState={storyState}
+                  participants={waitingParticipants}
+                  channelRef={channelRef}
+                  onStateUpdate={setStoryState}
+                  typingUser={typingUser}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="text-center space-y-3">
+                    <div className="text-3xl animate-pulse">📖</div>
+                    <p className="text-slate-400">Loading story...</p>
+                  </div>
                 </div>
-                <div className="flex gap-1">
-                  {lesson.activities.map((_, i) => (
-                    <div
-                      key={i}
-                      className={`flex-1 h-1 rounded-full transition-colors ${
-                        i < currentActivityIndex
-                          ? 'bg-emerald-500'
-                          : i === currentActivityIndex
-                          ? 'bg-violet-500'
-                          : 'bg-slate-700'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              )
+          )}
 
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-slate-400">
-                Card {currentCardIndex + 1}/{renderItems.length}
-              </span>
-              <span className="text-lg font-black text-violet-400">{score} pts</span>
-            </div>
+          {/* Speed Match */}
+          {currentMechanicId === 'speed_match' && participantId && (
+            <SpeedMatchPlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              items={currentItems.map(i => ({
+                id: i.id,
+                front: i.front || i.word,
+                back: i.back || i.translation,
+              }))}
+              channelRef={channelRef}
+              onFinish={(score, stats) => handlePanelComplete({
+                score,
+                correct: stats.matched,
+                incorrect: stats.wrongAttempts,
+                totalCards: stats.total,
+              })}
+            />
+          )}
 
-            <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
-              <motion.div
-                className="h-full rounded-full bg-violet-500"
-                animate={{ width: `${(currentCardIndex / renderItems.length) * 100}%` }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-
-            <div className="flex items-center justify-center mt-3">
-              <div className={`text-2xl font-black tabular-nums transition-colors ${
-                timeLeft <= 3 ? 'text-red-400 animate-pulse' : 'text-slate-300'
-              }`}>
-                {timeLeft}s
-              </div>
-            </div>
-          </div>
-
-          {/* Card area */}
-          <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 relative">
-            <div className="flex justify-between w-full max-w-sm mb-4 px-2">
-              <div className="flex items-center gap-1.5 text-red-400 text-sm font-semibold opacity-60">
-                ← Wrong ✗
-              </div>
-              <div className="flex items-center gap-1.5 text-emerald-400 text-sm font-semibold opacity-60">
-                Correct ✓ →
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {swipeResult && (
-                <motion.div
-                  initial={{ scale: 0.5, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 1.3, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`absolute inset-0 flex items-center justify-center z-20 pointer-events-none rounded-3xl mx-4 ${
-                    swipeResult === 'correct' ? 'bg-emerald-500/20' : 'bg-red-500/20'
-                  }`}
-                >
-                  <span className="text-5xl font-black">
-                    {swipeResult === 'correct' ? '✓' : '✗'}
-                  </span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <div className="w-full max-w-sm">
-              <AnimatePresence mode="wait">
-                {currentCardIndex < renderItems.length && (
-                  <motion.div
-                    key={`${currentActivityIndex}-${currentCardIndex}`}
-                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                    animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{
-                      x: exitDirRef.current === 'right' ? 400 : -400,
-                      rotate: exitDirRef.current === 'right' ? 12 : -12,
-                      opacity: 0,
-                      transition: { duration: 0.25 },
-                    }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <SwipeCard item={renderItems[currentCardIndex]} onSwipe={handleSwipe} disabled={isProcessing} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            <div className="flex gap-4 mt-6 w-full max-w-sm">
-              <button
-                onClick={() => handleSwipe('left')}
-                disabled={isProcessing}
-                className="flex-1 py-4 rounded-2xl bg-red-500/20 border border-red-500/30
-                  text-red-400 font-bold text-base hover:bg-red-500/30 transition-colors
-                  active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                ✗ Wrong
-              </button>
-              <button
-                onClick={() => handleSwipe('right')}
-                disabled={isProcessing}
-                className="flex-1 py-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/30
-                  text-emerald-400 font-bold text-base hover:bg-emerald-500/30 transition-colors
-                  active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
-              >
-                ✓ Correct
-              </button>
-            </div>
-          </div>
-
-          <div className="text-center pb-4 px-4">
-            <p className="text-xs text-slate-600">
-              Swipe right if the translation is correct, left if it&apos;s wrong
-            </p>
-          </div>
-        </div>
+          {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
+          {currentMechanicId !== 'story_builder' && currentMechanicId !== 'speed_match' && participantId && (
+            <SwipeBattlePlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+        </>
       )}
 
       {/* ── ACTIVITY TRANSITION (lesson only) ────────────────────────────────── */}
@@ -1036,19 +672,19 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
                   <div className="text-2xl font-black text-emerald-400">
-                    {gameResult?.correct ?? 0}
+                    {lastActivityResult?.correct ?? 0}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">Correct</div>
                 </div>
                 <div>
                   <div className="text-2xl font-black text-red-400">
-                    {gameResult?.incorrect ?? 0}
+                    {lastActivityResult?.incorrect ?? 0}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">Wrong</div>
                 </div>
                 <div>
                   <div className="text-2xl font-black text-violet-400">
-                    {gameResult?.score ?? 0}
+                    {lastActivityResult?.score ?? 0}
                   </div>
                   <div className="text-xs text-slate-500 mt-0.5">Points</div>
                 </div>
@@ -1075,7 +711,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         </div>
       )}
 
-      {/* ── FINISHED PHASE ────────────────────────────────────────────────────── */}
+      {/* ── FINISHED ─────────────────────────────────────────────────────────── */}
       {phase === 'finished' && (
         <div className="flex-1 flex flex-col items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-6">
@@ -1088,7 +724,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                   <h2 className="text-2xl font-black">Lesson complete!</h2>
                 </div>
 
-                {/* Individual scores section */}
                 {completionEntries.length > 0 && (
                   <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
                     <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
@@ -1115,7 +750,6 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                   </div>
                 )}
 
-                {/* Team activities section */}
                 {teamCompletionData.length > 0 && (
                   <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
                     <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
@@ -1143,45 +777,49 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                   </div>
                 )}
               </>
-            ) : gameResult ? (
+            ) : lastActivityResult ? (
               <>
                 <div className="text-center space-y-2">
                   <div className="text-5xl">
-                    {gameResult.correct / gameResult.totalCards >= 0.8 ? '🏆' : gameResult.correct / gameResult.totalCards >= 0.5 ? '🎉' : '💪'}
+                    {lastActivityResult.correct / Math.max(lastActivityResult.totalCards, 1) >= 0.8
+                      ? '🏆'
+                      : lastActivityResult.correct / Math.max(lastActivityResult.totalCards, 1) >= 0.5
+                      ? '🎉'
+                      : '💪'}
                   </div>
                   <h2 className="text-2xl font-black">
-                    {gameResult.correct}/{gameResult.totalCards} correct!
+                    {lastActivityResult.correct}/{lastActivityResult.totalCards} correct!
                   </h2>
                   <p className="text-slate-400">
-                    You scored <span className="text-violet-400 font-bold">{gameResult.score} points</span>
+                    You scored <span className="text-violet-400 font-bold">{lastActivityResult.score} points</span>
                   </p>
                 </div>
 
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
-                    <div className="text-2xl font-black text-emerald-400">{gameResult.correct}</div>
+                    <div className="text-2xl font-black text-emerald-400">{lastActivityResult.correct}</div>
                     <div className="text-xs text-emerald-500 mt-0.5">Correct</div>
                   </div>
                   <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20">
-                    <div className="text-2xl font-black text-red-400">{gameResult.incorrect}</div>
+                    <div className="text-2xl font-black text-red-400">{lastActivityResult.incorrect}</div>
                     <div className="text-xs text-red-400 mt-0.5">Wrong</div>
                   </div>
                   <div className="bg-violet-500/10 rounded-xl p-3 border border-violet-500/20">
                     <div className="text-2xl font-black text-violet-400">
-                      {gameResult.totalCards > 0
-                        ? Math.round((gameResult.correct / gameResult.totalCards) * 100)
+                      {lastActivityResult.totalCards > 0
+                        ? Math.round((lastActivityResult.correct / lastActivityResult.totalCards) * 100)
                         : 0}%
                     </div>
                     <div className="text-xs text-violet-400 mt-0.5">Accuracy</div>
                   </div>
                 </div>
 
-                {gameResult.swipes.filter(s => !s.correct).length > 0 && (
+                {lastActivityResult.swipes.filter(s => !s.correct).length > 0 && (
                   <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
                     <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
-                      Review these ({gameResult.swipes.filter(s => !s.correct).length})
+                      Review these ({lastActivityResult.swipes.filter(s => !s.correct).length})
                     </p>
-                    {gameResult.swipes.filter(s => !s.correct).map((s, i) => (
+                    {lastActivityResult.swipes.filter(s => !s.correct).map((s, i) => (
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-red-400">✗</span>
                         <span className="text-white">{s.word}</span>
@@ -1209,78 +847,5 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         </div>
       )}
     </main>
-  )
-}
-
-// ── SwipeCard ────────────────────────────────────────────────────────────────
-
-function SwipeCard({
-  item,
-  onSwipe,
-  disabled = false,
-}: {
-  item: CardItem
-  onSwipe: (direction: 'left' | 'right') => void
-  disabled?: boolean
-}) {
-  const x = useMotionValue(0)
-  const rotate = useTransform(x, [-180, 180], [-10, 10])
-  const wrongOpacity = useTransform(x, [-100, 0], [1, 0])
-  const correctOpacity = useTransform(x, [0, 100], [0, 1])
-  const cardBg = useTransform(
-    x,
-    [-120, 0, 120],
-    ['rgba(239,68,68,0.12)', 'rgba(30,41,59,0)', 'rgba(34,197,94,0.12)'],
-  )
-
-  function handleDragEnd(_: unknown, info: { offset: { x: number } }) {
-    if (disabled) return
-    const THRESHOLD = 80
-    if (info.offset.x > THRESHOLD) onSwipe('right')
-    else if (info.offset.x < -THRESHOLD) onSwipe('left')
-  }
-
-  return (
-    <motion.div
-      style={{ x, rotate, backgroundColor: cardBg }}
-      drag={disabled ? false : 'x'}
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.6}
-      whileDrag={disabled ? undefined : { scale: 1.03, cursor: 'grabbing' }}
-      onDragEnd={handleDragEnd}
-      className="relative bg-slate-800 rounded-3xl border border-slate-700 p-8
-        min-h-[240px] flex flex-col items-center justify-center gap-4
-        select-none touch-none cursor-grab shadow-xl"
-    >
-      <motion.div
-        style={{ opacity: wrongOpacity, scale: wrongOpacity }}
-        className="absolute top-5 left-5 text-red-400 font-black text-lg
-          border-2 border-red-500 px-3 py-1 rounded-lg -rotate-12"
-      >
-        WRONG ✗
-      </motion.div>
-
-      <motion.div
-        style={{ opacity: correctOpacity, scale: correctOpacity }}
-        className="absolute top-5 right-5 text-emerald-400 font-black text-lg
-          border-2 border-emerald-500 px-3 py-1 rounded-lg rotate-12"
-      >
-        CORRECT ✓
-      </motion.div>
-
-      <div className="text-center space-y-3 px-4">
-        <div className="text-3xl font-black text-white leading-tight">
-          {item.word}
-        </div>
-        <div className="w-12 h-0.5 bg-slate-600 mx-auto rounded-full" />
-        <div className="text-2xl text-slate-300 font-semibold leading-tight">
-          {item.translation}
-        </div>
-      </div>
-
-      <p className="absolute bottom-4 text-xs text-slate-600 font-medium">
-        ← drag to judge →
-      </p>
-    </motion.div>
   )
 }
