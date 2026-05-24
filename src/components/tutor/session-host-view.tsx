@@ -153,8 +153,11 @@ export function SessionHostView({ session, items, lesson }: Props) {
   const currentActivityIndexRef = useRef(lesson?.initialActivityIndex ?? 0)
   // Track completed participants for current activity (lesson) or game (single)
   const completedParticipantIdsRef = useRef<Set<string>>(new Set())
+  // Mirror participant count so game_complete handler can check it without a state updater
+  const participantCountRef = useRef(0)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
+  useEffect(() => { participantCountRef.current = participants.length }, [participants])
 
   const currentActivityItems = isLesson
     ? (lesson.activities[currentActivityIndex]?.items ?? [])
@@ -425,17 +428,14 @@ export function SessionHostView({ session, items, lesson }: Props) {
         } else {
           // Single mode: end when all participants have completed
           if (pid) completedParticipantIdsRef.current.add(pid)
-          setParticipants(prev => {
-            const totalCount = prev.length
-            const completedCount = completedParticipantIdsRef.current.size
-            if (totalCount > 0 && completedCount >= totalCount) {
-              setPhase('finished')
-              endTransition(async () => {
-                try { await endSession(session.id) } catch { /* already ended or network error */ }
-              })
-            }
-            return prev
-          })
+          const totalCount = participantCountRef.current
+          const completedCount = completedParticipantIdsRef.current.size
+          if (totalCount > 0 && completedCount >= totalCount) {
+            setPhase('finished')
+            endTransition(async () => {
+              try { await endSession(session.id) } catch { /* already ended or network error */ }
+            })
+          }
         }
       })
       .subscribe(async (status) => {
