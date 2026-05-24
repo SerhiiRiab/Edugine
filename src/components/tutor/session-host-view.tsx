@@ -168,16 +168,17 @@ export function SessionHostView({ session, items, lesson }: Props) {
   // Derived: selected participant's state
   const selectedParticipant = participants.find(p => p.id === selectedParticipantId) ?? null
 
-  // ── Initial DB load of participants ──────────────────────────────────────────
+  // ── Initial DB load of participants (+ restore speed_match progress on reconnect) ─
   useEffect(() => {
-    const supabase = createClient()
-    supabase
-      .from('session_participants')
-      .select('id, nickname')
-      .eq('session_id', session.id)
-      .eq('is_host', false)
-      .order('joined_at', { ascending: true })
-      .then(({ data }) => {
+    const load = async () => {
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('session_participants')
+          .select('id, nickname')
+          .eq('session_id', session.id)
+          .eq('is_host', false)
+          .order('joined_at', { ascending: true })
         if (data && data.length > 0) {
           setParticipants(data.map(p => ({
             id: p.id,
@@ -191,10 +192,40 @@ export function SessionHostView({ session, items, lesson }: Props) {
             recentSwipes: [],
             gameResult: null,
           })))
-          // Auto-select if only one participant
           if (data.length === 1) setSelectedParticipantId(data[0].id)
         }
-      })
+
+        // Restore speed_match progress from DB so host sees correct state on tab restore
+        const actIdx = currentActivityIndexRef.current
+        const currentMechanic = isLesson
+          ? lesson?.activities[actIdx]?.mechanic_id
+          : session.mechanic_id
+        if (currentMechanic === 'speed_match' && session.status === 'active') {
+          const { data: progRows } = await supabase
+            .from('participant_progress')
+            .select('participant_id, score, state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+          if (progRows && progRows.length > 0) {
+            const restored: Record<string, SpeedMatchProgress> = {}
+            for (const row of progRows) {
+              const st = row.state as { matched?: number; total?: number; elapsed?: number; wrongAttempts?: number } | null
+              restored[row.participant_id] = {
+                matched: st?.matched ?? 0,
+                total: st?.total ?? 0,
+                score: row.score,
+                elapsed: st?.elapsed ?? 0,
+                wrongAttempts: st?.wrongAttempts ?? 0,
+                finished: true,
+              }
+            }
+            setSpeedMatchProgress(restored)
+            if (isLesson) setLessonBetween(true)
+          }
+        }
+      } catch { /* participants will be populated via presence on reconnect */ }
+    }
+    load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id])
 
@@ -399,7 +430,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
             const completedCount = completedParticipantIdsRef.current.size
             if (totalCount > 0 && completedCount >= totalCount) {
               setPhase('finished')
-              endTransition(() => endSession(session.id))
+              endTransition(async () => {
+                try { await endSession(session.id) } catch { /* already ended or network error */ }
+              })
             }
             return prev
           })
@@ -407,7 +440,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          await channel.track({ role: 'host' })
+          try { await channel.track({ role: 'host' }) } catch { /* presence tracking failed */ }
         }
       })
 
