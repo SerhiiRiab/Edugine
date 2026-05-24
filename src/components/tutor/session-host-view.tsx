@@ -227,6 +227,17 @@ export function SessionHostView({ session, items, lesson }: Props) {
             if (isLesson) setLessonBetween(true)
           }
         }
+
+        // Restore story_builder state from DB on tab restore / reconnect
+        if (currentMechanic === 'story_builder' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state) setStoryState(stateRow.state as unknown as StoryBuilderState)
+        }
       } catch { /* participants will be populated via presence on reconnect */ }
     }
     load()
@@ -643,6 +654,13 @@ export function SessionHostView({ session, items, lesson }: Props) {
     await storyStateUpdate({ ...storyState, status: 'finished' })
   }
 
+  async function handleAssignTurn(participantId: string) {
+    if (!storyState) return
+    const idx = storyState.turnOrder.indexOf(participantId)
+    if (idx === -1 || idx === storyState.currentTurnIndex) return
+    await storyStateUpdate({ ...storyState, currentTurnIndex: idx })
+  }
+
   async function handleSkipTurn() {
     if (!storyState) return
     const next = (storyState.currentTurnIndex + 1) % Math.max(storyState.turnOrder.length, 1)
@@ -938,6 +956,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
                 onFinishStory={handleFinishStory}
                 onSkipTurn={handleSkipTurn}
                 onBonusPoints={handleBonusPoints}
+                onAssignTurn={handleAssignTurn}
               />
             )}
 

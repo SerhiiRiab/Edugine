@@ -1,0 +1,29 @@
+#!/bin/sh
+# Runs before every git push. Blocks push if the Next.js build fails.
+# This prevents broken TypeScript/JSX from reaching production (e.g. client-side exceptions).
+
+echo ""
+echo ">>> Pre-push: running npm run build ..."
+echo ""
+
+npm run build
+
+BUILD_STATUS=$?
+
+if [ $BUILD_STATUS -ne 0 ]; then
+  echo ""
+  echo ">>> PUSH BLOCKED: build failed. Fix the errors above before pushing."
+  echo ""
+  exit 1
+fi
+
+echo ""
+echo ">>> Build passed. Proceeding with push."
+echo ""
+
+# Git LFS check (preserve existing behaviour)
+command -v git-lfs >/dev/null 2>&1 || {
+  printf >&2 "\n%s\n\n" "This repository is configured for Git LFS but 'git-lfs' was not found on your path."
+  exit 2
+}
+git lfs pre-push "$@"

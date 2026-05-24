@@ -22,6 +22,7 @@ export interface StoryBuilderHostPanelProps {
   onFinishStory: () => Promise<void>
   onSkipTurn: () => Promise<void>
   onBonusPoints: (amount: number) => Promise<void>
+  onAssignTurn: (participantId: string) => Promise<void>
 }
 
 export function StoryBuilderHostPanel({
@@ -35,6 +36,7 @@ export function StoryBuilderHostPanel({
   onFinishStory,
   onSkipTurn,
   onBonusPoints,
+  onAssignTurn,
 }: StoryBuilderHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
 
@@ -221,17 +223,26 @@ export function StoryBuilderHostPanel({
 
       {/* Turn indicator */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Turn Order</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Turn Order</p>
+          <p className="text-xs text-slate-400">Click a student to give them the turn</p>
+        </div>
         <div className="flex flex-wrap gap-2">
           {storyState.turnOrder.map((pid, i) => {
             const p = participants.find(x => x.id === pid)
             const isCurrent = i === storyState.currentTurnIndex
             const pIdx = participants.findIndex(x => x.id === pid)
             return (
-              <div
+              <button
                 key={pid}
+                type="button"
+                disabled={isCurrent || isBusy}
+                onClick={() => busy(() => onAssignTurn(pid))}
+                title={isCurrent ? undefined : `Give turn to ${p?.nickname ?? '???'}`}
                 className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 transition-all ${
-                  isCurrent ? 'border-emerald-400 bg-emerald-50 shadow-sm' : 'border-slate-100 bg-white'
+                  isCurrent
+                    ? 'border-emerald-400 bg-emerald-50 shadow-sm cursor-default'
+                    : 'border-slate-100 bg-white hover:border-violet-300 hover:bg-violet-50 hover:shadow-sm cursor-pointer active:scale-95 disabled:opacity-50'
                 }`}
               >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center
@@ -254,9 +265,9 @@ export function StoryBuilderHostPanel({
                 ) : isCurrent ? (
                   <span className="text-xs bg-emerald-500 text-white px-1.5 py-0.5 rounded-full font-medium">writing</span>
                 ) : (
-                  <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-200 shrink-0 group-hover:bg-violet-300" />
                 )}
-              </div>
+              </button>
             )
           })}
           {storyState.turnOrder.length === 0 && (
