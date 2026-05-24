@@ -185,6 +185,46 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       setParticipantId(stored.id)
       participantIdRef.current = stored.id
       setNickname(stored.nickname ?? '')
+
+      // For speed_match: check if player already finished this activity to avoid
+      // restarting a completed game on tab restore / page reload.
+      if (currentMechanicId === 'speed_match') {
+        Promise.resolve(
+          supabase
+            .from('participant_progress')
+            .select('score, state')
+            .eq('session_id', session.id)
+            .eq('participant_id', stored.id)
+            .eq('activity_index', session.currentActivityIndex)
+            .maybeSingle()
+        )
+          .then(({ data }) => {
+            if (data) {
+              const st = data.state as { matched?: number; total?: number; wrongAttempts?: number } | null
+              const result: GameResult = {
+                totalCards: st?.total ?? 0,
+                correct: st?.matched ?? 0,
+                incorrect: st?.wrongAttempts ?? 0,
+                score: data.score,
+                swipes: [],
+              }
+              setGameResult(result)
+              scoreRef.current = data.score
+              if (isLesson) {
+                setTotalScore(data.score)
+                setActivityScores([data.score])
+                setPhase('activity_transition')
+              } else {
+                setPhase('finished')
+              }
+            } else {
+              setPhase('playing')
+            }
+          })
+          .catch(() => setPhase('playing'))
+        return
+      }
+
       setPhase('playing')
       return
     }
@@ -537,7 +577,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           correct,
           is_timeout: isTimeout,
         },
-      }).then()
+      }).then(undefined, () => {})
     }
 
     const nextIndex = currentCardIndex + 1
@@ -592,7 +632,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'session_id,participant_id,activity_index' },
-        ).then()
+        ).then(undefined, () => {})
       }
       setTotalScore(prev => prev + scoreRef.current)
       setActivityScores(prev => [...prev, scoreRef.current])

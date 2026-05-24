@@ -140,7 +140,7 @@ export function SpeedMatchPlayerPanel({
       current_card_index: finalMatched,
       state: { matched: finalMatched, total: totalPairs, elapsed: el, wrongAttempts: finalWrong },
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'session_id,participant_id,activity_index' }).then()
+    }, { onConflict: 'session_id,participant_id,activity_index' }).then(undefined, () => {})
 
     channelRef.current?.send({
       type: 'broadcast',
