@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -110,8 +110,8 @@ export function LessonCard({ lesson }: LessonCardProps) {
       </div>
 
       {/* Badge */}
-      <span className="self-start mb-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
-        🎓 Lesson
+      <span className="self-start mb-3 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
+        <GraduationCap className="w-3 h-3" />Lesson
       </span>
 
       {/* Title */}

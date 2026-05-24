@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { XCircle } from 'lucide-react'
 import { PlayerView } from '@/components/play/player-view'
 
 interface Props {
@@ -132,7 +133,7 @@ function InvalidCodePage({ code }: { code: string }) {
   return (
     <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
       <div className="text-center text-white space-y-3">
-        <div className="text-5xl">❌</div>
+        <div className="text-red-500"><XCircle className="w-12 h-12 inline" /></div>
         <h1 className="text-2xl font-bold">Invalid code</h1>
         <p className="text-slate-400">
           <span className="font-mono bg-slate-800 px-2 py-0.5 rounded">{code}</span> is not a valid session code.

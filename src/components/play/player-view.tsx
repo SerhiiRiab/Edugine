@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { BookOpen, Target, Rocket, BookText, Star, Trophy, PartyPopper, Dumbbell, User, XCircle } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -470,7 +471,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-sm space-y-6">
             <div className="text-center space-y-2">
-              <div className="text-4xl">{isLesson ? '📚' : '🎯'}</div>
+              <div className="text-violet-400">{isLesson ? <BookOpen className="w-10 h-10 inline" /> : <Target className="w-10 h-10 inline" />}</div>
               <h1 className="text-2xl font-bold">
                 {isLesson ? lesson.title : 'Join session'}
               </h1>
@@ -486,7 +487,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
 
             {session.status === 'active' ? (
               <div className="text-center space-y-3 py-4">
-                <div className="text-3xl">🚀</div>
+                <div className="text-slate-400"><Rocket className="w-8 h-8 inline" /></div>
                 <p className="font-semibold text-slate-300">Game in progress</p>
                 <p className="text-slate-500 text-sm">The session has already started. Ask your teacher for a new one.</p>
               </div>
@@ -611,7 +612,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
               : (
                 <div className="flex-1 flex items-center justify-center p-6">
                   <div className="text-center space-y-3">
-                    <div className="text-3xl animate-pulse">📖</div>
+                    <div className="text-slate-400 animate-pulse"><BookText className="w-8 h-8 inline" /></div>
                     <p className="text-slate-400">Loading story...</p>
                   </div>
                 </div>
@@ -665,7 +666,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       {phase === 'activity_transition' && isLesson && (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center space-y-5 w-full max-w-sm">
-            <div className="text-5xl">⭐</div>
+            <div className="text-amber-400"><Star className="w-12 h-12 inline fill-current" /></div>
             <h2 className="text-2xl font-bold">Activity complete!</h2>
             <div className="bg-slate-800 rounded-2xl p-5 space-y-2">
               <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">This activity</p>
@@ -718,16 +719,16 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             {isLesson && lessonComplete ? (
               <>
                 <div className="text-center space-y-2">
-                  <div className="text-5xl">
-                    {completionTotal >= 80 ? '🏆' : '🎉'}
+                  <div className="text-amber-400">
+                    {completionTotal >= 80 ? <Trophy className="w-12 h-12 inline" /> : <PartyPopper className="w-12 h-12 inline text-violet-400" />}
                   </div>
                   <h2 className="text-2xl font-black">Lesson complete!</h2>
                 </div>
 
                 {completionEntries.length > 0 && (
                   <div className="bg-slate-800 rounded-2xl p-4 space-y-2">
-                    <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
-                      👤 Your Scores
+                    <p className="flex items-center gap-1 text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">
+                      <User className="w-3 h-3" />Your Scores
                     </p>
                     {completionEntries.map((entry, i) => {
                       const act = lesson.activities[entry.activityIndex]
@@ -770,7 +771,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                               </span>
                             )}
                           </div>
-                          <span className="text-emerald-400 font-bold tabular-nums">🏆 {r.teamScore} pts</span>
+                          <span className="inline-flex items-center gap-1 text-emerald-400 font-bold tabular-nums"><Trophy className="w-3.5 h-3.5" />{r.teamScore} pts</span>
                         </div>
                       )
                     })}
@@ -780,12 +781,12 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             ) : lastActivityResult ? (
               <>
                 <div className="text-center space-y-2">
-                  <div className="text-5xl">
+                  <div className="text-amber-400">
                     {lastActivityResult.correct / Math.max(lastActivityResult.totalCards, 1) >= 0.8
-                      ? '🏆'
+                      ? <Trophy className="w-12 h-12 inline" />
                       : lastActivityResult.correct / Math.max(lastActivityResult.totalCards, 1) >= 0.5
-                      ? '🎉'
-                      : '💪'}
+                      ? <PartyPopper className="w-12 h-12 inline text-violet-400" />
+                      : <Dumbbell className="w-12 h-12 inline text-slate-400" />}
                   </div>
                   <h2 className="text-2xl font-black">
                     {lastActivityResult.correct}/{lastActivityResult.totalCards} correct!

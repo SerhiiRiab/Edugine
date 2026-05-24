@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { X, AlertTriangle, Check } from 'lucide-react'
+import { X, AlertTriangle, Check, ClipboardList } from 'lucide-react'
 import {
   parseBulkText,
   SEPARATOR_OPTIONS,
@@ -59,7 +59,7 @@ export function BulkImportModal({ config, onImport, onClose }: Props) {
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-lg font-bold text-slate-800">📋 Bulk Add</h2>
+          <h2 className="flex items-center gap-1.5 text-lg font-bold text-slate-800"><ClipboardList className="w-5 h-5 text-slate-500" />Bulk Add</h2>
           <button
             onClick={onClose}
             className="w-8 h-8 flex items-center justify-center rounded-lg

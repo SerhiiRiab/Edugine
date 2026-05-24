@@ -54,7 +54,7 @@ export default function ForgotPasswordPage() {
                 <span className="font-semibold text-violet-600">{email}</span>
               </p>
               <p className="text-slate-400 text-sm mt-3">
-                Click the link in the email to set a new password ✨
+                Click the link in the email to set a new password
               </p>
               <Link
                 href="/login"

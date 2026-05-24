@@ -12,6 +12,10 @@ import {
   AlertCircle,
   Loader2,
   ClipboardList,
+  Rocket,
+  CheckCircle2,
+  AlertTriangle,
+  Target,
 } from 'lucide-react'
 import { createSession } from '@/lib/actions/sessions'
 import {
@@ -85,7 +89,7 @@ const MECHANIC_BADGE: Record<string, string> = {
 }
 
 const MECHANIC_LABEL: Record<string, string> = {
-  swipe_battle: 'Swipe Battle 🎯',
+  swipe_battle: 'Swipe Battle',
 }
 
 // ── Sortable card row ────────────────────────────────────────────────────────
@@ -217,6 +221,8 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const incorrectCount = items.length - correctCount
   const mechanicLabel = MECHANIC_LABEL[set.mechanic_id] ?? set.mechanic_id
   const mechanicBadge = MECHANIC_BADGE[set.mechanic_id] ?? 'bg-slate-100 text-slate-600 border-slate-200'
+  const MECHANIC_ICON: Record<string, React.ComponentType<{ className?: string }>> = { swipe_battle: Target }
+  const MechanicIcon = MECHANIC_ICON[set.mechanic_id] ?? null
 
   // ── dnd-kit sensors ────────────────────────────────────────────────────────
   const sensors = useSensors(
@@ -428,7 +434,8 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           <div className="flex items-center gap-3 shrink-0">
             <SaveIndicator />
 
-            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full border ${mechanicBadge}`}>
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${mechanicBadge}`}>
+              {MechanicIcon && <MechanicIcon className="w-3 h-3" />}
               {mechanicLabel}
             </span>
 
@@ -447,7 +454,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
               {startingSession ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
               ) : (
-                'Start Session 🚀'
+                <><Rocket className="w-4 h-4" />Start Session</>
               )}
             </button>
           </div>
@@ -611,8 +618,8 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             : 'bg-amber-50 border-amber-200 text-amber-700'
           }`}>
           {canStartSession
-            ? '✅ Ready for a session!'
-            : `⚠️ Need ${4 - items.length} more card${4 - items.length === 1 ? '' : 's'}`
+            ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Ready for a session!</span>
+            : <span className="inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" />{`Need ${4 - items.length} more card${4 - items.length === 1 ? '' : 's'}`}</span>
           }
         </div>
       </div>

@@ -69,7 +69,7 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-white rounded-3xl shadow-2xl shadow-violet-900/30 p-8">
-          <h2 className="text-2xl font-bold text-slate-800 mb-1">Welcome back! 👋</h2>
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">Welcome back!</h2>
           <p className="text-slate-500 text-sm mb-6">Sign in to continue</p>
 
           {/* Email + password form */}
@@ -150,7 +150,7 @@ export default function LoginPage() {
               onClick={() => { setShowMagicLink(true); setMagicEmail(email) }}
               className="w-full py-3 px-6 border-2 border-violet-200 hover:border-violet-400 text-violet-600 font-semibold rounded-xl transition-colors"
             >
-              Send magic link instead ✨
+              Send magic link instead
             </button>
           )}
 
@@ -182,7 +182,7 @@ export default function LoginPage() {
                       <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       Sending…
                     </span>
-                  ) : 'Send magic link ✨'}
+                  ) : 'Send magic link'}
                 </button>
               </div>
             </form>

@@ -76,7 +76,7 @@ export default function SignupPage() {
 
         {/* Card */}
         <div className="bg-white rounded-3xl shadow-2xl shadow-violet-900/30 p-8">
-          <h2 className="text-2xl font-bold text-slate-800 mb-1">Create your account 🎉</h2>
+          <h2 className="text-2xl font-bold text-slate-800 mb-1">Create your account</h2>
           <p className="text-slate-500 text-sm mb-6">Start teaching with Edugine</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -179,7 +179,7 @@ export default function SignupPage() {
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   Creating account…
                 </span>
-              ) : 'Create account ✨'}
+              ) : 'Create account'}
             </button>
           </form>
 

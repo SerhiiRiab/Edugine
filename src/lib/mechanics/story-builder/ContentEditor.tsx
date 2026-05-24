@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, X, Check, AlertCircle, Loader2, BookOpen, ClipboardList,
+  CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -358,8 +359,8 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
             : 'bg-amber-50 border-amber-200 text-amber-700'
         }`}>
           {canPlay
-            ? '✅ Ready to use in a lesson!'
-            : '⚠️ Add a prompt and at least 1 word'
+            ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Ready to use in a lesson!</span>
+            : <span className="inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" />Add a prompt and at least 1 word</span>
           }
         </div>
 

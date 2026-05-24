@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Target, BookText, Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Home() {
@@ -60,7 +61,7 @@ export default async function Home() {
             href={user ? '/tutor/dashboard' : '/signup'}
             className="px-8 py-4 bg-white text-violet-700 font-bold text-lg rounded-2xl hover:bg-white/90 transition-colors shadow-xl shadow-violet-900/20"
           >
-            Get started for free ✨
+            Get started for free
           </Link>
           {!user && (
             <Link
@@ -76,16 +77,16 @@ export default async function Home() {
       {/* What's inside */}
       <section className="max-w-4xl mx-auto px-6 pb-20">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {[
-            { emoji: '🎯', title: 'Swipe Battles', body: 'Vocab cards your students actually want to drill.' },
-            { emoji: '📖', title: 'Group Stories', body: '1–4 students co-author live, in the same room.' },
-            { emoji: '⚡', title: 'Speed Match', body: 'Race-the-clock pair matching — chaos, but learning.' },
-          ].map((card) => (
+          {([
+            { Icon: Target, title: 'Swipe Battles', body: 'Vocab cards your students actually want to drill.' },
+            { Icon: BookText, title: 'Group Stories', body: '1–4 students co-author live, in the same room.' },
+            { Icon: Zap, title: 'Speed Match', body: 'Race-the-clock pair matching — chaos, but learning.' },
+          ] as const).map((card) => (
             <div
               key={card.title}
               className="bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-5"
             >
-              <div className="text-3xl mb-3">{card.emoji}</div>
+              <div className="mb-3 text-white/80"><card.Icon className="w-8 h-8" /></div>
               <div className="font-bold text-white mb-1">{card.title}</div>
               <div className="text-violet-200 text-sm leading-relaxed">{card.body}</div>
             </div>

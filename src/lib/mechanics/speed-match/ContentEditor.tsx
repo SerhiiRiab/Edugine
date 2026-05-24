@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   ArrowLeft, GripVertical, Trash2, Plus, Check, AlertCircle,
-  Loader2, ClipboardList,
+  Loader2, ClipboardList, Zap, CheckCircle2, AlertTriangle,
 } from 'lucide-react'
 import {
   DndContext,
@@ -334,9 +334,9 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
 
           <SaveIndicator />
 
-          <span className="text-xs font-semibold px-2 py-1 rounded-full border
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full border
             bg-sky-50 text-sky-700 border-sky-200 shrink-0">
-            ⚡ Speed Match
+            <Zap className="w-3 h-3" />Speed Match
           </span>
         </div>
       </div>

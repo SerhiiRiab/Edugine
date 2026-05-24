@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { SpeedMatchState } from './types'
-import { Timer, Trophy, Zap } from 'lucide-react'
+import { Timer, Trophy, Zap, PartyPopper, Dumbbell } from 'lucide-react'
 
 // ── Stub that satisfies MechanicDefinition type ───────────────────────────────
 export function SpeedMatchPlayerComponent(
@@ -279,7 +279,7 @@ export function SpeedMatchPlayerPanel({
           transition={{ type: 'spring', duration: 0.5 }}
           className="text-5xl"
         >
-          {accuracy >= 80 ? '🏆' : accuracy >= 50 ? '🎉' : '💪'}
+          {accuracy >= 80 ? <Trophy className="w-12 h-12 text-amber-400" /> : accuracy >= 50 ? <PartyPopper className="w-12 h-12 text-violet-400" /> : <Dumbbell className="w-12 h-12 text-slate-400" />}
         </motion.div>
         <motion.h2
           initial={{ opacity: 0, y: 10 }}
@@ -477,7 +477,7 @@ export function SpeedMatchPlayerPanel({
               animate={{ scale: 1 }}
               className="text-center space-y-2"
             >
-              <div className="text-4xl">⚡</div>
+              <div className="text-sky-400"><Zap className="w-10 h-10 inline" /></div>
               <p className="text-white font-bold text-lg">
                 {batchIndex + 1 < batches.length ? 'Next round!' : 'Finishing...'}
               </p>

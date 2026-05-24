@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, MessageCircle, Theater } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -25,17 +25,20 @@ interface ContentSetProps {
   }
 }
 
-const MECHANIC_META: Record<string, { label: string; classes: string }> = {
+const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{ className?: string }>; classes: string }> = {
   swipe_battle: {
-    label: 'Swipe Battle 🎯',
+    label: 'Swipe Battle',
+    Icon: Target,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
   speed_debate: {
-    label: 'Speed Debate 💬',
+    label: 'Speed Debate',
+    Icon: MessageCircle,
     classes: 'bg-blue-100 text-blue-700 border-blue-200',
   },
   roleplay_quest: {
-    label: 'Roleplay Quest 🎭',
+    label: 'Roleplay Quest',
+    Icon: Theater,
     classes: 'bg-orange-100 text-orange-700 border-orange-200',
   },
 }
@@ -56,6 +59,7 @@ export function ContentSetCard({ set }: ContentSetProps) {
   const [busy, setBusy] = useState(false)
   const mechanic = MECHANIC_META[set.mechanic_id] ?? {
     label: set.mechanic_id,
+    Icon: null as React.ComponentType<{ className?: string }> | null,
     classes: 'bg-slate-100 text-slate-600 border-slate-200',
   }
 
@@ -137,8 +141,9 @@ export function ContentSetCard({ set }: ContentSetProps) {
 
       {/* Mechanic badge */}
       <span
-        className={`self-start mb-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${mechanic.classes}`}
+        className={`self-start mb-3 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${mechanic.classes}`}
       >
+        {mechanic.Icon && <mechanic.Icon className="w-3 h-3" />}
         {mechanic.label}
       </span>
 

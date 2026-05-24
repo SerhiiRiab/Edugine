@@ -196,7 +196,7 @@ export function SwipeBattleHostPanel({
                       >
                         <WifiOff className="w-8 h-8 text-amber-400" />
                         <p className="text-amber-400 font-semibold text-sm">
-                          ⚠ Student disconnected
+                          Student disconnected
                         </p>
                       </motion.div>
                     )}

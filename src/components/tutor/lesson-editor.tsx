@@ -16,6 +16,19 @@ import {
   ChevronRight,
   ChevronLeft,
   Pencil,
+  Target,
+  Zap,
+  BookText,
+  MessageCircle,
+  Theater,
+  Gamepad2,
+  User,
+  Users,
+  Timer,
+  Rocket,
+  CheckCircle2,
+  AlertTriangle,
+  ClipboardList,
 } from 'lucide-react'
 import {
   DndContext,
@@ -74,30 +87,30 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const MECHANIC_META: Record<string, { label: string; icon: string; classes: string }> = {
+const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{ className?: string }>; classes: string }> = {
   swipe_battle: {
     label: 'Swipe Battle',
-    icon: '🎯',
+    Icon: Target,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
   speed_match: {
     label: 'Speed Match',
-    icon: '⚡',
+    Icon: Zap,
     classes: 'bg-sky-100 text-sky-700 border-sky-200',
   },
   story_builder: {
     label: 'Story Builder',
-    icon: '📖',
+    Icon: BookText,
     classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
   speed_debate: {
     label: 'Speed Debate',
-    icon: '💬',
+    Icon: MessageCircle,
     classes: 'bg-blue-100 text-blue-700 border-blue-200',
   },
   roleplay_quest: {
     label: 'Roleplay Quest',
-    icon: '🎭',
+    Icon: Theater,
     classes: 'bg-orange-100 text-orange-700 border-orange-200',
   },
 }
@@ -158,6 +171,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const [adding, setAdding] = useState(false)
 
   const mechanic = selectedSet ? MECHANIC_META[selectedSet.mechanic_id] : null
+  const MechanicIcon = mechanic?.Icon ?? Gamepad2
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
 
   const STEP_LABELS = ['Content Set', 'Mechanic', 'Mode', 'Config']
@@ -237,6 +251,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                 <div className="space-y-2">
                   {contentSets.map((cs) => {
                     const meta = MECHANIC_META[cs.mechanic_id]
+                    const Icon = meta?.Icon ?? Gamepad2
                     const isSelected = selectedSet?.id === cs.id
                     return (
                       <button
@@ -249,8 +264,8 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                             : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
                         }`}
                       >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-lg shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
-                          {meta?.icon ?? '🎮'}
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
+                          <Icon className="w-4 h-4" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
@@ -276,7 +291,9 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
             <div className="space-y-3">
               <p className="text-sm text-slate-500">Mechanic for this activity:</p>
               <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-violet-300 bg-violet-50">
-                <div className="text-3xl">{mechanic?.icon ?? '🎮'}</div>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-100">
+                  <MechanicIcon className="w-5 h-5 text-violet-700" />
+                </div>
                 <div className="flex-1">
                   <p className="font-bold text-violet-800 text-sm">{mechanic?.label ?? selectedSet.mechanic_id}</p>
                   <p className="text-xs text-violet-500 mt-0.5">
@@ -384,14 +401,14 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Mechanic</span>
-                    <span className="font-semibold text-slate-800">
-                      {mechanic?.icon} {mechanic?.label}
+                    <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                      <MechanicIcon className="w-3.5 h-3.5" />{mechanic?.label}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Mode</span>
-                    <span className="font-semibold text-slate-800">
-                      {mode === 'individual' ? '👤 Individual' : '🤝 Shared'}
+                    <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
+                      {mode === 'individual' ? <><User className="w-3.5 h-3.5" />Individual</> : <><Users className="w-3.5 h-3.5" />Shared</>}
                     </span>
                   </div>
                   {timerSeconds && !isNaN(parseInt(timerSeconds)) && (
@@ -592,6 +609,7 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
   })
   const style = { transform: CSS.Transform.toString(transform), transition }
   const mechanic = MECHANIC_META[activity.mechanic_id]
+  const ActivityIcon = mechanic?.Icon ?? Gamepad2
   const timer = typeof activity.config.timerSeconds === 'number' ? activity.config.timerSeconds : null
 
   return (
@@ -625,7 +643,8 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
             mechanic?.classes ?? 'bg-slate-100 text-slate-600 border-slate-200'
           }`}
         >
-          {mechanic?.icon ?? '🎮'} {mechanic?.label ?? activity.mechanic_id}
+          <ActivityIcon className="w-3.5 h-3.5" />
+          {mechanic?.label ?? activity.mechanic_id}
         </span>
         <span className="text-slate-200 text-sm shrink-0">›</span>
         <span className="text-sm font-semibold text-slate-700 truncate min-w-0">
@@ -639,18 +658,20 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
       {/* Right cluster */}
       <div className="flex items-center gap-2 shrink-0">
         {timer !== null && (
-          <span className="text-xs text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full font-medium">
-            ⏱ {timer}s
+          <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full font-medium">
+            <Timer className="w-3 h-3" />{timer}s
           </span>
         )}
         <span
-          className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+          className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
             activity.mode === 'individual'
               ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
               : 'bg-blue-50 text-blue-600 border-blue-200'
           }`}
         >
-          {activity.mode === 'individual' ? '👤 Individual' : '🤝 Shared'}
+          {activity.mode === 'individual'
+            ? <><User className="w-3 h-3" />Individual</>
+            : <><Users className="w-3 h-3" />Shared</>}
         </span>
         <button
           type="button"
@@ -863,7 +884,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
             >
-              {isLaunching ? <><Loader2 className="w-4 h-4 animate-spin" />Starting...</> : 'Start Lesson 🚀'}
+              {isLaunching ? <><Loader2 className="w-4 h-4 animate-spin" />Starting...</> : <><Rocket className="w-4 h-4" />Start Lesson</>}
             </button>
           </div>
         </div>
@@ -910,7 +931,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         {/* Empty state */}
         {activities.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="text-6xl mb-4">📋</div>
+            <div className="mb-4 text-slate-300"><ClipboardList className="w-16 h-16" /></div>
             <h3 className="text-lg font-bold text-slate-700 mb-1">No activities yet</h3>
             <p className="text-slate-400 text-sm mb-1">
               Add content sets as activities to build your lesson sequence

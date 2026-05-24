@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Eye, EyeOff } from 'lucide-react'
+import { Zap, Eye, EyeOff, Timer } from 'lucide-react'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -78,7 +78,7 @@ export default function ResetPasswordPage() {
 
           {!checking && !hasSession && (
             <div className="text-center py-4">
-              <div className="text-5xl mb-4">⏱️</div>
+              <div className="mb-4 text-slate-400"><Timer className="w-12 h-12 inline" /></div>
               <p className="text-slate-600 mb-1 font-medium">Reset link has expired</p>
               <p className="text-slate-400 text-sm mb-5">Please request a new password reset link.</p>
               <Link

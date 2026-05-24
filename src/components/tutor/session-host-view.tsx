@@ -7,7 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowLeft, Copy, Check,
   PlayCircle, StopCircle, RotateCcw, Users,
-  ChevronRight, Trophy,
+  ChevronRight, Trophy, PartyPopper, CheckCircle2,
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -885,8 +885,8 @@ export function SessionHostView({ session, items, lesson }: Props) {
                   {isStarting
                     ? 'Starting...'
                     : isLesson
-                    ? `Start lesson! 🚀 (${participants.filter(p => p.online).length} student${participants.filter(p => p.online).length !== 1 ? 's' : ''})`
-                    : `Start game! 🎮 (${participants.filter(p => p.online).length} student${participants.filter(p => p.online).length !== 1 ? 's' : ''})`
+                    ? `Start lesson! (${participants.filter(p => p.online).length} student${participants.filter(p => p.online).length !== 1 ? 's' : ''})`
+                    : `Start game! (${participants.filter(p => p.online).length} student${participants.filter(p => p.online).length !== 1 ? 's' : ''})`
                   }
                 </button>
               </div>
@@ -1007,7 +1007,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
 
             {/* Header */}
             <div className="text-center py-4">
-              <div className="text-4xl mb-2">{isLastActivity ? '🎉' : '✅'}</div>
+              <div className="mb-2 text-slate-500">{isLastActivity ? <PartyPopper className="w-10 h-10 inline" /> : <CheckCircle2 className="w-10 h-10 inline text-emerald-500" />}</div>
               <h2 className="text-2xl font-black text-slate-800">
                 Activity {currentActivityIndex + 1} complete!
               </h2>
@@ -1146,7 +1146,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
                     hover:bg-emerald-600 disabled:opacity-50 text-white font-bold
                     px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
                 >
-                  {isAdvancing ? 'Finishing...' : 'Finish lesson! 🎉'}
+                  {isAdvancing ? 'Finishing...' : 'Finish lesson!'}
                 </button>
               )}
             </div>
@@ -1157,7 +1157,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
         {phase === 'finished' && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="text-center py-4">
-              <div className="text-5xl mb-3">🎉</div>
+              <div className="mb-3 text-violet-500"><PartyPopper className="w-12 h-12 inline" /></div>
               <h2 className="text-3xl font-black text-slate-800">
                 {isLesson ? 'Lesson complete!' : 'Game over!'}
               </h2>

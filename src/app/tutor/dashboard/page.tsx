@@ -14,7 +14,7 @@ export default async function DashboardPage() {
       {/* Welcome */}
       <div className="mb-10">
         <h1 className="text-3xl font-extrabold text-slate-800">
-          Hey, {name}! 👋
+          Hey, {name}!
         </h1>
         <p className="text-slate-400 mt-1">Ready to teach something awesome today?</p>
       </div>
@@ -49,7 +49,7 @@ export default async function DashboardPage() {
 
         <div className="relative">
           <p className="text-violet-200 text-sm font-medium mb-1">Get started</p>
-          <h2 className="text-2xl font-extrabold mb-2">Create your first lesson! 🚀</h2>
+          <h2 className="text-2xl font-extrabold mb-2">Create your first lesson!</h2>
           <p className="text-violet-100 text-sm mb-6 max-w-md">
             Build a content set and launch a live Swipe Battle session in minutes.
             Students join with a code — no sign-up needed.

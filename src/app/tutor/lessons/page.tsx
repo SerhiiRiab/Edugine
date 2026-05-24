@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import { Plus } from 'lucide-react'
+import { Plus, GraduationCap } from 'lucide-react'
 import { LessonCard } from '@/components/tutor/lesson-card'
 
 export default async function LessonsPage() {
@@ -22,7 +22,7 @@ export default async function LessonsPage() {
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-800">My Lessons 🎓</h1>
+          <h1 className="flex items-center gap-2 text-3xl font-extrabold text-slate-800"><GraduationCap className="w-7 h-7 text-violet-600" />My Lessons</h1>
           <p className="text-slate-400 mt-1">Compose multi-activity lessons for your students</p>
         </div>
         <Link
@@ -36,7 +36,7 @@ export default async function LessonsPage() {
 
       {enriched.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <div className="text-7xl mb-6">🎓</div>
+          <div className="mb-6 text-slate-200"><GraduationCap className="w-20 h-20" /></div>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">No lessons yet</h2>
           <p className="text-slate-400 mb-8 max-w-sm">
             Build your first interactive lesson by combining content sets into a sequence
@@ -45,7 +45,7 @@ export default async function LessonsPage() {
             href="/tutor/lessons/new"
             className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-5 py-3 rounded-xl transition-colors"
           >
-            Build your first lesson ✨
+            Build your first lesson
           </Link>
         </div>
       ) : (

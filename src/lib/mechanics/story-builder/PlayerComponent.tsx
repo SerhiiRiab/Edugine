@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import type { StoryBuilderState, StorySentence, StoryWordEntry } from './types'
-import { BookOpen, Check, Send, Trophy } from 'lucide-react'
+import { BookOpen, Check, Send, Trophy, PartyPopper, BookText } from 'lucide-react'
 
 const AVATAR_COLORS = [
   'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
@@ -171,9 +171,9 @@ export function StoryBuilderPlayerPanel({
             initial={{ scale: 0.5, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ type: 'spring', duration: 0.6 }}
-            className="text-5xl mb-3"
+            className="mb-3 text-violet-400"
           >
-            🎉
+            <PartyPopper className="w-12 h-12 inline" />
           </motion.div>
           <motion.h2
             initial={{ opacity: 0, y: 12 }}
@@ -366,7 +366,7 @@ export function StoryBuilderPlayerPanel({
       <div className="flex-1 overflow-y-auto px-4 py-3 bg-slate-900/50">
         {storyState.sentences.length === 0 && (
           <div className="py-8 text-center">
-            <div className="text-3xl mb-2">📖</div>
+            <div className="mb-2 text-slate-400"><BookText className="w-8 h-8 inline" /></div>
             <p className="text-slate-500 text-sm">The story is just beginning...</p>
           </div>
         )}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BookOpen, Check, ChevronRight, SkipForward, Star, StopCircle, Trophy, Users } from 'lucide-react'
+import { BookOpen, Check, ChevronRight, SkipForward, Star, StopCircle, Trophy, Users, PartyPopper, PenLine } from 'lucide-react'
 import type { StoryBuilderState } from './types'
 
 const AVATAR_COLORS = [
@@ -61,7 +61,7 @@ export function StoryBuilderHostPanel({
       <div className="max-w-3xl mx-auto space-y-4">
         {/* Header */}
         <div className="bg-gradient-to-r from-violet-50 to-purple-50 rounded-2xl border border-violet-200 px-6 py-5 text-center">
-          <div className="text-4xl mb-2">🎉</div>
+          <div className="mb-2 text-violet-500"><PartyPopper className="w-10 h-10 inline" /></div>
           <h2 className="text-xl font-bold text-slate-800">Story Complete!</h2>
           <p className="text-slate-500 text-sm mt-1">{storyState.sentences.length} sentences written together</p>
         </div>
@@ -153,7 +153,7 @@ export function StoryBuilderHostPanel({
             {isAdvancing
               ? 'Loading...'
               : isLastActivity
-              ? 'Finish lesson! 🎉'
+              ? 'Finish lesson!'
               : <>Next activity <ChevronRight className="w-4 h-4" /></>
             }
           </button>
@@ -289,7 +289,7 @@ export function StoryBuilderHostPanel({
         <div className="px-5 py-4 max-h-72 overflow-y-auto">
           {storyState.sentences.length === 0 && (
             <div className="py-8 text-center">
-              <div className="text-3xl mb-2">✍️</div>
+              <div className="mb-2 text-slate-300"><PenLine className="w-8 h-8 inline" /></div>
               <p className="text-slate-400 text-sm">
                 {currentPlayer
                   ? `Waiting for ${currentPlayer.nickname} to write the first sentence...`
@@ -385,7 +385,7 @@ export function StoryBuilderHostPanel({
             hover:bg-emerald-700 disabled:opacity-50 text-white font-bold
             px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
         >
-          Finish story 🎉
+          Finish story
         </button>
       </div>
     </div>
