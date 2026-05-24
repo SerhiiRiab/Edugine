@@ -63,6 +63,15 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Recent activity */}
+      <div className="mt-10">
+        <h3 className="text-lg font-bold text-slate-800 mb-4">Recent activity</h3>
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-6 py-10 flex flex-col items-center justify-center text-center">
+          <p className="text-slate-400 text-sm">No recent activity yet.</p>
+          <p className="text-slate-300 text-xs mt-1">Sessions and edits will appear here.</p>
+        </div>
+      </div>
     </div>
   )
 }
