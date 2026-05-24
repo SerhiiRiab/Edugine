@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" fill="none">
+  <defs>
+    <linearGradient id="eg-lockup-grad-d" x1="10" y1="10" x2="80" y2="86" gradientUnits="userSpaceOnUse">
+      <stop offset="0.00" stop-color="#FFB300"></stop>
+      <stop offset="0.30" stop-color="#FF3D7F"></stop>
+      <stop offset="0.65" stop-color="#A020F0"></stop>
+      <stop offset="1.00" stop-color="#2A6BFF"></stop>
+    </linearGradient>
+  </defs>
+  <path fill="url(#eg-lockup-grad-d)" d="M18 12 H78 a6 6 0 0 1 6 6 v8 a6 6 0 0 1 -6 6 H35 v12 H71 a6 6 0 0 1 6 6 v8 a6 6 0 0 1 -6 6 H35 v12 H78 a6 6 0 0 1 6 6 v8 a6 6 0 0 1 -6 6 H18 a6 6 0 0 1 -6 -6 V18 a6 6 0 0 1 6 -6 z"></path>
+  <text x="110" y="68" font-family="Geist, system-ui, sans-serif" font-weight="800" font-size="58" letter-spacing="-1.4" fill="#ffffff">Edugine</text>
+</svg>

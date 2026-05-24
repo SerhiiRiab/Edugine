@@ -1,0 +1,228 @@
+/* =====================================================================
+   Edugine — Colors & Typography Tokens
+   Sourced from src/app/globals.css (shadcn neutral base) + the
+   component library's actual color usage (page.tsx, tutor-shell,
+   player-view, cards, login). Tailwind utility classes used in the
+   codebase are encoded here as semantic variables.
+   ===================================================================== */
+
+/* ------------------------- Fonts ----------------------------------- */
+/* Production uses next/font with Geist Sans + Geist Mono.
+   Re-imported here from Google Fonts so the design system & static
+   prototypes render identically. */
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap");
+
+:root {
+  /* =========================== Palette =========================== */
+  /* Brand violet ramp — the dominant hue across marketing, app and player */
+  --violet-50:  #f5f3ff;
+  --violet-100: #ede9fe;
+  --violet-200: #ddd6fe;
+  --violet-300: #c4b5fd;
+  --violet-400: #a78bfa;
+  --violet-500: #8b5cf6;   /* hero gradient start */
+  --violet-600: #7c3aed;   /* primary button, active nav */
+  --violet-700: #6d28d9;   /* button hover, "on-white" text */
+  --violet-800: #5b21b6;   /* button active */
+  --violet-900: #4c1d95;   /* shadow tint */
+  --violet-950: #2e1065;   /* sidebar background */
+
+  --purple-500: #a855f7;
+  --purple-600: #9333ea;   /* hero gradient middle */
+
+  --indigo-600: #4f46e5;
+  --indigo-700: #4338ca;   /* hero gradient end */
+
+  /* Brand logo gradient stops — pulled from the wordmark PNG.
+     Used for the "E" mark + any animated/decorative gradient. */
+  --brand-grad-1: #FFB300;   /* warm orange highlight */
+  --brand-grad-2: #FF3D7F;   /* hot pink */
+  --brand-grad-3: #A020F0;   /* electric violet */
+  --brand-grad-4: #2A6BFF;   /* electric blue */
+  --brand-grad-yellow: #FACC15; /* yellow Zap accent (logo lockup with sidebar) */
+
+  /* Neutral / slate (the codebase uses Tailwind "slate" extensively) */
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+
+  /* Accent / mechanic colors — each gamified activity owns a hue */
+  --emerald-50:  #ecfdf5;
+  --emerald-100: #d1fae5;
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+
+  --amber-50:  #fffbeb;
+  --amber-100: #fef3c7;
+  --amber-200: #fde68a;
+  --amber-500: #f59e0b;
+  --amber-600: #d97706;
+  --amber-700: #b45309;
+
+  --orange-100: #ffedd5;
+  --orange-600: #ea580c;
+  --orange-700: #c2410c;
+
+  --rose-500:  #f43f5e;
+  --red-50:    #fef2f2;
+  --red-400:   #f87171;
+  --red-500:   #ef4444;
+
+  --blue-100:  #dbeafe;
+  --blue-700:  #1d4ed8;
+  --sky-500:   #0ea5e9;
+
+  /* ============== Semantic — Marketing / Auth (light, gradient) ============== */
+  --mkt-bg-from: var(--violet-500);
+  --mkt-bg-via:  var(--purple-600);
+  --mkt-bg-to:   var(--indigo-700);
+  --mkt-fg:      #ffffff;
+  --mkt-fg-soft: rgba(255, 255, 255, 0.7);
+  --mkt-fg-mute: var(--violet-200);
+  --mkt-card-bg: rgba(255, 255, 255, 0.10);       /* glass card */
+  --mkt-card-border: rgba(255, 255, 255, 0.20);
+  --mkt-pill-bg: rgba(255, 255, 255, 0.10);
+
+  /* ============== Semantic — Tutor app (light dashboard) ==================== */
+  --bg:          var(--slate-50);
+  --surface:     #ffffff;
+  --surface-2:   var(--slate-50);
+  --fg:          var(--slate-800);     /* primary text */
+  --fg-muted:    var(--slate-400);     /* labels, captions */
+  --fg-subtle:   var(--slate-500);
+  --border:      var(--slate-100);     /* card borders */
+  --border-strong: var(--slate-200);
+  --primary:     var(--violet-600);
+  --primary-fg:  #ffffff;
+  --primary-hover: var(--violet-700);
+  --ring:        var(--violet-500);
+  --focus-ring:  rgba(139, 92, 246, 0.20);
+
+  /* Sidebar (dark violet) */
+  --sidebar-bg:  var(--violet-950);
+  --sidebar-fg:  #ffffff;
+  --sidebar-muted: var(--violet-300);
+  --sidebar-hover-bg: rgba(91, 33, 182, 0.6);    /* violet-800/60 */
+  --sidebar-active-bg: var(--violet-600);
+  --sidebar-border: rgba(91, 33, 182, 0.6);
+
+  /* ============== Semantic — Player view (dark, mobile) ==================== */
+  --player-bg:        var(--slate-900);
+  --player-surface:   var(--slate-800);
+  --player-surface-2: rgba(30, 41, 59, 0.6);      /* slate-800/60 */
+  --player-fg:        #ffffff;
+  --player-fg-muted:  var(--slate-400);
+  --player-fg-subtle: var(--slate-500);
+  --player-border:    var(--slate-700);
+  --player-input-bg:  var(--slate-800);
+  --player-accent:    var(--violet-600);
+
+  /* ============== Status / feedback ======================================== */
+  --success:    var(--emerald-500);
+  --success-bg: var(--emerald-100);
+  --warning:    var(--amber-500);
+  --warning-bg: var(--amber-100);
+  --danger:     var(--red-500);
+  --danger-bg:  var(--red-50);
+  --info:       var(--sky-500);
+
+  /* ============== Radii =================================================== */
+  --radius-xs:  6px;
+  --radius-sm:  8px;
+  --radius-md:  10px;
+  --radius-lg:  12px;    /* rounded-xl — default for buttons, inputs */
+  --radius-xl:  16px;    /* rounded-2xl — cards, modals */
+  --radius-2xl: 24px;    /* rounded-3xl — hero cards, large surfaces */
+  --radius-pill: 9999px; /* badges, pills */
+
+  /* ============== Shadows ================================================== */
+  --shadow-sm: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.08), 0 2px 4px -1px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 12px 32px -4px rgba(15, 23, 42, 0.10), 0 4px 8px -2px rgba(15, 23, 42, 0.06);
+  --shadow-xl: 0 24px 56px -12px rgba(15, 23, 42, 0.18);
+  --shadow-violet-xl: 0 20px 50px -10px rgba(76, 29, 149, 0.30); /* "shadow-violet-900/30" */
+  --shadow-violet-md: 0 10px 30px -8px rgba(76, 29, 149, 0.20);
+
+  /* ============== Spacing scale (Tailwind 4px) ============================== */
+  --space-0: 0;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ============== Typography =============================================== */
+  --font-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+
+  /* Display (used in the hero — "extrabold tracking-tight leading-tight") */
+  --text-display-xl: 72px;   /* hero, md:text-7xl */
+  --text-display-lg: 48px;   /* mobile hero, text-5xl */
+  --text-h1: 30px;           /* dashboard "Hey, {name}!" — text-3xl */
+  --text-h2: 24px;           /* card section — text-2xl */
+  --text-h3: 20px;           /* sidebar logo, modal titles */
+  --text-h4: 18px;
+  --text-base: 16px;
+  --text-sm: 14px;
+  --text-xs: 12px;
+  --text-xxs: 11px;
+
+  --leading-tight: 1.1;
+  --leading-snug:  1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  --weight-regular:   400;
+  --weight-medium:    500;
+  --weight-semibold:  600;
+  --weight-bold:      700;
+  --weight-extrabold: 800;
+  --weight-black:     900;
+
+  --tracking-tight: -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+
+  /* ============== Motion =================================================== */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* the "scale-[1.02] hover" feel */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
+}
+
+/* ============== Semantic role classes ===================================== */
+
+/* Base typography */
+.eg-display { font-family: var(--font-sans); font-size: var(--text-display-xl); font-weight: var(--weight-extrabold); letter-spacing: var(--tracking-tight); line-height: var(--leading-tight); }
+.eg-h1 { font-family: var(--font-sans); font-size: var(--text-h1); font-weight: var(--weight-extrabold); letter-spacing: var(--tracking-tight); line-height: var(--leading-snug); color: var(--fg); }
+.eg-h2 { font-family: var(--font-sans); font-size: var(--text-h2); font-weight: var(--weight-bold); line-height: var(--leading-snug); color: var(--fg); }
+.eg-h3 { font-family: var(--font-sans); font-size: var(--text-h3); font-weight: var(--weight-bold); line-height: var(--leading-snug); color: var(--fg); }
+.eg-body { font-family: var(--font-sans); font-size: var(--text-base); font-weight: var(--weight-regular); line-height: var(--leading-relaxed); color: var(--fg); }
+.eg-body-sm { font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--weight-regular); line-height: var(--leading-normal); color: var(--fg-subtle); }
+.eg-label { font-family: var(--font-sans); font-size: var(--text-sm); font-weight: var(--weight-medium); color: var(--slate-700); }
+.eg-caption { font-family: var(--font-sans); font-size: var(--text-xs); font-weight: var(--weight-medium); color: var(--fg-muted); letter-spacing: var(--tracking-wide); text-transform: uppercase; }
+.eg-mono { font-family: var(--font-mono); font-size: var(--text-base); font-weight: var(--weight-medium); }
+.eg-code-pill { font-family: var(--font-mono); background: var(--slate-800); color: #fff; padding: 2px 8px; border-radius: var(--radius-sm); }
+
+/* The signature wordmark style */
+.eg-wordmark {
+  font-family: var(--font-sans);
+  font-weight: var(--weight-extrabold);
+  letter-spacing: var(--tracking-tight);
+}

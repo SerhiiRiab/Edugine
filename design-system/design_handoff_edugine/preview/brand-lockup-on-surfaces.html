@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><link rel="stylesheet" href="_card.css"></head>
+<body style="padding:0;">
+  <div style="display:grid; grid-template-columns: 1fr 1fr; min-height:200px;">
+    <!-- Light surface: full lockup with the gradient E -->
+    <div style="background:#ffffff; display:flex; align-items:center; justify-content:center; padding:20px;">
+      <img src="../assets/edugine-lockup-light.svg" alt="Edugine on light" style="width:80%; max-height:90px;">
+    </div>
+    <!-- Gradient surface: wordmark only, no E mark (gradient-on-gradient reads poorly) -->
+    <div style="background:linear-gradient(135deg, var(--violet-500), var(--purple-600), var(--indigo-700)); display:flex; align-items:center; justify-content:center; padding:20px;">
+      <span style="font-family:var(--font-sans); font-weight:800; font-size:48px; letter-spacing:-0.025em; color:#ffffff;">Edugine</span>
+    </div>
+  </div>
+  <div style="padding:10px 16px; background:#fafafa; border-top:1px solid var(--slate-100); font-size:11px; color:var(--fg-muted);">
+    On the violet gradient, drop the "E" mark — its gradient clashes with the surface. Use the wordmark alone in white.
+  </div>
+</body></html>

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Edugine — Tutor App UI Kit</title>
+  <link rel="stylesheet" href="../../colors_and_type.css">
+  <style>
+    html, body { margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); background: var(--slate-50); }
+    #root, .shell { height: 100vh; display: flex; overflow: hidden; }
+    main.tutor-main { flex: 1; overflow: auto; }
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel" src="../_shared/icons.jsx"></script>
+  <script type="text/babel" src="./Sidebar.jsx"></script>
+  <script type="text/babel" src="./LibraryCard.jsx"></script>
+  <script type="text/babel" src="./DashboardScreen.jsx"></script>
+  <script type="text/babel" src="./LibraryScreen.jsx"></script>
+  <script type="text/babel" src="./SessionsScreen.jsx"></script>
+
+  <script type="text/babel">
+    function App() {
+      const [active, setActive] = React.useState('dashboard');
+      const Sidebar = window.TutorSidebar;
+      const Dashboard = window.TutorDashboardScreen;
+      const Library = window.TutorLibraryScreen;
+      const Sessions = window.TutorSessionsScreen;
+
+      return (
+        <div className="shell">
+          <Sidebar active={active} onNav={setActive} email="alex.carter@school.com"/>
+          <main className="tutor-main">
+            {active === 'dashboard'    && <Dashboard name="Alex" onGoCreate={() => setActive('content-sets')}/>}
+            {active === 'content-sets' && <Library kind="contentSets"/>}
+            {active === 'lessons'      && <Library kind="lessons"/>}
+            {active === 'sessions'     && <Sessions/>}
+            {active === 'settings'     && (
+              <div style={{ padding: 32, maxWidth: 720, margin: '0 auto' }}>
+                <h1 style={{ fontSize: 30, fontWeight: 800, color: 'var(--slate-800)', margin: 0, letterSpacing: '-0.02em' }}>Settings</h1>
+                <p style={{ color: 'var(--slate-400)', marginTop: 4, fontSize: 14, marginBottom: 24 }}>Account &amp; teaching preferences.</p>
+                <div style={{ background: '#fff', borderRadius: 16, border: '1px solid var(--slate-100)', boxShadow: 'var(--shadow-sm)', padding: 24 }}>
+                  <p style={{ color: 'var(--slate-400)', fontStyle: 'italic', margin: 0 }}>Settings UI not present in the source repo yet — leave blank.</p>
+                </div>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+    ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+</body>
+</html>
