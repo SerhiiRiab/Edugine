@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Zap, Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 function passwordStrength(pwd: string): number {
   let score = 0
@@ -70,9 +70,6 @@ export default function SignupPage() {
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur rounded-2xl mb-4">
-            <Zap className="w-8 h-8 text-yellow-300" />
-          </div>
           <h1 className="text-4xl font-extrabold text-white tracking-tight">Edugine</h1>
           <p className="text-violet-200 mt-1 text-sm">The lesson engine that goes brrrr 🚀</p>
         </div>

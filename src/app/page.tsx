@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Zap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Home() {
@@ -12,9 +11,6 @@ export default async function Home() {
       {/* Header */}
       <header className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-white/20 backdrop-blur rounded-xl flex items-center justify-center">
-            <Zap className="w-5 h-5 text-yellow-300" />
-          </div>
           <span className="text-white font-extrabold text-xl tracking-tight">Edugine</span>
         </div>
 

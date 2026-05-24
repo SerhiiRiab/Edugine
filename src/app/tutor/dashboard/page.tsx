@@ -79,7 +79,7 @@ function StatCard({
   accent: string
 }) {
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hover:shadow-md hover:scale-[1.02] transition-all duration-200">
       <div className={`inline-flex items-center justify-center w-10 h-10 rounded-xl mb-4 ${accent}`}>
         {icon}
       </div>

@@ -10,7 +10,6 @@ import {
   Play,
   Settings,
   LogOut,
-  Zap,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -45,12 +44,7 @@ export function TutorShell({ email, children }: Props) {
 
         {/* Logo */}
         <div className="px-6 py-5 border-b border-violet-800/60">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center justify-center w-8 h-8 bg-yellow-400 rounded-lg">
-              <Zap className="w-4 h-4 text-violet-900" />
-            </div>
-            <span className="text-lg font-extrabold tracking-tight">Edugine</span>
-          </div>
+          <img src="/edugine-lockup-dark.svg" alt="Edugine" className="h-8" />
         </div>
 
         {/* Nav */}
