@@ -7,6 +7,7 @@ import {
   useMotionValue,
   useTransform,
 } from 'framer-motion'
+import { X, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
@@ -71,6 +72,7 @@ export function SwipeBattlePlayerPanel({
 }: SwipeBattlePlayerPanelProps) {
   const [currentCardIndex, setCurrentCardIndex] = useState(0)
   const [score, setScore] = useState(0)
+  const [correctCount, setCorrectCount] = useState(0)
   const [timeLeft, setTimeLeft] = useState(TIME_PER_CARD)
   const [swipeResult, setSwipeResult] = useState<'correct' | 'wrong' | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
@@ -191,6 +193,7 @@ export function SwipeBattlePlayerPanel({
     const newScore = Math.max(0, scoreRef.current + (correct ? 10 : -5))
     scoreRef.current = newScore
     setScore(newScore)
+    if (correct) setCorrectCount(prev => prev + 1)
 
     swipesRef.current.push({ word: item.word, translation: item.translation, correct })
 
@@ -366,24 +369,45 @@ export function SwipeBattlePlayerPanel({
           </AnimatePresence>
         </div>
 
-        <div className="flex gap-4 mt-6 w-full max-w-sm">
+        {/* Score row */}
+        <div className="flex justify-around w-full max-w-sm text-center mt-4">
+          <div>
+            <div className="text-xl font-black text-emerald-400">{correctCount}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Correct</div>
+          </div>
+          <div>
+            <div className="text-xl font-black text-violet-400">{score}</div>
+            <div className="text-xs text-slate-500 mt-0.5">Points</div>
+          </div>
+          <div>
+            <div className="text-xl font-black text-slate-300">
+              {Math.max(0, items.length - currentCardIndex - 1)}
+            </div>
+            <div className="text-xs text-slate-500 mt-0.5">Left</div>
+          </div>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex gap-6 justify-center mt-4">
           <button
             onClick={() => handleSwipe('left')}
             disabled={isProcessing}
-            className="flex-1 py-4 rounded-2xl bg-red-500/20 border border-red-500/30
-              text-red-400 font-bold text-base hover:bg-red-500/30 transition-colors
-              active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            className="w-16 h-16 rounded-full bg-red-500/10 border-2 border-red-500/30
+              text-red-400 flex items-center justify-center
+              hover:bg-red-500/20 transition-colors active:scale-95
+              disabled:opacity-40 disabled:pointer-events-none"
           >
-            ✗ Wrong
+            <X className="w-7 h-7" />
           </button>
           <button
             onClick={() => handleSwipe('right')}
             disabled={isProcessing}
-            className="flex-1 py-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/30
-              text-emerald-400 font-bold text-base hover:bg-emerald-500/30 transition-colors
-              active:scale-95 disabled:opacity-40 disabled:pointer-events-none"
+            className="w-16 h-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/30
+              text-emerald-400 flex items-center justify-center
+              hover:bg-emerald-500/20 transition-colors active:scale-95
+              disabled:opacity-40 disabled:pointer-events-none"
           >
-            ✓ Correct
+            <Check className="w-7 h-7" />
           </button>
         </div>
       </div>

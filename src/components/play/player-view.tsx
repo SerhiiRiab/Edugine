@@ -670,23 +670,23 @@ export function PlayerView({ session, items = [], lesson }: Props) {
             <div className="bg-slate-800 rounded-2xl p-5 space-y-2">
               <p className="text-xs text-slate-400 uppercase tracking-wide font-semibold">This activity</p>
               <div className="grid grid-cols-3 gap-3 text-center">
-                <div>
+                <div className="bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
                   <div className="text-2xl font-black text-emerald-400">
                     {lastActivityResult?.correct ?? 0}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">Correct</div>
+                  <div className="text-xs text-emerald-500 mt-0.5">Correct</div>
                 </div>
-                <div>
+                <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20">
                   <div className="text-2xl font-black text-red-400">
                     {lastActivityResult?.incorrect ?? 0}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">Wrong</div>
+                  <div className="text-xs text-red-400 mt-0.5">Wrong</div>
                 </div>
-                <div>
+                <div className="bg-violet-500/10 rounded-xl p-3 border border-violet-500/20">
                   <div className="text-2xl font-black text-violet-400">
                     {lastActivityResult?.score ?? 0}
                   </div>
-                  <div className="text-xs text-slate-500 mt-0.5">Points</div>
+                  <div className="text-xs text-violet-400 mt-0.5">Points</div>
                 </div>
               </div>
             </div>
