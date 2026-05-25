@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import type { BulkSeparator } from '@/lib/utils/bulk-import-parser'
+import type { SkillCategoryId } from './skill-categories'
 
 // ── Mechanic IDs ────────────────────────────────────────────────────────────
 // Add new mechanic IDs here as the engine grows.
@@ -70,6 +71,7 @@ export interface MechanicDefinition<
   id: MechanicId
   name: string
   description: string
+  skill_category: SkillCategoryId
 
   // React components — loaded lazily to keep bundle size down
   HostComponent: ComponentType<MechanicHostProps<TState>>

@@ -56,6 +56,7 @@ import {
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
+import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -248,37 +249,68 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                   </Link>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {contentSets.map((cs) => {
-                    const meta = MECHANIC_META[cs.mechanic_id]
-                    const Icon = meta?.Icon ?? Gamepad2
-                    const isSelected = selectedSet?.id === cs.id
+                <div className="space-y-4">
+                  {SKILL_CATEGORIES.map((category) => {
+                    const categorySets = contentSets.filter(
+                      (cs) => MECHANIC_TO_CATEGORY[cs.mechanic_id] === category.id,
+                    )
+                    const CategoryIcon = category.Icon
+                    const isEmpty = categorySets.length === 0
+
                     return (
-                      <button
-                        key={cs.id}
-                        type="button"
-                        onClick={() => setSelectedSet(cs)}
-                        className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
-                          isSelected
-                            ? 'border-violet-400 bg-violet-50'
-                            : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
-                          <Icon className="w-4 h-4" />
+                      <div key={category.id}>
+                        {/* Category header */}
+                        <div className={`flex items-center gap-2 mb-2 ${isEmpty ? 'opacity-50' : ''}`}>
+                          <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${category.colors.bg}`}>
+                            <CategoryIcon className={`w-3 h-3 ${category.colors.text}`} />
+                          </div>
+                          <span className={`text-xs font-bold uppercase tracking-wide ${isEmpty ? 'text-slate-400' : category.colors.text}`}>
+                            {category.label}
+                          </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0">
-                            <Check className="w-3 h-3 text-white" />
+
+                        {isEmpty ? (
+                          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-dashed border-slate-200 text-slate-300">
+                            <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
+                            <span className="text-xs font-medium">Coming soon</span>
+                          </div>
+                        ) : (
+                          <div className="space-y-1.5">
+                            {categorySets.map((cs) => {
+                              const meta = MECHANIC_META[cs.mechanic_id]
+                              const Icon = meta?.Icon ?? Gamepad2
+                              const isSelected = selectedSet?.id === cs.id
+                              return (
+                                <button
+                                  key={cs.id}
+                                  type="button"
+                                  onClick={() => setSelectedSet(cs)}
+                                  className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
+                                    isSelected
+                                      ? 'border-violet-400 bg-violet-50'
+                                      : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
+                                  }`}
+                                >
+                                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
+                                    <Icon className="w-4 h-4" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
+                                    <p className="text-xs text-slate-400 mt-0.5">
+                                      {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
+                                    </p>
+                                  </div>
+                                  {isSelected && (
+                                    <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0">
+                                      <Check className="w-3 h-3 text-white" />
+                                    </div>
+                                  )}
+                                </button>
+                              )
+                            })}
                           </div>
                         )}
-                      </button>
+                      </div>
                     )
                   })}
                 </div>
