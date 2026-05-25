@@ -514,7 +514,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
       try {
         const { turnOrder } = await startSession(session.id)
 
-        // Init story state if current activity is story_builder
+        // Init story/talk_time state for the starting activity
         let newStoryState: StoryBuilderState | undefined
         let newTalkTimeState: TalkTimeState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
@@ -522,7 +522,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
           setStoryState(newStoryState)
           setTalkTimeState(null)
-        } else if (firstActivity?.mechanic_id === 'talk_time') {
+        } else if (
+          firstActivity?.mechanic_id === 'talk_time' ||
+          (!isLesson && session.mechanic_id === 'talk_time')
+        ) {
           newTalkTimeState = await initTalkTimeState(session.id, currentActivityIndex)
           setTalkTimeState(newTalkTimeState)
           setStoryState(null)
@@ -1111,7 +1114,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
             )}
 
             {/* ── TALK TIME PANEL ──────────────────────────────────────── */}
-            {isLesson && lesson.activities[currentActivityIndex]?.mechanic_id === 'talk_time' && talkTimeState && (
+            {(isLesson
+              ? lesson.activities[currentActivityIndex]?.mechanic_id === 'talk_time'
+              : session.mechanic_id === 'talk_time'
+            ) && talkTimeState && (
               <TalkTimeHostPanel
                 state={talkTimeState}
                 participants={participants}
@@ -1154,7 +1160,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
               ? (lesson.activities[currentActivityIndex]?.mechanic_id !== 'story_builder' &&
                  lesson.activities[currentActivityIndex]?.mechanic_id !== 'speed_match' &&
                  lesson.activities[currentActivityIndex]?.mechanic_id !== 'talk_time')
-              : session.mechanic_id !== 'speed_match'
+              : session.mechanic_id !== 'speed_match' && session.mechanic_id !== 'talk_time'
             ) && (
               <SwipeBattleHostPanel
                 participants={participants}

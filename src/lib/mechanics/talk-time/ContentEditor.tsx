@@ -2,10 +2,11 @@
 
 import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, X, Check, AlertCircle, Loader2, Mic, ClipboardList,
-  CheckCircle2, AlertTriangle,
+  CheckCircle2, AlertTriangle, Rocket,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -13,6 +14,7 @@ import {
   deleteContentItem,
   bulkCreateContentItems,
 } from '@/lib/actions/content-sets'
+import { createSession } from '@/lib/actions/sessions'
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { talkTimeDefinition } from '@/lib/mechanics/talk-time/index'
 
@@ -47,14 +49,16 @@ interface Props {
 }
 
 export function TalkTimeContentEditor({ set, initialItems }: Props) {
+  const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
   const [prompts, setPrompts] = useState<PromptItem[]>(initialItems.map(rawToPrompt))
   const [newPrompt, setNewPrompt] = useState('')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
-  const [addingPrompt, startAddPrompt] = useTransition()
+  const [addingPrompt, setAddingPrompt] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -83,16 +87,17 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
 
   async function handleAddPrompt() {
     const p = newPrompt.trim()
-    if (!p) return
+    if (!p || addingPrompt) return
     setNewPrompt('')
-    startAddPrompt(async () => {
-      try {
-        const created = await createContentItem(set.id, { prompt: p })
-        setPrompts((prev) => [...prev, { id: created.id, prompt: p }])
-      } catch {
-        toast.error('Failed to add prompt')
-      }
-    })
+    setAddingPrompt(true)
+    try {
+      const created = await createContentItem(set.id, { prompt: p })
+      setPrompts((prev) => [...prev, { id: created.id, prompt: p }])
+    } catch {
+      toast.error('Failed to add prompt')
+    } finally {
+      setAddingPrompt(false)
+    }
   }
 
   async function handleBulkImport(rows: Record<string, unknown>[]) {
@@ -201,6 +206,20 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
               <Mic className="w-3 h-3" />
               Talk Time
             </span>
+            <button
+              disabled={!canPlay || startingSession}
+              title={canPlay ? 'Start a live session' : 'Add at least 1 prompt'}
+              onClick={() => startSessionTransition(() => createSession(set.id))}
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
+                disabled:opacity-40 disabled:cursor-not-allowed
+                text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              {startingSession ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
+              ) : (
+                <><Rocket className="w-4 h-4" />Start Session</>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -336,7 +355,7 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs text-slate-500">
           <p className="font-semibold text-slate-600 mb-1">How to play:</p>
-          <p>Add this set to a lesson as a <strong>shared</strong> activity. Set timer duration in the lesson builder.</p>
+          <p>Start a session directly, or add to a lesson as a <strong>shared</strong> activity.</p>
           <Link
             href="/tutor/lessons/new"
             className="mt-2 block text-emerald-600 font-semibold hover:underline"
