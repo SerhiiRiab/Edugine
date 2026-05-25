@@ -2,8 +2,9 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, MessageCircle, Theater } from 'lucide-react'
 import { createContentSet } from '@/lib/actions/content-sets'
+import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -24,34 +25,53 @@ const LANGUAGES = [
   { value: 'other', label: 'Other' },
 ]
 
-const SELECTABLE_MECHANICS = [
-  {
-    id: 'swipe_battle',
-    name: 'Vocabulary Swipe Battle 🎯',
+interface FormMechanic {
+  name: string
+  desc: string
+  Icon: React.ComponentType<{ className?: string }>
+  available: boolean
+  badge?: string
+  dot?: string
+}
+
+const FORM_MECHANICS: Record<string, FormMechanic> = {
+  swipe_battle: {
+    name: 'Swipe Battle',
     desc: 'Swipe cards left (wrong) or right (correct) to test vocabulary',
+    Icon: Target,
+    available: true,
     badge: 'border-violet-300 bg-violet-50',
     dot: 'border-violet-500 bg-violet-500',
   },
-  {
-    id: 'speed_match',
-    name: 'Speed Match ⚡',
+  speed_match: {
+    name: 'Speed Match',
     desc: 'Match pairs against the clock — two columns, click to connect',
+    Icon: Zap,
+    available: true,
     badge: 'border-sky-300 bg-sky-50',
     dot: 'border-sky-500 bg-sky-500',
   },
-  {
-    id: 'story_builder',
-    name: 'Group Story Builder 📖',
+  story_builder: {
+    name: 'Group Story Builder',
     desc: 'Collaborative turn-based story writing with a shared word bank',
-    badge: 'border-emerald-300 bg-emerald-50',
-    dot: 'border-emerald-500 bg-emerald-500',
+    Icon: PenLine,
+    available: true,
+    badge: 'border-teal-300 bg-teal-50',
+    dot: 'border-teal-500 bg-teal-500',
   },
-]
-
-const COMING_SOON = [
-  { id: 'speed_debate', name: 'Speed Debate 💬', desc: 'Debate topics in real-time' },
-  { id: 'roleplay_quest', name: 'Roleplay Quest 🎭', desc: 'Interactive conversation scenarios' },
-]
+  speed_debate: {
+    name: 'Speed Debate',
+    desc: 'Debate topics in real-time',
+    Icon: MessageCircle,
+    available: false,
+  },
+  roleplay_quest: {
+    name: 'Roleplay Quest',
+    desc: 'Interactive conversation scenarios',
+    Icon: Theater,
+    available: false,
+  },
+}
 
 const TITLE_MAX = 100
 const DESC_MAX = 500
@@ -132,52 +152,89 @@ export function NewContentSetForm() {
           </Select>
         </div>
 
-        {/* Mechanic selector */}
-        <div className="space-y-3">
+        {/* Mechanic selector — grouped by skill category */}
+        <div className="space-y-5">
           <Label className="text-sm font-semibold text-slate-700">Game Mechanic <span className="text-red-500">*</span></Label>
 
-          {SELECTABLE_MECHANICS.map((m) => {
-            const isSelected = selectedMechanic === m.id
-            return (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setSelectedMechanic(m.id)}
-                className={`w-full text-left flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                  isSelected ? m.badge : 'border-slate-100 bg-white hover:border-slate-200'
-                }`}
-              >
-                <div className="flex-1">
-                  <p className={`font-semibold text-sm ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>
-                    {m.name}
-                  </p>
-                  <p className={`text-xs mt-0.5 ${isSelected ? 'text-slate-500' : 'text-slate-400'}`}>
-                    {m.desc}
-                  </p>
-                </div>
-                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                  isSelected ? m.dot : 'border-slate-300'
-                }`}>
-                  {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
-                </div>
-              </button>
-            )
-          })}
+          {SKILL_CATEGORIES.map((category) => {
+              const CategoryIcon = category.Icon
+              const mechanicIds = Object.keys(MECHANIC_TO_CATEGORY).filter(
+                (mid) => MECHANIC_TO_CATEGORY[mid] === category.id,
+              )
+              const hasAnyMechanic = mechanicIds.length > 0
+              return (
+                <div key={category.id} className={`space-y-2 ${!hasAnyMechanic ? 'opacity-50' : ''}`}>
+                  {/* Category header */}
+                  <div className="flex items-center gap-1.5">
+                    <div className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${hasAnyMechanic ? category.colors.bg : 'bg-slate-100'}`}>
+                      <CategoryIcon className={`w-2.5 h-2.5 ${hasAnyMechanic ? category.colors.text : 'text-slate-400'}`} />
+                    </div>
+                    <span className={`text-xs font-bold uppercase tracking-wide ${hasAnyMechanic ? category.colors.text : 'text-slate-400'}`}>
+                      {category.label}
+                    </span>
+                  </div>
 
-          {COMING_SOON.map((m) => (
-            <div
-              key={m.id}
-              className="flex items-center gap-4 p-4 rounded-xl border-2 border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed select-none"
-            >
-              <div className="flex-1">
-                <p className="font-semibold text-slate-500 text-sm">{m.name}</p>
-                <p className="text-xs text-slate-400 mt-0.5">{m.desc}</p>
-              </div>
-              <span className="text-xs font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full shrink-0">
-                Coming soon
-              </span>
-            </div>
-          ))}
+                  {/* Mechanics in this category, or coming-soon placeholder */}
+                  {hasAnyMechanic ? mechanicIds.map((mid) => {
+                    const m = FORM_MECHANICS[mid]
+                    if (!m) return null
+                    const MechanicIcon = m.Icon
+                    if (!m.available) {
+                      return (
+                        <div
+                          key={mid}
+                          className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed select-none"
+                        >
+                          <MechanicIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                          <div className="flex-1">
+                            <p className="font-semibold text-slate-500 text-sm">{m.name}</p>
+                            <p className="text-xs text-slate-400 mt-0.5">{m.desc}</p>
+                          </div>
+                          <span className="text-xs font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full shrink-0">
+                            Coming soon
+                          </span>
+                        </div>
+                      )
+                    }
+                    const isSelected = selectedMechanic === mid
+                    return (
+                      <button
+                        key={mid}
+                        type="button"
+                        onClick={() => setSelectedMechanic(mid)}
+                        className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
+                          isSelected ? m.badge : 'border-slate-100 bg-white hover:border-slate-200'
+                        }`}
+                      >
+                        <MechanicIcon className={`w-4 h-4 shrink-0 ${isSelected ? category.colors.text : 'text-slate-400'}`} />
+                        <div className="flex-1">
+                          <p className={`font-semibold text-sm ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>
+                            {m.name}
+                          </p>
+                          <p className={`text-xs mt-0.5 ${isSelected ? 'text-slate-500' : 'text-slate-400'}`}>
+                            {m.desc}
+                          </p>
+                        </div>
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                          isSelected ? m.dot : 'border-slate-300'
+                        }`}>
+                          {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    )
+                  }) : (
+                    <div className="flex items-center gap-3 p-3.5 rounded-xl border-2 border-slate-100 bg-slate-50 cursor-not-allowed select-none">
+                      <div className="flex-1">
+                        <p className="text-xs text-slate-400">No activities yet</p>
+                      </div>
+                      <span className="text-xs font-medium text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full shrink-0">
+                        Coming soon
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
         </div>
 
         {state?.error && (

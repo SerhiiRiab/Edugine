@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, MessageCircle, Theater } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, MessageCircle, Theater } from 'lucide-react'
 import { toast } from 'sonner'
+import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,16 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: Target,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
+  speed_match: {
+    label: 'Speed Match',
+    Icon: Zap,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  story_builder: {
+    label: 'Story Builder',
+    Icon: PenLine,
+    classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
   speed_debate: {
     label: 'Speed Debate',
     Icon: MessageCircle,
@@ -42,6 +53,8 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     classes: 'bg-orange-100 text-orange-700 border-orange-200',
   },
 }
+
+const SKILL_CATEGORY_MAP = Object.fromEntries(SKILL_CATEGORIES.map((c) => [c.id, c]))
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -62,6 +75,8 @@ export function ContentSetCard({ set }: ContentSetProps) {
     Icon: null as React.ComponentType<{ className?: string }> | null,
     classes: 'bg-slate-100 text-slate-600 border-slate-200',
   }
+  const categoryId = MECHANIC_TO_CATEGORY[set.mechanic_id]
+  const category = categoryId ? SKILL_CATEGORY_MAP[categoryId] : null
 
   async function handleDelete(e: React.MouseEvent) {
     e.preventDefault()
@@ -139,13 +154,22 @@ export function ContentSetCard({ set }: ContentSetProps) {
         </DropdownMenu>
       </div>
 
-      {/* Mechanic badge */}
-      <span
-        className={`self-start mb-3 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${mechanic.classes}`}
-      >
-        {mechanic.Icon && <mechanic.Icon className="w-3 h-3" />}
-        {mechanic.label}
-      </span>
+      {/* Category + mechanic badges */}
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        {category && (() => {
+          const CategoryIcon = category.Icon
+          return (
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${category.colors.bg} ${category.colors.text} ${category.colors.border}`}>
+              <CategoryIcon className="w-3 h-3" />
+              {category.label}
+            </span>
+          )
+        })()}
+        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${mechanic.classes}`}>
+          {mechanic.Icon && <mechanic.Icon className="w-3 h-3" />}
+          {mechanic.label}
+        </span>
+      </div>
 
       {/* Title */}
       <h3 className="font-bold text-slate-800 text-base leading-snug mb-1.5 pr-6 group-hover:text-violet-700 transition-colors truncate">
