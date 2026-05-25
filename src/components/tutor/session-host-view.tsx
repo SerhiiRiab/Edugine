@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -19,6 +19,9 @@ import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostCompone
 import type { SpeedMatchProgress } from '@/lib/mechanics/speed-match/types'
 import { SpeedMatchHostPanel } from '@/lib/mechanics/speed-match/HostComponent'
 import { SwipeBattleHostPanel } from '@/lib/mechanics/swipe-battle/HostComponent'
+import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
+import { TalkTimeHostPanel, } from '@/lib/mechanics/talk-time/HostComponent'
+import { computeTimeLeft } from '@/lib/mechanics/talk-time/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -137,6 +140,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
   const [storyState, setStoryState] = useState<StoryBuilderState | null>(null)
   const [typingUser, setTypingUser] = useState<{ participantId: string; name: string } | null>(null)
 
+  // Talk Time shared state
+  const [talkTimeState, setTalkTimeState] = useState<TalkTimeState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -237,6 +243,17 @@ export function SessionHostView({ session, items, lesson }: Props) {
             .eq('activity_index', actIdx)
             .single()
           if (stateRow?.state) setStoryState(stateRow.state as unknown as StoryBuilderState)
+        }
+
+        // Restore talk_time state from DB on tab restore / reconnect
+        if (currentMechanic === 'talk_time' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state) setTalkTimeState(stateRow.state as unknown as TalkTimeState)
         }
       } catch { /* participants will be populated via presence on reconnect */ }
     }
@@ -354,6 +371,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
         const p = payload as { state: StoryBuilderState }
         if (p.state) setStoryState(p.state)
+      })
+      .on('broadcast', { event: 'talk_time_state_update' }, ({ payload }) => {
+        const p = payload as { state: TalkTimeState }
+        if (p.state) setTalkTimeState(p.state)
       })
       .on('broadcast', { event: 'typing_indicator' }, ({ payload }) => {
         const p = payload as { participantId: string; name: string; isTyping: boolean }
@@ -495,12 +516,19 @@ export function SessionHostView({ session, items, lesson }: Props) {
 
         // Init story state if current activity is story_builder
         let newStoryState: StoryBuilderState | undefined
+        let newTalkTimeState: TalkTimeState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
           setStoryState(newStoryState)
+          setTalkTimeState(null)
+        } else if (firstActivity?.mechanic_id === 'talk_time') {
+          newTalkTimeState = await initTalkTimeState(session.id, currentActivityIndex)
+          setTalkTimeState(newTalkTimeState)
+          setStoryState(null)
         } else {
           setStoryState(null)
+          setTalkTimeState(null)
         }
 
         await channelRef.current?.send({
@@ -511,6 +539,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             activityIndex: currentActivityIndex,
             turnOrder,
             storyState: newStoryState,
+            talkTimeState: newTalkTimeState,
           },
         })
         setPhase('active')
@@ -547,19 +576,26 @@ export function SessionHostView({ session, items, lesson }: Props) {
       await advanceActivity(session.id, nextIndex)
       const nextActivity = lesson.activities[nextIndex]
 
-      // Init story state if next activity is story_builder
+      // Init state for next activity depending on mechanic
       let newStoryState: StoryBuilderState | undefined
+      let newTalkTimeState: TalkTimeState | undefined
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
         setStoryState(newStoryState)
+        setTalkTimeState(null)
+      } else if (nextActivity?.mechanic_id === 'talk_time') {
+        newTalkTimeState = await initTalkTimeState(session.id, nextIndex)
+        setTalkTimeState(newTalkTimeState)
+        setStoryState(null)
       } else {
         setStoryState(null)
+        setTalkTimeState(null)
       }
 
       await channelRef.current?.send({
         type: 'broadcast',
         event: 'activity_advance',
-        payload: { nextIndex, totalCards: nextActivity?.items.length ?? 0, storyState: newStoryState },
+        payload: { nextIndex, totalCards: nextActivity?.items.length ?? 0, storyState: newStoryState, talkTimeState: newTalkTimeState },
       })
       setCurrentActivityIndex(nextIndex)
       setLessonBetween(false)
@@ -671,6 +707,120 @@ export function SessionHostView({ session, items, lesson }: Props) {
     if (!storyState) return
     const newScore = Math.max(0, (storyState.teamScore ?? 0) + amount)
     await storyStateUpdate({ ...storyState, teamScore: newScore })
+  }
+
+  // ── Talk Time handlers ────────────────────────────────────────────────────────
+  async function talkTimeStateUpdate(newState: TalkTimeState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setTalkTimeState(newState)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'talk_time_state_update',
+      payload: { state: newState },
+    })
+  }
+
+  async function handleTalkTimeTimerStart() {
+    if (!talkTimeState) return
+    const timeLeft = computeTimeLeft(talkTimeState)
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      timerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      timeLeftAtStart: timeLeft,
+    })
+  }
+
+  async function handleTalkTimeTimerPause() {
+    if (!talkTimeState) return
+    const timeLeft = computeTimeLeft(talkTimeState)
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: Math.max(0, timeLeft),
+    })
+  }
+
+  async function handleTalkTimeTimerReset() {
+    if (!talkTimeState) return
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: talkTimeState.timerDuration,
+    })
+  }
+
+  async function handleTalkTimeNextTurn() {
+    if (!talkTimeState) return
+    const next = (talkTimeState.currentTurnIndex + 1) % Math.max(talkTimeState.turnOrder.length, 1)
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      currentTurnIndex: next,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: talkTimeState.timerDuration,
+    })
+  }
+
+  async function handleTalkTimeNextPrompt() {
+    if (!talkTimeState) return
+    const nextPrompt = talkTimeState.currentPromptIndex + 1
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      currentPromptIndex: nextPrompt,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: talkTimeState.timerDuration,
+    })
+  }
+
+  async function handleTalkTimeSkipTurn() {
+    if (!talkTimeState) return
+    const next = (talkTimeState.currentTurnIndex + 1) % Math.max(talkTimeState.turnOrder.length, 1)
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      currentTurnIndex: next,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: talkTimeState.timerDuration,
+    })
+  }
+
+  async function handleTalkTimeAssignTurn(participantId: string) {
+    if (!talkTimeState) return
+    const idx = talkTimeState.turnOrder.indexOf(participantId)
+    if (idx === -1 || idx === talkTimeState.currentTurnIndex) return
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      currentTurnIndex: idx,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: talkTimeState.timerDuration,
+    })
+  }
+
+  async function handleTalkTimeBonusPoints(amount: number) {
+    if (!talkTimeState) return
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      teamScore: Math.max(0, (talkTimeState.teamScore ?? 0) + amount),
+    })
+  }
+
+  async function handleTalkTimeFinish() {
+    if (!talkTimeState) return
+    await talkTimeStateUpdate({
+      ...talkTimeState,
+      status: 'finished',
+      timerRunning: false,
+      timerStartedAt: null,
+    })
   }
 
   function handleEndGame() {
@@ -960,6 +1110,27 @@ export function SessionHostView({ session, items, lesson }: Props) {
               />
             )}
 
+            {/* ── TALK TIME PANEL ──────────────────────────────────────── */}
+            {isLesson && lesson.activities[currentActivityIndex]?.mechanic_id === 'talk_time' && talkTimeState && (
+              <TalkTimeHostPanel
+                state={talkTimeState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
+                onEndLesson={handleEndLesson}
+                onTimerStart={handleTalkTimeTimerStart}
+                onTimerPause={handleTalkTimeTimerPause}
+                onTimerReset={handleTalkTimeTimerReset}
+                onNextTurn={handleTalkTimeNextTurn}
+                onNextPrompt={handleTalkTimeNextPrompt}
+                onSkipTurn={handleTalkTimeSkipTurn}
+                onAssignTurn={handleTalkTimeAssignTurn}
+                onBonusPoints={handleTalkTimeBonusPoints}
+                onFinish={handleTalkTimeFinish}
+              />
+            )}
+
             {/* ── SPEED MATCH PANEL ────────────────────────────────────── */}
             {(isLesson
               ? lesson.activities[currentActivityIndex]?.mechanic_id === 'speed_match'
@@ -981,7 +1152,8 @@ export function SessionHostView({ session, items, lesson }: Props) {
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
             {(isLesson
               ? (lesson.activities[currentActivityIndex]?.mechanic_id !== 'story_builder' &&
-                 lesson.activities[currentActivityIndex]?.mechanic_id !== 'speed_match')
+                 lesson.activities[currentActivityIndex]?.mechanic_id !== 'speed_match' &&
+                 lesson.activities[currentActivityIndex]?.mechanic_id !== 'talk_time')
               : session.mechanic_id !== 'speed_match'
             ) && (
               <SwipeBattleHostPanel

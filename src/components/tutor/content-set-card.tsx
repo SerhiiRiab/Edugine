@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, MessageCircle, Theater } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, Mic, MessageCircle, Theater } from 'lucide-react'
 import { toast } from 'sonner'
 import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import {
@@ -41,6 +41,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Story Builder',
     Icon: PenLine,
     classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
+  talk_time: {
+    label: 'Talk Time',
+    Icon: Mic,
+    classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
   speed_debate: {
     label: 'Speed Debate',

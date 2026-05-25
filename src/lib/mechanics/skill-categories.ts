@@ -50,6 +50,7 @@ export const MECHANIC_TO_CATEGORY: Record<string, SkillCategoryId> = {
   swipe_battle:   'vocabulary',
   speed_match:    'vocabulary',
   story_builder:  'writing',
+  talk_time:      'speaking',
   speed_debate:   'speaking',
   roleplay_quest: 'speaking',
 }

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, MessageCircle, Theater } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, Mic, MessageCircle, Theater } from 'lucide-react'
 import { createContentSet } from '@/lib/actions/content-sets'
 import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import { Input } from '@/components/ui/input'
@@ -58,6 +58,14 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
     available: true,
     badge: 'border-teal-300 bg-teal-50',
     dot: 'border-teal-500 bg-teal-500',
+  },
+  talk_time: {
+    name: 'Talk Time',
+    desc: 'Speak on a prompt against the clock, taking turns',
+    Icon: Mic,
+    available: true,
+    badge: 'border-emerald-300 bg-emerald-50',
+    dot: 'border-emerald-500 bg-emerald-500',
   },
   speed_debate: {
     name: 'Speed Debate',

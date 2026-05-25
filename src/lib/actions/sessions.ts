@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
+import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 
 export async function createLessonSession(lessonId: string) {
   const supabase = await createClient()
@@ -170,6 +171,73 @@ export async function initStoryState(
     status: 'active',
     teamScore: 0,
     usedWords: [],
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initTalkTimeState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<TalkTimeState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('config, lesson_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session?.lesson_id) throw new Error('Not a lesson session')
+
+  const turnOrder = ((session.config as Record<string, unknown>).turnOrder as string[]) ?? []
+
+  const { data: activities } = await supabase
+    .from('lesson_activities')
+    .select('content_set_id, position, config')
+    .eq('lesson_id', session.lesson_id)
+    .order('position', { ascending: true })
+
+  const activity = activities?.[activityIndex]
+  if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+
+  const timerDuration =
+    typeof (activity.config as Record<string, unknown>)?.timerSeconds === 'number'
+      ? ((activity.config as Record<string, unknown>).timerSeconds as number)
+      : 60
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('content_items(data)')
+    .eq('id', activity.content_set_id)
+    .single()
+
+  const rawItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown> }>
+  const prompts = rawItems
+    .map((item) => (item.data.prompt as string) ?? '')
+    .filter((p) => p)
+
+  const initialState: TalkTimeState = {
+    prompts,
+    currentPromptIndex: 0,
+    turnOrder,
+    currentTurnIndex: 0,
+    timerDuration,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: timerDuration,
+    teamScore: 0,
+    status: 'active',
   }
 
   await supabase.from('shared_activity_state').upsert(

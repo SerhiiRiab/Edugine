@@ -19,6 +19,7 @@ import {
   Target,
   Zap,
   BookText,
+  Mic,
   MessageCircle,
   Theater,
   Gamepad2,
@@ -102,6 +103,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
   story_builder: {
     label: 'Story Builder',
     Icon: BookText,
+    classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
+  talk_time: {
+    label: 'Talk Time',
+    Icon: Mic,
     classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
   speed_debate: {
@@ -118,6 +124,8 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
 
 // Mechanics that only support individual mode (shared unavailable)
 const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest'])
+// Mechanics that only support shared mode (individual unavailable)
+const SHARED_ONLY = new Set(['story_builder', 'talk_time'])
 
 // ── Save indicator ────────────────────────────────────────────────────────────
 
@@ -174,6 +182,10 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const mechanic = selectedSet ? MECHANIC_META[selectedSet.mechanic_id] : null
   const MechanicIcon = mechanic?.Icon ?? Gamepad2
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
+  const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
+
+  // Auto-select mode when mechanic restricts it
+  const effectiveMode = sharedOnly ? 'shared' : indOnly ? 'individual' : mode
 
   const STEP_LABELS = ['Content Set', 'Mechanic', 'Mode', 'Config']
 
@@ -185,7 +197,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
       await onAdd({
         content_set_id: selectedSet.id,
         mechanic_id: selectedSet.mechanic_id,
-        mode,
+        mode: effectiveMode,
         config: secs && !isNaN(secs) ? { timerSeconds: secs } : {},
       })
       onClose()
@@ -347,51 +359,66 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
             <div className="space-y-3">
               <p className="text-sm text-slate-500">How will students play this activity?</p>
 
-              <button
-                type="button"
-                onClick={() => setMode('individual')}
-                className={`w-full text-left flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                  mode === 'individual'
+              <div
+                role="button"
+                tabIndex={sharedOnly ? -1 : 0}
+                onClick={() => !sharedOnly && setMode('individual')}
+                className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                  effectiveMode === 'individual'
                     ? 'border-emerald-400 bg-emerald-50'
-                    : 'border-slate-100 hover:border-slate-200'
+                    : sharedOnly
+                    ? 'border-slate-100 opacity-50 cursor-not-allowed select-none'
+                    : 'border-slate-100 hover:border-slate-200 cursor-pointer'
                 }`}
               >
-                <span className="text-2xl">👤</span>
+                <User className="w-6 h-6 text-slate-500 shrink-0" />
                 <div className="flex-1">
-                  <p className="font-bold text-slate-800 text-sm">Individual</p>
+                  <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
+                    Individual
+                    {sharedOnly && (
+                      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
+                        Not available
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-slate-400 mt-0.5">Each student plays at their own pace</p>
                 </div>
-                {mode === 'individual' && (
+                {effectiveMode === 'individual' && (
                   <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
                     <Check className="w-3 h-3 text-white" />
                   </div>
                 )}
-              </button>
+              </div>
 
               <div
                 role="button"
                 tabIndex={indOnly ? -1 : 0}
                 onClick={() => !indOnly && setMode('shared')}
                 className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                  mode === 'shared' && !indOnly
+                  effectiveMode === 'shared'
                     ? 'border-blue-400 bg-blue-50'
                     : indOnly
                     ? 'border-slate-100 opacity-50 cursor-not-allowed select-none'
                     : 'border-slate-100 hover:border-slate-200 cursor-pointer'
                 }`}
               >
-                <span className="text-2xl">🤝</span>
+                <Users className="w-6 h-6 text-slate-500 shrink-0" />
                 <div className="flex-1">
                   <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
                     Shared
                     {indOnly && (
                       <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                        Coming soon
+                        Not available
                       </span>
                     )}
                   </p>
                   <p className="text-xs text-slate-400 mt-0.5">All students see the same board in real-time</p>
                 </div>
+                {effectiveMode === 'shared' && (
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 text-white" />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -440,7 +467,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Mode</span>
                     <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
-                      {mode === 'individual' ? <><User className="w-3.5 h-3.5" />Individual</> : <><Users className="w-3.5 h-3.5" />Shared</>}
+                      {effectiveMode === 'individual' ? <><User className="w-3.5 h-3.5" />Individual</> : <><Users className="w-3.5 h-3.5" />Shared</>}
                     </span>
                   </div>
                   {timerSeconds && !isNaN(parseInt(timerSeconds)) && (
