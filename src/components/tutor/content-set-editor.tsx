@@ -210,6 +210,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const [addingCard, setAddingCard] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
+  const [sessionInstructions, setSessionInstructions] = useState('')
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const itemTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -446,7 +447,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             <button
               disabled={!canStartSession || startingSession}
               title={canStartSession ? 'Start a live session' : 'Need at least 4 cards'}
-              onClick={() => startSessionTransition(() => createSession(set.id))}
+              onClick={() => startSessionTransition(() => createSession(set.id, sessionInstructions.trim() || undefined))}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
                 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
@@ -609,6 +610,22 @@ export function ContentSetEditor({ set, initialItems }: Props) {
               </p>
             </div>
           )}
+        </div>
+
+        {/* Instructions for students */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Instructions</p>
+          <textarea
+            value={sessionInstructions}
+            onChange={(e) => setSessionInstructions(e.target.value)}
+            placeholder="Swipe right if correct, left if wrong"
+            maxLength={200}
+            rows={2}
+            className="w-full text-xs text-slate-700 bg-slate-50 rounded-lg border border-slate-200
+              focus:border-violet-400 focus:ring-1 focus:ring-violet-100 outline-none
+              px-2.5 py-2 resize-none transition-colors placeholder:text-slate-300"
+          />
+          <p className="text-[10px] text-slate-300">Shown to students during the activity</p>
         </div>
 
         {/* Session readiness */}

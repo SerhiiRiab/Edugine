@@ -95,6 +95,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   // ── Talk Time (driven by channel broadcasts) ──────────────────────────────────
   const [talkTimeState, setTalkTimeState] = useState<TalkTimeState | null>(null)
 
+  // ── Instructions (set by host at game start / activity advance) ───────────────
+  const [currentInstructions, setCurrentInstructions] = useState<string | null>(null)
+
   // ── Completion state ─────────────────────────────────────────────────────────
   const [lastActivityResult, setLastActivityResult] = useState<SwipeBattleResult | null>(null)
   const [hostEnded, setHostEnded] = useState(false)
@@ -286,13 +289,14 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
         }
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
+        setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
@@ -311,11 +315,12 @@ export function PlayerView({ session, items = [], lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
+        setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
       .on('broadcast', { event: 'lesson_complete' }, async () => {
@@ -620,6 +625,14 @@ export function PlayerView({ session, items = [], lesson }: Props) {
       {/* ── PLAYING — dispatched to the active mechanic's panel ──────────────── */}
       {phase === 'playing' && (
         <>
+          {currentInstructions && (
+            <div className="sticky top-0 z-10 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/60 px-4 py-2.5">
+              <p className="text-sm text-slate-200 text-center max-w-xl mx-auto">
+                <span className="font-semibold text-violet-400">Task: </span>
+                {currentInstructions}
+              </p>
+            </div>
+          )}
           {/* Story Builder */}
           {currentMechanicId === 'story_builder' && participantId && (
             storyState

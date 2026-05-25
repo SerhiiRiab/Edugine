@@ -59,7 +59,7 @@ export async function advanceActivity(sessionId: string, nextIndex: number) {
   if (error) throw new Error(error.message)
 }
 
-export async function createSession(contentSetId: string) {
+export async function createSession(contentSetId: string, instructions?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -80,6 +80,7 @@ export async function createSession(contentSetId: string) {
       mechanic_id: set.mechanic_id,
       set_id: contentSetId,
       status: 'waiting',
+      config: instructions ? { instructions } : null,
     })
     .select('id')
     .single()

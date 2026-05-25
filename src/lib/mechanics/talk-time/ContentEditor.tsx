@@ -59,6 +59,7 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
   const [addingPrompt, setAddingPrompt] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
+  const [sessionInstructions, setSessionInstructions] = useState('')
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -209,7 +210,7 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
             <button
               disabled={!canPlay || startingSession}
               title={canPlay ? 'Start a live session' : 'Add at least 1 prompt'}
-              onClick={() => startSessionTransition(() => createSession(set.id))}
+              onClick={() => startSessionTransition(() => createSession(set.id, sessionInstructions.trim() || undefined))}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
                 disabled:opacity-40 disabled:cursor-not-allowed
                 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
@@ -351,6 +352,22 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
             ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Ready to use in a lesson!</span>
             : <span className="inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" />Add at least 1 prompt</span>
           }
+        </div>
+
+        {/* Instructions for students */}
+        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Instructions</p>
+          <textarea
+            value={sessionInstructions}
+            onChange={(e) => setSessionInstructions(e.target.value)}
+            placeholder="Speak about the prompt when it's your turn"
+            maxLength={200}
+            rows={2}
+            className="w-full text-xs text-slate-700 bg-slate-50 rounded-lg border border-slate-200
+              focus:border-emerald-400 focus:ring-1 focus:ring-emerald-100 outline-none
+              px-2.5 py-2 resize-none transition-colors placeholder:text-slate-300"
+          />
+          <p className="text-[10px] text-slate-300">Shown to students during the activity</p>
         </div>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs text-slate-500">

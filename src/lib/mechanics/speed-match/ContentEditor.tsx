@@ -163,6 +163,7 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
   const [addingCard, setAddingCard] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [, startSession] = useTransition()
+  const [sessionInstructions, setSessionInstructions] = useState('')
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const itemTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -419,6 +420,23 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
           )}
         </button>
 
+        {/* Instructions for students */}
+        <div className="space-y-1.5 pt-2">
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
+            Instructions <span className="font-normal normal-case text-slate-300">(shown to students)</span>
+          </label>
+          <textarea
+            value={sessionInstructions}
+            onChange={(e) => setSessionInstructions(e.target.value)}
+            placeholder="Match each item on the left with its pair on the right"
+            maxLength={200}
+            rows={2}
+            className="w-full text-sm text-slate-700 bg-slate-50 rounded-xl border border-slate-200
+              focus:border-sky-400 focus:ring-2 focus:ring-sky-100 outline-none
+              px-3 py-2.5 resize-none transition-colors placeholder:text-slate-300"
+          />
+        </div>
+
         {/* Quick play */}
         {canPlay && (
           <div className="flex justify-end pt-2">
@@ -427,7 +445,7 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
               onClick={() => {
                 void startSession(async () => {
                   const { createSession } = await import('@/lib/actions/sessions')
-                  await createSession(set.id)
+                  await createSession(set.id, sessionInstructions.trim() || undefined)
                 })
               }}
               className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700

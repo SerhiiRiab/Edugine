@@ -177,6 +177,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const [selectedSet, setSelectedSet] = useState<ContentSetOption | null>(null)
   const [mode, setMode] = useState<'individual' | 'shared'>('individual')
   const [timerSeconds, setTimerSeconds] = useState('')
+  const [instructions, setInstructions] = useState('')
   const [adding, setAdding] = useState(false)
 
   const mechanic = selectedSet ? MECHANIC_META[selectedSet.mechanic_id] : null
@@ -194,11 +195,14 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
     setAdding(true)
     try {
       const secs = timerSeconds ? parseInt(timerSeconds, 10) : null
+      const cfg: Record<string, unknown> = {}
+      if (secs && !isNaN(secs)) cfg.timerSeconds = secs
+      if (instructions.trim()) cfg.instructions = instructions.trim()
       await onAdd({
         content_set_id: selectedSet.id,
         mechanic_id: selectedSet.mechanic_id,
         mode: effectiveMode,
-        config: secs && !isNaN(secs) ? { timerSeconds: secs } : {},
+        config: cfg,
       })
       onClose()
     } catch {
@@ -430,6 +434,30 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
 
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 block">
+                  Instructions for students{' '}
+                  <span className="text-slate-400 font-normal text-xs">optional</span>
+                </label>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder={
+                    selectedSet.mechanic_id === 'talk_time' ? 'Speak about the prompt when it\'s your turn' :
+                    selectedSet.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
+                    selectedSet.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
+                    'Swipe right if correct, left if wrong'
+                  }
+                  maxLength={200}
+                  rows={2}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                    focus-visible:border-violet-400 resize-none transition-colors
+                    placeholder:text-slate-300"
+                />
+                <p className="text-xs text-slate-400">Shown above the activity for all students</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 block">
                   Time limit{' '}
                   <span className="text-slate-400 font-normal text-xs">optional</span>
                 </label>
@@ -474,6 +502,12 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                     <div className="flex items-center justify-between">
                       <span className="text-slate-500">Timer</span>
                       <span className="font-semibold text-slate-800">{timerSeconds}s</span>
+                    </div>
+                  )}
+                  {instructions.trim() && (
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-slate-500 shrink-0">Instructions</span>
+                      <span className="font-semibold text-slate-800 text-right text-xs leading-relaxed">{instructions.trim()}</span>
                     </div>
                   )}
                 </div>
@@ -535,6 +569,9 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
   const [timerSeconds, setTimerSeconds] = useState(
     typeof activity.config.timerSeconds === 'number' ? String(activity.config.timerSeconds) : '',
   )
+  const [instructions, setInstructions] = useState(
+    typeof activity.config.instructions === 'string' ? activity.config.instructions : '',
+  )
   const [saving, setSaving] = useState(false)
   const indOnly = INDIVIDUAL_ONLY.has(activity.mechanic_id)
 
@@ -542,10 +579,10 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
     setSaving(true)
     try {
       const secs = timerSeconds ? parseInt(timerSeconds, 10) : null
-      await onSave(activity.id, {
-        mode,
-        config: secs && !isNaN(secs) ? { timerSeconds: secs } : {},
-      })
+      const cfg: Record<string, unknown> = {}
+      if (secs && !isNaN(secs)) cfg.timerSeconds = secs
+      if (instructions.trim()) cfg.instructions = instructions.trim()
+      await onSave(activity.id, { mode, config: cfg })
       onClose()
     } catch {
       toast.error('Failed to update activity')
@@ -604,6 +641,30 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
                 <span>🤝</span> Shared
               </button>
             </div>
+          </div>
+
+          {/* Instructions */}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-slate-700 block">
+              Instructions for students{' '}
+              <span className="text-slate-400 font-normal text-xs">optional</span>
+            </label>
+            <textarea
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              placeholder={
+                activity.mechanic_id === 'talk_time' ? 'Speak about the prompt when it\'s your turn' :
+                activity.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
+                activity.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
+                'Swipe right if correct, left if wrong'
+              }
+              maxLength={200}
+              rows={2}
+              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                focus-visible:border-violet-400 resize-none transition-colors
+                placeholder:text-slate-300"
+            />
           </div>
 
           {/* Timer */}
@@ -670,6 +731,7 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
   const mechanic = MECHANIC_META[activity.mechanic_id]
   const ActivityIcon = mechanic?.Icon ?? Gamepad2
   const timer = typeof activity.config.timerSeconds === 'number' ? activity.config.timerSeconds : null
+  const hasInstructions = typeof activity.config.instructions === 'string' && activity.config.instructions.length > 0
 
   return (
     <div
@@ -719,6 +781,11 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
         {timer !== null && (
           <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-full font-medium">
             <Timer className="w-3 h-3" />{timer}s
+          </span>
+        )}
+        {hasInstructions && (
+          <span className="inline-flex items-center gap-1 text-xs text-violet-500 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full font-medium">
+            Task
           </span>
         )}
         <span

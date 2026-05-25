@@ -56,6 +56,7 @@ interface LessonActivity {
   mechanic_id: string
   mode: 'individual' | 'shared'
   content_set_title: string
+  instructions?: string
   items: CardItem[]
 }
 
@@ -97,6 +98,7 @@ interface Props {
     set_id: string
     setTitle: string
     setId: string
+    instructions?: string
   }
   items: CardItem[]
   lesson?: LessonInfo
@@ -534,6 +536,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
           setTalkTimeState(null)
         }
 
+        const startInstructions = isLesson
+          ? lesson.activities[currentActivityIndex]?.instructions
+          : session.instructions
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_started',
@@ -543,6 +548,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             turnOrder,
             storyState: newStoryState,
             talkTimeState: newTalkTimeState,
+            instructions: startInstructions ?? null,
           },
         })
         setPhase('active')
@@ -598,7 +604,13 @@ export function SessionHostView({ session, items, lesson }: Props) {
       await channelRef.current?.send({
         type: 'broadcast',
         event: 'activity_advance',
-        payload: { nextIndex, totalCards: nextActivity?.items.length ?? 0, storyState: newStoryState, talkTimeState: newTalkTimeState },
+        payload: {
+          nextIndex,
+          totalCards: nextActivity?.items.length ?? 0,
+          storyState: newStoryState,
+          talkTimeState: newTalkTimeState,
+          instructions: lesson.activities[nextIndex]?.instructions ?? null,
+        },
       })
       setCurrentActivityIndex(nextIndex)
       setLessonBetween(false)

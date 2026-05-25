@@ -57,6 +57,7 @@ export default async function HostPage({
         mechanic_id: act.mechanic_id,
         mode: act.mode as 'individual' | 'shared',
         content_set_title: act.content_sets?.title ?? '(deleted)',
+        instructions: (act.config.instructions as string | undefined) ?? undefined,
         items: (act.content_sets?.content_items ?? [])
           .sort((a, b) => a.position - b.position)
           .map((i) => ({
@@ -97,6 +98,7 @@ export default async function HostPage({
     .order('position', { ascending: true })
 
   const cs = session.content_sets as { id: string; title: string }
+  const singleInstructions = (session.config as Record<string, unknown> | null)?.instructions as string | undefined
 
   return (
     <SessionHostView
@@ -108,6 +110,7 @@ export default async function HostPage({
         set_id: session.set_id,
         setTitle: cs.title,
         setId: cs.id,
+        instructions: singleInstructions,
       }}
       items={(items ?? []).map((i) => ({
         id: i.id,
