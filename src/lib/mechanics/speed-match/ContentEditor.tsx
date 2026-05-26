@@ -308,8 +308,8 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
         <div className="max-w-3xl mx-auto flex items-center gap-4">
           <Link
             href="/tutor/content-sets"
-            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700
-              font-medium transition-colors shrink-0"
+            className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 active:text-slate-900
+              font-medium transition-all duration-150 shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
             Sets
@@ -346,8 +346,10 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
           <button
             type="button"
             onClick={() => router.push('/tutor/content-sets')}
-            className="flex items-center gap-2 border border-slate-200 bg-white text-slate-600
-              hover:border-slate-300 hover:bg-slate-50 font-semibold px-4 py-2 rounded-xl text-sm transition-colors shrink-0"
+            className="flex items-center gap-2 border border-slate-300 bg-white text-slate-700
+              hover:border-slate-400 hover:bg-slate-100 hover:shadow-sm
+              active:bg-slate-200 active:scale-95
+              font-semibold px-4 py-2 rounded-xl text-sm transition-all duration-150 shrink-0"
           >
             <Check className="w-4 h-4" />
             Done
@@ -358,8 +360,9 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
             title={canPlay ? 'Start a live session' : 'Add at least 2 pairs'}
             onClick={() => startSessionTransition(() => createSession(set.id, sessionInstructions.trim() || undefined))}
             className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
+              active:bg-emerald-700 active:scale-[0.98]
               disabled:opacity-40 disabled:cursor-not-allowed
-              text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors shrink-0"
+              text-white font-semibold px-4 py-2 rounded-xl text-sm transition-all duration-150 shrink-0"
           >
             {startingSession ? (
               <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
