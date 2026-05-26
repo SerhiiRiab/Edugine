@@ -1135,6 +1135,9 @@ export function SessionHostView({ session, items, lesson }: Props) {
                 participants={participants}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
+                instructions={isLesson
+                  ? lesson.activities[currentActivityIndex]?.instructions
+                  : session.instructions}
                 onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
                 onEndLesson={handleEndLesson}
                 onTimerStart={handleTalkTimeTimerStart}

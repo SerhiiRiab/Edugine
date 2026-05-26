@@ -59,9 +59,10 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
   const [addingPrompt, setAddingPrompt] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
-  const [sessionInstructions, setSessionInstructions] = useState('')
+  const [sessionInstructions, setSessionInstructions] = useState(set.description ?? '')
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const instrTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const markSaved = useCallback(() => {
     setSaveStatus('saved')
@@ -84,6 +85,20 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
   function handleTitleChange(val: string) {
     setTitle(val)
     flushMeta(val)
+  }
+
+  function handleInstructionsChange(val: string) {
+    setSessionInstructions(val)
+    if (instrTimer.current) clearTimeout(instrTimer.current)
+    setSaveStatus('saving')
+    instrTimer.current = setTimeout(async () => {
+      try {
+        await updateContentSet(set.id, { description: val.trim() || '' })
+        markSaved()
+      } catch {
+        setSaveStatus('error')
+      }
+    }, 1500)
   }
 
   async function handleAddPrompt() {
@@ -359,8 +374,8 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Instructions</p>
           <textarea
             value={sessionInstructions}
-            onChange={(e) => setSessionInstructions(e.target.value)}
-            placeholder="Speak about the prompt when it's your turn"
+            onChange={(e) => handleInstructionsChange(e.target.value)}
+            placeholder='e.g. "Argue for or against this statement"'
             maxLength={200}
             rows={2}
             className="w-full text-xs text-slate-700 bg-slate-50 rounded-lg border border-slate-200

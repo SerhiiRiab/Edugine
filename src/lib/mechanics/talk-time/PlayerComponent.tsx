@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Mic, Trophy, PartyPopper, Headphones } from 'lucide-react'
+import { Trophy, PartyPopper, Headphones } from 'lucide-react'
 import type { TalkTimeState } from './types'
 import { computeTimeLeft } from './types'
 
@@ -50,12 +50,14 @@ export interface TalkTimePlayerPanelProps {
   nickname: string
   state: TalkTimeState
   participants: { id: string; nickname: string }[]
+  instructions?: string | null
 }
 
 export function TalkTimePlayerPanel({
   participantId,
   state,
   participants,
+  instructions,
 }: TalkTimePlayerPanelProps) {
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
 
@@ -188,6 +190,14 @@ export function TalkTimePlayerPanel({
           )}
         </AnimatePresence>
 
+        {/* Instructions (above the prompt card) */}
+        {instructions && (
+          <div className="w-full max-w-sm bg-slate-800/50 border border-slate-600/40 rounded-xl px-4 py-2.5 text-center">
+            <p className="text-xs font-semibold text-violet-400 uppercase tracking-wide mb-0.5">Task</p>
+            <p className="text-sm text-slate-200 leading-snug">{instructions}</p>
+          </div>
+        )}
+
         {/* Prompt */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -202,14 +212,6 @@ export function TalkTimePlayerPanel({
                 : 'bg-slate-800/60 border-slate-700'
             }`}
           >
-            <div className="flex items-center justify-center gap-1.5 mb-3">
-              <Mic className={`w-3.5 h-3.5 ${isMyTurn ? 'text-emerald-400' : 'text-slate-500'}`} />
-              <span className={`text-xs font-semibold uppercase tracking-wide ${
-                isMyTurn ? 'text-emerald-400' : 'text-slate-500'
-              }`}>
-                Speaking prompt
-              </span>
-            </div>
             <p className={`text-lg font-semibold leading-relaxed ${
               isMyTurn ? 'text-white' : 'text-slate-300'
             }`}>

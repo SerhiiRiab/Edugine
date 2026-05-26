@@ -51,6 +51,7 @@ export interface TalkTimeHostPanelProps {
   participants: { id: string; nickname: string; online: boolean }[]
   isLastActivity: boolean
   isAdvancing: boolean
+  instructions?: string | null
   onNextActivity: () => void
   onEndLesson: () => void
   onTimerStart: () => Promise<void>
@@ -69,6 +70,7 @@ export function TalkTimeHostPanel({
   participants,
   isLastActivity,
   isAdvancing,
+  instructions,
   onNextActivity,
   onEndLesson,
   onTimerStart,
@@ -194,10 +196,11 @@ export function TalkTimeHostPanel({
           </div>
           {/* Prompt */}
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1 flex items-center gap-1">
-              <Mic className="w-3 h-3" />
-              Speaking Prompt
-            </p>
+            {instructions && (
+              <p className="text-xs font-medium text-emerald-700 bg-emerald-100 border border-emerald-200 rounded-lg px-2.5 py-1.5 mb-2">
+                <span className="font-semibold">Task:</span> {instructions}
+              </p>
+            )}
             <AnimatePresence mode="wait">
               <motion.p
                 key={state.currentPromptIndex}

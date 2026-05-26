@@ -692,6 +692,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
                   nickname={nickname}
                   state={talkTimeState}
                   participants={waitingParticipants}
+                  instructions={currentInstructions}
                 />
               )
               : (
