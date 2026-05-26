@@ -57,7 +57,7 @@ export default async function HostPage({
         mechanic_id: act.mechanic_id,
         mode: act.mode as 'individual' | 'shared',
         content_set_title: act.content_sets?.title ?? '(deleted)',
-        instructions: (act.config.instructions as string | undefined) ?? undefined,
+        instructions: ((act.config as Record<string, unknown> | null)?.instructions as string | undefined) ?? undefined,
         items: (act.content_sets?.content_items ?? [])
           .sort((a, b) => a.position - b.position)
           .map((i) => ({

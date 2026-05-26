@@ -80,7 +80,7 @@ export async function createSession(contentSetId: string, instructions?: string)
       mechanic_id: set.mechanic_id,
       set_id: contentSetId,
       status: 'waiting',
-      config: instructions ? { instructions } : null,
+      config: instructions ? { instructions } : {},
     })
     .select('id')
     .single()
@@ -140,7 +140,7 @@ export async function initStoryState(
 
   if (!session?.lesson_id) throw new Error('Not a lesson session')
 
-  const turnOrder = ((session.config as Record<string, unknown>).turnOrder as string[]) ?? []
+  const turnOrder = ((session.config as Record<string, unknown> | null)?.turnOrder as string[]) ?? []
 
   const { data: activities } = await supabase
     .from('lesson_activities')
