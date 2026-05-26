@@ -706,7 +706,7 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
               text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Save
+            Done
           </button>
         </div>
       </div>
@@ -993,6 +993,16 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             <span className="text-xs text-slate-400 hidden sm:block">
               {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
             </span>
+            <button
+              type="button"
+              onClick={() => router.push('/tutor/lessons')}
+              className="flex items-center gap-2 border border-slate-200 bg-white text-slate-600
+                hover:border-slate-300 hover:bg-slate-50 font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              <Check className="w-4 h-4" />
+              Done
+            </button>
+
             <button
               disabled={activities.length === 0 || isLaunching}
               title={activities.length === 0 ? 'Add at least one activity first' : 'Start a live lesson'}

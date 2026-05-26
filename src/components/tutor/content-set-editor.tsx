@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
@@ -201,6 +202,7 @@ interface Props {
 }
 
 export function ContentSetEditor({ set, initialItems }: Props) {
+  const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [description, setDescription] = useState(set.description ?? '')
   const [items, setItems] = useState<EditorItem[]>(initialItems.map(rawToEditor))
@@ -443,6 +445,16 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             <span className="text-xs text-slate-400 hidden sm:block">
               {items.length} {items.length === 1 ? 'card' : 'cards'}
             </span>
+
+            <button
+              type="button"
+              onClick={() => router.push('/tutor/content-sets')}
+              className="flex items-center gap-2 border border-slate-200 bg-white text-slate-600
+                hover:border-slate-300 hover:bg-slate-50 font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              <Check className="w-4 h-4" />
+              Done
+            </button>
 
             <button
               disabled={!canStartSession || startingSession}

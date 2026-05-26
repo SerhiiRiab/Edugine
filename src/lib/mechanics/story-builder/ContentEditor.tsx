@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, X, Check, AlertCircle, Loader2, BookOpen, ClipboardList,
@@ -48,6 +49,7 @@ interface Props {
 }
 
 export function StoryBuilderContentEditor({ set, initialItems }: Props) {
+  const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
   const [prompt, setPrompt] = useState(set.description ?? '')
@@ -212,6 +214,16 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
               <BookOpen className="w-3 h-3" />
               Story Builder
             </span>
+            <button
+              type="button"
+              onClick={() => router.push('/tutor/content-sets')}
+              className="flex items-center gap-2 border border-slate-200 bg-white text-slate-600
+                hover:border-slate-300 hover:bg-slate-50 font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              <Check className="w-4 h-4" />
+              Done
+            </button>
+
             <button
               disabled={!canPlay || startingSession}
               title={canPlay ? 'Start a live session' : 'Add a prompt and at least 1 word'}

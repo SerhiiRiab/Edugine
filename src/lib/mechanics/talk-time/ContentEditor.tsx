@@ -223,6 +223,16 @@ export function TalkTimeContentEditor({ set, initialItems }: Props) {
               Talk Time
             </span>
             <button
+              type="button"
+              onClick={() => router.push('/tutor/content-sets')}
+              className="flex items-center gap-2 border border-slate-200 bg-white text-slate-600
+                hover:border-slate-300 hover:bg-slate-50 font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              <Check className="w-4 h-4" />
+              Done
+            </button>
+
+            <button
               disabled={!canPlay || startingSession}
               title={canPlay ? 'Start a live session' : 'Add at least 1 prompt'}
               onClick={() => startSessionTransition(() => createSession(set.id, sessionInstructions.trim() || undefined))}

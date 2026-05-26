@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, GripVertical, Trash2, Plus, Check, AlertCircle,
@@ -156,6 +157,7 @@ interface PageProps {
 }
 
 export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
+  const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
   const [items, setItems] = useState<EditorPair[]>(initialItems.map(rawToPair))
@@ -340,6 +342,16 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
             bg-sky-50 text-sky-700 border-sky-200 shrink-0">
             <Zap className="w-3 h-3" />Speed Match
           </span>
+
+          <button
+            type="button"
+            onClick={() => router.push('/tutor/content-sets')}
+            className="flex items-center gap-2 border border-slate-200 bg-white text-slate-600
+              hover:border-slate-300 hover:bg-slate-50 font-semibold px-4 py-2 rounded-xl text-sm transition-colors shrink-0"
+          >
+            <Check className="w-4 h-4" />
+            Done
+          </button>
 
           <button
             disabled={!canPlay || startingSession}
