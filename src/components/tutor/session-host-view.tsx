@@ -520,7 +520,10 @@ export function SessionHostView({ session, items, lesson }: Props) {
         let newStoryState: StoryBuilderState | undefined
         let newTalkTimeState: TalkTimeState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
-        if (firstActivity?.mechanic_id === 'story_builder') {
+        if (
+          firstActivity?.mechanic_id === 'story_builder' ||
+          (!isLesson && session.mechanic_id === 'story_builder')
+        ) {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
           setStoryState(newStoryState)
           setTalkTimeState(null)
@@ -1109,14 +1112,19 @@ export function SessionHostView({ session, items, lesson }: Props) {
             )}
 
             {/* ── STORY BUILDER PANEL ──────────────────────────────────── */}
-            {isLesson && lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder' && storyState && (
+            {(isLesson
+              ? lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder'
+              : session.mechanic_id === 'story_builder'
+            ) && storyState && (
               <StoryBuilderHostPanel
                 storyState={storyState}
                 participants={participants}
-                isLastActivity={isLastActivity}
+                isLastActivity={isLesson ? isLastActivity : true}
                 isAdvancing={isAdvancing}
-                onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
-                onEndLesson={handleEndLesson}
+                onNextActivity={isLesson
+                  ? (isLastActivity ? handleEndLesson : handleNextActivity)
+                  : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 typingUser={typingUser}
                 onFinishStory={handleFinishStory}
                 onSkipTurn={handleSkipTurn}
@@ -1175,7 +1183,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
               ? (lesson.activities[currentActivityIndex]?.mechanic_id !== 'story_builder' &&
                  lesson.activities[currentActivityIndex]?.mechanic_id !== 'speed_match' &&
                  lesson.activities[currentActivityIndex]?.mechanic_id !== 'talk_time')
-              : session.mechanic_id !== 'speed_match' && session.mechanic_id !== 'talk_time'
+              : session.mechanic_id !== 'speed_match' && session.mechanic_id !== 'talk_time' && session.mechanic_id !== 'story_builder'
             ) && (
               <SwipeBattleHostPanel
                 participants={participants}

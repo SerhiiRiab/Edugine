@@ -134,27 +134,35 @@ export async function initStoryState(
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('config, lesson_id')
+    .select('config, lesson_id, set_id')
     .eq('id', sessionId)
     .single()
 
-  if (!session?.lesson_id) throw new Error('Not a lesson session')
+  if (!session) throw new Error('Session not found')
 
   const turnOrder = ((session.config as Record<string, unknown> | null)?.turnOrder as string[]) ?? []
 
-  const { data: activities } = await supabase
-    .from('lesson_activities')
-    .select('content_set_id, position')
-    .eq('lesson_id', session.lesson_id)
-    .order('position', { ascending: true })
+  let contentSetId: string
 
-  const activity = activities?.[activityIndex]
-  if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
 
   const { data: contentSet } = await supabase
     .from('content_sets')
     .select('description, content_items(data)')
-    .eq('id', activity.content_set_id)
+    .eq('id', contentSetId)
     .single()
 
   const prompt = (contentSet?.description as string | null) ?? ''

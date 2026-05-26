@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, X, Check, AlertCircle, Loader2, BookOpen, ClipboardList,
-  CheckCircle2, AlertTriangle,
+  CheckCircle2, AlertTriangle, Rocket,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -13,6 +13,7 @@ import {
   deleteContentItem,
   bulkCreateContentItems,
 } from '@/lib/actions/content-sets'
+import { createSession } from '@/lib/actions/sessions'
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { storyBuilderDefinition } from '@/lib/mechanics/story-builder/index'
 
@@ -55,6 +56,7 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [addingWord, startAddWord] = useTransition()
+  const [startingSession, startSessionTransition] = useTransition()
   const [showBulkImport, setShowBulkImport] = useState(false)
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -210,6 +212,20 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
               <BookOpen className="w-3 h-3" />
               Story Builder
             </span>
+            <button
+              disabled={!canPlay || startingSession}
+              title={canPlay ? 'Start a live session' : 'Add a prompt and at least 1 word'}
+              onClick={() => startSessionTransition(() => createSession(set.id))}
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
+                disabled:opacity-40 disabled:cursor-not-allowed
+                text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              {startingSession ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
+              ) : (
+                <><Rocket className="w-4 h-4" />Start Session</>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -359,14 +375,14 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
             : 'bg-amber-50 border-amber-200 text-amber-700'
         }`}>
           {canPlay
-            ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Ready to use in a lesson!</span>
+            ? <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Ready to play!</span>
             : <span className="inline-flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" />Add a prompt and at least 1 word</span>
           }
         </div>
 
         <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs text-slate-500">
           <p className="font-semibold text-slate-600 mb-1">How to play:</p>
-          <p>Add this set to a lesson as a <strong>shared</strong> activity, then start a session.</p>
+          <p>Start a session directly, or add to a lesson as a <strong>shared</strong> activity.</p>
           <Link
             href="/tutor/lessons/new"
             className="mt-2 block text-emerald-600 font-semibold hover:underline"
