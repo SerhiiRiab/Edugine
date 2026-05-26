@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import {
   ArrowLeft, GripVertical, Trash2, Plus, Check, AlertCircle,
-  Loader2, ClipboardList, Zap, CheckCircle2, AlertTriangle,
+  Loader2, ClipboardList, Zap, Rocket,
 } from 'lucide-react'
 import {
   DndContext,
@@ -32,6 +32,7 @@ import {
   reorderContentItems,
   bulkCreateContentItems,
 } from '@/lib/actions/content-sets'
+import { createSession } from '@/lib/actions/sessions'
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { speedMatchDefinition } from './index'
 import type { ContentEditorProps } from '@/lib/mechanics/types'
@@ -162,7 +163,7 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [addingCard, setAddingCard] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
-  const [, startSession] = useTransition()
+  const [startingSession, startSessionTransition] = useTransition()
   const [sessionInstructions, setSessionInstructions] = useState('')
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -339,6 +340,21 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
             bg-sky-50 text-sky-700 border-sky-200 shrink-0">
             <Zap className="w-3 h-3" />Speed Match
           </span>
+
+          <button
+            disabled={!canPlay || startingSession}
+            title={canPlay ? 'Start a live session' : 'Add at least 2 pairs'}
+            onClick={() => startSessionTransition(() => createSession(set.id, sessionInstructions.trim() || undefined))}
+            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
+              disabled:opacity-40 disabled:cursor-not-allowed
+              text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors shrink-0"
+          >
+            {startingSession ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Starting...</>
+            ) : (
+              <><Rocket className="w-4 h-4" />Start Session</>
+            )}
+          </button>
         </div>
       </div>
 
@@ -437,25 +453,7 @@ export function SpeedMatchContentEditorPage({ set, initialItems }: PageProps) {
           />
         </div>
 
-        {/* Quick play */}
-        {canPlay && (
-          <div className="flex justify-end pt-2">
-            <button
-              disabled={!canPlay}
-              onClick={() => {
-                void startSession(async () => {
-                  const { createSession } = await import('@/lib/actions/sessions')
-                  await createSession(set.id, sessionInstructions.trim() || undefined)
-                })
-              }}
-              className="flex items-center gap-2 bg-sky-600 hover:bg-sky-700
-                disabled:opacity-50 text-white font-semibold px-5 py-2.5
-                rounded-xl text-sm transition-colors shadow-sm"
-            >
-              Quick Play →
-            </button>
-          </div>
-        )}
+
       </div>
 
       {showBulkImport && speedMatchDefinition.bulkImport && (
