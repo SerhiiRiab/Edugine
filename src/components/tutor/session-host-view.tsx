@@ -112,6 +112,7 @@ function avatarBg(index: number) {
 
 export function SessionHostView({ session, lesson }: Props) {
   const isLesson = !!lesson && !!lesson.id
+  const isMultiActivity = isLesson && (lesson?.activities.length ?? 0) > 1
 
   const [phase, setPhase] = useState<SessionStatus>(session.status)
   const [participants, setParticipants] = useState<ParticipantGameState[]>([])
@@ -858,7 +859,7 @@ export function SessionHostView({ session, lesson }: Props) {
   }
 
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(shareUrl)}&format=svg&margin=4`
-  const isLastActivity = isLesson && currentActivityIndex >= lesson.activities.length - 1
+  const isLastActivity = !isLesson || currentActivityIndex >= (lesson?.activities.length ?? 1) - 1
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -877,7 +878,7 @@ export function SessionHostView({ session, lesson }: Props) {
           <div className="w-px h-5 bg-slate-200 shrink-0" />
           <div className="flex-1 min-w-0">
             <h1 className="font-bold text-slate-800 truncate">{session.setTitle}</h1>
-            {isLesson && (
+            {isMultiActivity && (
               <p className="text-xs text-slate-400 mt-0.5">
                 Activity {currentActivityIndex + 1} of {lesson.activities.length}
                 {lesson.activities[currentActivityIndex] && (
@@ -1074,7 +1075,7 @@ export function SessionHostView({ session, lesson }: Props) {
           <div className="space-y-4">
 
             {/* Lesson progress bar */}
-            {isLesson && (
+            {isMultiActivity && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3">
                 <div className="flex justify-between text-xs text-slate-500 mb-2">
                   <span className="font-semibold">
@@ -1102,8 +1103,9 @@ export function SessionHostView({ session, lesson }: Props) {
               <StoryBuilderHostPanel
                 storyState={storyState}
                 participants={participants}
-                isLastActivity={isLesson ? isLastActivity : true}
+                isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
+                isLesson={isLesson}
                 onNextActivity={isLesson
                   ? (isLastActivity ? handleEndLesson : handleNextActivity)
                   : handleEndGame}
@@ -1121,8 +1123,9 @@ export function SessionHostView({ session, lesson }: Props) {
               <TalkTimeHostPanel
                 state={talkTimeState}
                 participants={participants}
-                isLastActivity={isLesson ? isLastActivity : true}
+                isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
+                isLesson={isLesson}
                 instructions={lesson?.activities[currentActivityIndex]?.instructions}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
@@ -1144,7 +1147,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 participants={participants}
                 progress={speedMatchProgress}
                 totalPairs={currentActivityItems.length}
-                isLastActivity={isLesson ? isLastActivity : true}
+                isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={handleEndLesson}

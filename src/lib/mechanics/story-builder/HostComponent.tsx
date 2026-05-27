@@ -16,6 +16,7 @@ export interface StoryBuilderHostPanelProps {
   participants: { id: string; nickname: string; online: boolean }[]
   isLastActivity: boolean
   isAdvancing: boolean
+  isLesson?: boolean
   onNextActivity: () => void
   onEndLesson: () => void
   typingUser?: { participantId: string; name: string } | null
@@ -30,6 +31,7 @@ export function StoryBuilderHostPanel({
   participants,
   isLastActivity,
   isAdvancing,
+  isLesson = true,
   onNextActivity,
   onEndLesson,
   typingUser,
@@ -141,7 +143,7 @@ export function StoryBuilderHostPanel({
               disabled:opacity-50 transition-colors"
           >
             <StopCircle className="w-4 h-4" />
-            End lesson
+            {isLesson ? 'End lesson' : 'End activity'}
           </button>
           <button
             onClick={onNextActivity}
@@ -153,7 +155,7 @@ export function StoryBuilderHostPanel({
             {isAdvancing
               ? 'Loading...'
               : isLastActivity
-              ? 'Finish lesson!'
+              ? (isLesson ? 'Finish lesson!' : 'Finish')
               : <>Next activity <ChevronRight className="w-4 h-4" /></>
             }
           </button>

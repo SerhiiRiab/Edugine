@@ -180,7 +180,7 @@ export function SpeedMatchHostPanel({
             {isAdvancing
               ? 'Loading...'
               : isLastActivity
-              ? 'Finish lesson'
+              ? (isLesson ? 'Finish lesson' : 'Finish')
               : <>{allFinished ? 'Next activity' : `Waiting (${finishedCount}/${participants.length})`} <ChevronRight className="w-4 h-4" /></>
             }
           </button>

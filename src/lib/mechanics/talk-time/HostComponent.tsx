@@ -51,6 +51,7 @@ export interface TalkTimeHostPanelProps {
   participants: { id: string; nickname: string; online: boolean }[]
   isLastActivity: boolean
   isAdvancing: boolean
+  isLesson?: boolean
   instructions?: string | null
   onNextActivity: () => void
   onEndLesson: () => void
@@ -70,6 +71,7 @@ export function TalkTimeHostPanel({
   participants,
   isLastActivity,
   isAdvancing,
+  isLesson = true,
   instructions,
   onNextActivity,
   onEndLesson,
@@ -146,7 +148,7 @@ export function TalkTimeHostPanel({
               disabled:opacity-50 transition-colors"
           >
             <StopCircle className="w-4 h-4" />
-            End lesson
+            {isLesson ? 'End lesson' : 'End activity'}
           </button>
           <button
             onClick={onNextActivity}
@@ -155,7 +157,7 @@ export function TalkTimeHostPanel({
               hover:bg-violet-700 disabled:opacity-50 text-white font-bold
               px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
           >
-            {isAdvancing ? 'Loading...' : isLastActivity ? 'Finish lesson!' : <>Next activity <ChevronRight className="w-4 h-4" /></>}
+            {isAdvancing ? 'Loading...' : isLastActivity ? (isLesson ? 'Finish lesson!' : 'Finish') : <>Next activity <ChevronRight className="w-4 h-4" /></>}
           </button>
         </div>
       </div>
