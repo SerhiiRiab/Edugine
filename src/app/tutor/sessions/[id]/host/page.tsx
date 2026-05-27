@@ -74,12 +74,10 @@ export default async function HostPage({
           id: session.id,
           code: session.code,
           status: session.status as 'waiting' | 'active' | 'paused' | 'finished',
-          mechanic_id: session.mechanic_id,
           set_id: session.set_id ?? '',
           setTitle: lessonData.title,
           setId: '',
         }}
-        items={activities[session.current_activity_index ?? 0]?.items ?? []}
         lesson={{
           id: lessonData.id,
           title: lessonData.title,
@@ -90,7 +88,7 @@ export default async function HostPage({
     )
   }
 
-  // ── Single content set mode (legacy) ────────────────────────────────────────
+  // ── Single content set mode ──────────────────────────────────────────────────
   const { data: items } = await supabase
     .from('content_items')
     .select('id, position, data')
@@ -100,24 +98,36 @@ export default async function HostPage({
   const cs = session.content_sets as { id: string; title: string }
   const singleInstructions = (session.config as Record<string, unknown> | null)?.instructions as string | undefined
 
+  const mappedItems = (items ?? []).map((i) => ({
+    id: i.id,
+    word: (i.data as { word?: string }).word ?? '',
+    translation: (i.data as { translation?: string }).translation ?? '',
+    isCorrect: (i.data as { isCorrect?: boolean }).isCorrect ?? true,
+  }))
+
   return (
     <SessionHostView
       session={{
         id: session.id,
         code: session.code,
         status: session.status as 'waiting' | 'active' | 'paused' | 'finished',
-        mechanic_id: session.mechanic_id,
         set_id: session.set_id,
         setTitle: cs.title,
         setId: cs.id,
-        instructions: singleInstructions,
       }}
-      items={(items ?? []).map((i) => ({
-        id: i.id,
-        word: (i.data as { word?: string }).word ?? '',
-        translation: (i.data as { translation?: string }).translation ?? '',
-        isCorrect: (i.data as { isCorrect?: boolean }).isCorrect ?? true,
-      }))}
+      lesson={{
+        id: '',
+        title: cs.title,
+        activities: [{
+          id: '',
+          mechanic_id: session.mechanic_id,
+          mode: 'individual' as const,
+          content_set_title: cs.title,
+          instructions: singleInstructions,
+          items: mappedItems,
+        }],
+        initialActivityIndex: 0,
+      }}
     />
   )
 }

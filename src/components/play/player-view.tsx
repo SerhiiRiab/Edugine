@@ -51,9 +51,7 @@ interface Props {
     code: string
     status: 'waiting' | 'active'
     currentActivityIndex: number
-    mechanicId?: string
   }
-  items?: CardItem[]
   lesson?: LessonInfo
 }
 
@@ -71,8 +69,8 @@ function avatarColor(index: number) {
   return AVATAR_COLORS[index % AVATAR_COLORS.length]
 }
 
-export function PlayerView({ session, items = [], lesson }: Props) {
-  const isLesson = !!lesson
+export function PlayerView({ session, lesson }: Props) {
+  const isLesson = !!lesson && !!lesson.id
 
   // ── Session / participant state ───────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('nickname')
@@ -106,12 +104,9 @@ export function PlayerView({ session, items = [], lesson }: Props) {
   const [teamCompletionData, setTeamCompletionData] = useState<TeamActivityResult[]>([])
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const currentActivity = isLesson ? lesson.activities[currentActivityIndex] ?? null : null
-  const currentMechanicId = currentActivity?.mechanic_id ?? session.mechanicId ?? 'swipe_battle'
-
-  const currentItems = isLesson
-    ? (lesson.activities[currentActivityIndex]?.items ?? [])
-    : items
+  const currentActivity = lesson?.activities[currentActivityIndex] ?? null
+  const currentMechanicId = currentActivity?.mechanic_id ?? 'swipe_battle'
+  const currentItems = currentActivity?.items ?? []
 
   // ── Refs ─────────────────────────────────────────────────────────────────────
   const channelRef = useRef<RealtimeChannel | null>(null)
@@ -706,7 +701,7 @@ export function PlayerView({ session, items = [], lesson }: Props) {
           )}
 
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {currentMechanicId !== 'story_builder' && currentMechanicId !== 'speed_match' && currentMechanicId !== 'talk_time' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time'].includes(currentMechanicId) && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

@@ -94,13 +94,10 @@ interface Props {
     id: string
     code: string
     status: SessionStatus
-    mechanic_id: string
     set_id: string
     setTitle: string
     setId: string
-    instructions?: string
   }
-  items: CardItem[]
   lesson?: LessonInfo
 }
 
@@ -113,8 +110,8 @@ function avatarBg(index: number) {
   return AVATAR_COLORS[index % AVATAR_COLORS.length]
 }
 
-export function SessionHostView({ session, items, lesson }: Props) {
-  const isLesson = !!lesson
+export function SessionHostView({ session, lesson }: Props) {
+  const isLesson = !!lesson && !!lesson.id
 
   const [phase, setPhase] = useState<SessionStatus>(session.status)
   const [participants, setParticipants] = useState<ParticipantGameState[]>([])
@@ -168,9 +165,8 @@ export function SessionHostView({ session, items, lesson }: Props) {
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
 
-  const currentActivityItems = isLesson
-    ? (lesson.activities[currentActivityIndex]?.items ?? [])
-    : items
+  const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
+  const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
 
   const [shareUrl, setShareUrl] = useState(`/play/${session.code}`)
   useEffect(() => {
@@ -209,9 +205,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
 
         // Restore speed_match progress from DB so host sees correct state on tab restore
         const actIdx = currentActivityIndexRef.current
-        const currentMechanic = isLesson
-          ? lesson?.activities[actIdx]?.mechanic_id
-          : session.mechanic_id
+        const currentMechanic = lesson?.activities[actIdx]?.mechanic_id
         if (currentMechanic === 'speed_match' && session.status === 'active') {
           const { data: progRows } = await supabase
             .from('participant_progress')
@@ -520,17 +514,11 @@ export function SessionHostView({ session, items, lesson }: Props) {
         let newStoryState: StoryBuilderState | undefined
         let newTalkTimeState: TalkTimeState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
-        if (
-          firstActivity?.mechanic_id === 'story_builder' ||
-          (!isLesson && session.mechanic_id === 'story_builder')
-        ) {
+        if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
           setStoryState(newStoryState)
           setTalkTimeState(null)
-        } else if (
-          firstActivity?.mechanic_id === 'talk_time' ||
-          (!isLesson && session.mechanic_id === 'talk_time')
-        ) {
+        } else if (firstActivity?.mechanic_id === 'talk_time') {
           newTalkTimeState = await initTalkTimeState(session.id, currentActivityIndex)
           setTalkTimeState(newTalkTimeState)
           setStoryState(null)
@@ -539,9 +527,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
           setTalkTimeState(null)
         }
 
-        const startInstructions = isLesson
-          ? lesson.activities[currentActivityIndex]?.instructions
-          : session.instructions
+        const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_started',
@@ -1112,10 +1098,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             )}
 
             {/* ── STORY BUILDER PANEL ──────────────────────────────────── */}
-            {(isLesson
-              ? lesson.activities[currentActivityIndex]?.mechanic_id === 'story_builder'
-              : session.mechanic_id === 'story_builder'
-            ) && storyState && (
+            {currentMechanicId === 'story_builder' && storyState && (
               <StoryBuilderHostPanel
                 storyState={storyState}
                 participants={participants}
@@ -1134,18 +1117,13 @@ export function SessionHostView({ session, items, lesson }: Props) {
             )}
 
             {/* ── TALK TIME PANEL ──────────────────────────────────────── */}
-            {(isLesson
-              ? lesson.activities[currentActivityIndex]?.mechanic_id === 'talk_time'
-              : session.mechanic_id === 'talk_time'
-            ) && talkTimeState && (
+            {currentMechanicId === 'talk_time' && talkTimeState && (
               <TalkTimeHostPanel
                 state={talkTimeState}
                 participants={participants}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
-                instructions={isLesson
-                  ? lesson.activities[currentActivityIndex]?.instructions
-                  : session.instructions}
+                instructions={lesson?.activities[currentActivityIndex]?.instructions}
                 onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
                 onEndLesson={handleEndLesson}
                 onTimerStart={handleTalkTimeTimerStart}
@@ -1161,10 +1139,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             )}
 
             {/* ── SPEED MATCH PANEL ────────────────────────────────────── */}
-            {(isLesson
-              ? lesson.activities[currentActivityIndex]?.mechanic_id === 'speed_match'
-              : session.mechanic_id === 'speed_match'
-            ) && (
+            {currentMechanicId === 'speed_match' && (
               <SpeedMatchHostPanel
                 participants={participants}
                 progress={speedMatchProgress}
@@ -1179,12 +1154,7 @@ export function SessionHostView({ session, items, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {(isLesson
-              ? (lesson.activities[currentActivityIndex]?.mechanic_id !== 'story_builder' &&
-                 lesson.activities[currentActivityIndex]?.mechanic_id !== 'speed_match' &&
-                 lesson.activities[currentActivityIndex]?.mechanic_id !== 'talk_time')
-              : session.mechanic_id !== 'speed_match' && session.mechanic_id !== 'talk_time' && session.mechanic_id !== 'story_builder'
-            ) && (
+            {!['story_builder', 'speed_match', 'talk_time'].includes(currentMechanicId ?? '') && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

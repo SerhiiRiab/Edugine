@@ -98,12 +98,24 @@ export default async function PlayPage({ params }: Props) {
     )
   }
 
-  // ── Single mode (legacy) ─────────────────────────────────────────────────────
+  // ── Single mode ──────────────────────────────────────────────────────────────
   const { data: items } = await supabase
     .from('content_items')
     .select('id, position, data')
     .eq('set_id', session.set_id)
     .order('position', { ascending: true })
+
+  const mappedItems = (items ?? []).map((i) => {
+    const d = i.data as Record<string, unknown>
+    return {
+      id: i.id,
+      word: (d.word as string | undefined) ?? (d.front as string | undefined) ?? '',
+      translation: (d.translation as string | undefined) ?? (d.back as string | undefined) ?? '',
+      isCorrect: (d.isCorrect as boolean | undefined) ?? true,
+      front: (d.front as string | undefined) ?? (d.word as string | undefined) ?? '',
+      back: (d.back as string | undefined) ?? (d.translation as string | undefined) ?? '',
+    }
+  })
 
   return (
     <PlayerView
@@ -112,19 +124,17 @@ export default async function PlayPage({ params }: Props) {
         code: session.code,
         status: session.status as 'waiting' | 'active',
         currentActivityIndex: 0,
-        mechanicId: session.mechanic_id ?? undefined,
       }}
-      items={(items ?? []).map((i) => {
-        const d = i.data as Record<string, unknown>
-        return {
-          id: i.id,
-          word: (d.word as string | undefined) ?? (d.front as string | undefined) ?? '',
-          translation: (d.translation as string | undefined) ?? (d.back as string | undefined) ?? '',
-          isCorrect: (d.isCorrect as boolean | undefined) ?? true,
-          front: (d.front as string | undefined) ?? (d.word as string | undefined) ?? '',
-          back: (d.back as string | undefined) ?? (d.translation as string | undefined) ?? '',
-        }
-      })}
+      lesson={{
+        id: '',
+        title: '',
+        activities: [{
+          id: '',
+          mechanic_id: session.mechanic_id ?? 'swipe_battle',
+          mode: 'individual' as const,
+          items: mappedItems,
+        }],
+      }}
     />
   )
 }
