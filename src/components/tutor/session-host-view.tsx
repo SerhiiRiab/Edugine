@@ -1121,11 +1121,11 @@ export function SessionHostView({ session, lesson }: Props) {
               <TalkTimeHostPanel
                 state={talkTimeState}
                 participants={participants}
-                isLastActivity={isLastActivity}
+                isLastActivity={isLesson ? isLastActivity : true}
                 isAdvancing={isAdvancing}
                 instructions={lesson?.activities[currentActivityIndex]?.instructions}
-                onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
-                onEndLesson={handleEndLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onTimerStart={handleTalkTimeTimerStart}
                 onTimerPause={handleTalkTimeTimerPause}
                 onTimerReset={handleTalkTimeTimerReset}
@@ -1144,9 +1144,9 @@ export function SessionHostView({ session, lesson }: Props) {
                 participants={participants}
                 progress={speedMatchProgress}
                 totalPairs={currentActivityItems.length}
-                isLastActivity={isLastActivity}
+                isLastActivity={isLesson ? isLastActivity : true}
                 isAdvancing={isAdvancing}
-                onNextActivity={isLastActivity ? handleEndLesson : handleNextActivity}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={handleEndLesson}
                 onEndGame={handleEndGame}
                 isLesson={isLesson}
