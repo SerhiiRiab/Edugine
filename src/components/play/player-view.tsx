@@ -14,6 +14,8 @@ import { SwipeBattlePlayerPanel } from '@/lib/mechanics/swipe-battle/PlayerCompo
 import type { SwipeBattleResult } from '@/lib/mechanics/swipe-battle/PlayerComponent'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimePlayerPanel } from '@/lib/mechanics/talk-time/PlayerComponent'
+import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
+import { ContentBlockPlayerPanel } from '@/lib/mechanics/content-block/PlayerComponent'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -93,6 +95,9 @@ export function PlayerView({ session, lesson }: Props) {
   // ── Talk Time (driven by channel broadcasts) ──────────────────────────────────
   const [talkTimeState, setTalkTimeState] = useState<TalkTimeState | null>(null)
 
+  // ── Content Block (driven by channel broadcasts) ──────────────────────────────
+  const [contentBlockState, setContentBlockState] = useState<ContentBlockState | null>(null)
+
   // ── Instructions (set by host at game start / activity advance) ───────────────
   const [currentInstructions, setCurrentInstructions] = useState<string | null>(null)
 
@@ -144,6 +149,22 @@ export function PlayerView({ session, lesson }: Props) {
       .single()
       .then(({ data }) => {
         if (data?.state) setTalkTimeState(data.state as unknown as TalkTimeState)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId])
+
+  // ── Content Block: fetch state from DB on reconnect ──────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'content_block' || contentBlockState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state) setContentBlockState(data.state as unknown as ContentBlockState)
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId])
@@ -284,13 +305,14 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
         }
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
+        setContentBlockState(p.contentBlockState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -310,11 +332,12 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
+        setContentBlockState(p.contentBlockState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -678,6 +701,32 @@ export function PlayerView({ session, lesson }: Props) {
             />
           )}
 
+          {/* Content Block */}
+          {currentMechanicId === 'content_block' && participantId && (
+            contentBlockState
+              ? (
+                <ContentBlockPlayerPanel
+                  participantId={participantId}
+                  state={contentBlockState}
+                  onGotIt={() => {
+                    channelRef.current?.send({
+                      type: 'broadcast',
+                      event: 'content_block_viewed',
+                      payload: { participantId },
+                    })
+                  }}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <div className="text-center space-y-3">
+                    <div className="text-slate-400 animate-pulse"><BookOpen className="w-8 h-8 inline" /></div>
+                    <p className="text-slate-400">Loading content...</p>
+                  </div>
+                </div>
+              )
+          )}
+
           {/* Talk Time */}
           {currentMechanicId === 'talk_time' && participantId && (
             talkTimeState
@@ -701,7 +750,7 @@ export function PlayerView({ session, lesson }: Props) {
           )}
 
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time'].includes(currentMechanicId) && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block'].includes(currentMechanicId) && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

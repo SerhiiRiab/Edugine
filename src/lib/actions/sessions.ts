@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
+import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/content-block/types'
 
 export async function createLessonSession(lessonId: string) {
   const supabase = await createClient()
@@ -256,6 +257,73 @@ export async function initTalkTimeState(
     timeLeftAtStart: timerDuration,
     teamScore: 0,
     status: 'active',
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initContentBlockState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<ContentBlockState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) throw new Error('Session not found')
+
+  let contentSetId: string
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('content_items(data)')
+    .eq('id', contentSetId)
+    .single()
+
+  const rawItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown> }>
+  const rawItem = rawItems[0]?.data ?? {}
+
+  const content: ContentBlockItem = {
+    type: (rawItem.type as 'text' | 'video') ?? 'text',
+    text: (rawItem.text as string) ?? '',
+    videoUrl: (rawItem.videoUrl as string) ?? '',
+    images: (rawItem.images as unknown[]) ?? [],
+    imageLayout: null,
+  }
+
+  const initialState: ContentBlockState = {
+    status: 'active',
+    viewedByParticipantIds: [],
+    content,
   }
 
   await supabase.from('shared_activity_state').upsert(

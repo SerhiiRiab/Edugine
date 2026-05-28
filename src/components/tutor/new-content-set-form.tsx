@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, Mic, MessageCircle, Theater } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, Mic, MessageCircle, Theater, Clapperboard } from 'lucide-react'
 import { createContentSet } from '@/lib/actions/content-sets'
 import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import { Input } from '@/components/ui/input'
@@ -66,6 +66,14 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
     available: true,
     badge: 'border-emerald-300 bg-emerald-50',
     dot: 'border-emerald-500 bg-emerald-500',
+  },
+  content_block: {
+    name: 'Content Block',
+    desc: 'Present text or a YouTube video to students — passive, no scoring',
+    Icon: Clapperboard,
+    available: true,
+    badge: 'border-orange-300 bg-orange-50',
+    dot: 'border-orange-500 bg-orange-500',
   },
   speed_debate: {
     name: 'Speed Debate',

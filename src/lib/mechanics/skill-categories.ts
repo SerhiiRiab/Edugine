@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { BookOpen, PencilRuler, Mic, Headphones, BookText, PenLine } from 'lucide-react'
+import { BookOpen, PencilRuler, Mic, Headphones, BookText, PenLine, Clapperboard } from 'lucide-react'
 
 export type SkillCategoryId =
   | 'vocabulary'
@@ -8,6 +8,7 @@ export type SkillCategoryId =
   | 'listening'
   | 'reading'
   | 'writing'
+  | 'content'
 
 export interface SkillCategory {
   id: SkillCategoryId
@@ -42,6 +43,10 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
     id: 'writing', label: 'Writing', Icon: PenLine, order: 6,
     colors: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200' },
   },
+  {
+    id: 'content', label: 'Content / Input', Icon: Clapperboard, order: 7,
+    colors: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
+  },
 ]
 
 // Canonical mapping: mechanic_id → skill category.
@@ -51,6 +56,7 @@ export const MECHANIC_TO_CATEGORY: Record<string, SkillCategoryId> = {
   speed_match:    'vocabulary',
   story_builder:  'writing',
   talk_time:      'speaking',
+  content_block:  'content',
   speed_debate:   'speaking',
   roleplay_quest: 'speaking',
 }

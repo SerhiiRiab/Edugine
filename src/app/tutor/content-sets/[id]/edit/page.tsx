@@ -4,6 +4,7 @@ import { ContentSetEditor } from '@/components/tutor/content-set-editor'
 import { StoryBuilderContentEditor } from '@/lib/mechanics/story-builder/ContentEditor'
 import { SpeedMatchContentEditorPage } from '@/lib/mechanics/speed-match/ContentEditor'
 import { TalkTimeContentEditor } from '@/lib/mechanics/talk-time/ContentEditor'
+import { ContentBlockContentEditorPage } from '@/lib/mechanics/content-block/ContentEditor'
 
 export default async function EditContentSetPage({
   params,
@@ -40,6 +41,10 @@ export default async function EditContentSetPage({
 
   if (set.mechanic_id === 'talk_time') {
     return <TalkTimeContentEditor set={set} initialItems={items ?? []} />
+  }
+
+  if (set.mechanic_id === 'content_block') {
+    return <ContentBlockContentEditorPage set={set} initialItems={items ?? []} />
   }
 
   return <ContentSetEditor set={set} initialItems={items ?? []} />

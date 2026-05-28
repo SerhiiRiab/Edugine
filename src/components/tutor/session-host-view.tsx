@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -22,6 +22,8 @@ import { SwipeBattleHostPanel } from '@/lib/mechanics/swipe-battle/HostComponent
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimeHostPanel, } from '@/lib/mechanics/talk-time/HostComponent'
 import { computeTimeLeft } from '@/lib/mechanics/talk-time/types'
+import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
+import { ContentBlockHostPanel } from '@/lib/mechanics/content-block/HostComponent'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -143,6 +145,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Talk Time shared state
   const [talkTimeState, setTalkTimeState] = useState<TalkTimeState | null>(null)
 
+  // Content Block shared state
+  const [contentBlockState, setContentBlockState] = useState<ContentBlockState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -251,6 +256,17 @@ export function SessionHostView({ session, lesson }: Props) {
             .eq('activity_index', actIdx)
             .single()
           if (stateRow?.state) setTalkTimeState(stateRow.state as unknown as TalkTimeState)
+        }
+
+        // Restore content_block state from DB on tab restore / reconnect
+        if (currentMechanic === 'content_block' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state) setContentBlockState(stateRow.state as unknown as ContentBlockState)
         }
       } catch { /* participants will be populated via presence on reconnect */ }
     }
@@ -372,6 +388,15 @@ export function SessionHostView({ session, lesson }: Props) {
       .on('broadcast', { event: 'talk_time_state_update' }, ({ payload }) => {
         const p = payload as { state: TalkTimeState }
         if (p.state) setTalkTimeState(p.state)
+      })
+      .on('broadcast', { event: 'content_block_viewed' }, ({ payload }) => {
+        const p = payload as { participantId: string }
+        if (!p.participantId) return
+        setContentBlockState(prev => {
+          if (!prev) return prev
+          if (prev.viewedByParticipantIds.includes(p.participantId)) return prev
+          return { ...prev, viewedByParticipantIds: [...prev.viewedByParticipantIds, p.participantId] }
+        })
       })
       .on('broadcast', { event: 'typing_indicator' }, ({ payload }) => {
         const p = payload as { participantId: string; name: string; isTyping: boolean }
@@ -511,21 +536,30 @@ export function SessionHostView({ session, lesson }: Props) {
       try {
         const { turnOrder } = await startSession(session.id)
 
-        // Init story/talk_time state for the starting activity
+        // Init shared state for the starting activity
         let newStoryState: StoryBuilderState | undefined
         let newTalkTimeState: TalkTimeState | undefined
+        let newContentBlockState: ContentBlockState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
           setStoryState(newStoryState)
           setTalkTimeState(null)
+          setContentBlockState(null)
         } else if (firstActivity?.mechanic_id === 'talk_time') {
           newTalkTimeState = await initTalkTimeState(session.id, currentActivityIndex)
           setTalkTimeState(newTalkTimeState)
           setStoryState(null)
+          setContentBlockState(null)
+        } else if (firstActivity?.mechanic_id === 'content_block') {
+          newContentBlockState = await initContentBlockState(session.id, currentActivityIndex)
+          setContentBlockState(newContentBlockState)
+          setStoryState(null)
+          setTalkTimeState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
+          setContentBlockState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -538,6 +572,7 @@ export function SessionHostView({ session, lesson }: Props) {
             turnOrder,
             storyState: newStoryState,
             talkTimeState: newTalkTimeState,
+            contentBlockState: newContentBlockState,
             instructions: startInstructions ?? null,
           },
         })
@@ -578,17 +613,26 @@ export function SessionHostView({ session, lesson }: Props) {
       // Init state for next activity depending on mechanic
       let newStoryState: StoryBuilderState | undefined
       let newTalkTimeState: TalkTimeState | undefined
+      let newContentBlockState: ContentBlockState | undefined
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
         setStoryState(newStoryState)
         setTalkTimeState(null)
+        setContentBlockState(null)
       } else if (nextActivity?.mechanic_id === 'talk_time') {
         newTalkTimeState = await initTalkTimeState(session.id, nextIndex)
         setTalkTimeState(newTalkTimeState)
         setStoryState(null)
+        setContentBlockState(null)
+      } else if (nextActivity?.mechanic_id === 'content_block') {
+        newContentBlockState = await initContentBlockState(session.id, nextIndex)
+        setContentBlockState(newContentBlockState)
+        setStoryState(null)
+        setTalkTimeState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
+        setContentBlockState(null)
       }
 
       await channelRef.current?.send({
@@ -599,6 +643,7 @@ export function SessionHostView({ session, lesson }: Props) {
           totalCards: nextActivity?.items.length ?? 0,
           storyState: newStoryState,
           talkTimeState: newTalkTimeState,
+          contentBlockState: newContentBlockState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
         },
       })
@@ -1118,6 +1163,19 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── CONTENT BLOCK PANEL ──────────────────────────────────── */}
+            {currentMechanicId === 'content_block' && contentBlockState && (
+              <ContentBlockHostPanel
+                state={contentBlockState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+              />
+            )}
+
             {/* ── TALK TIME PANEL ──────────────────────────────────────── */}
             {currentMechanicId === 'talk_time' && talkTimeState && (
               <TalkTimeHostPanel
@@ -1157,7 +1215,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time'].includes(currentMechanicId ?? '') && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block'].includes(currentMechanicId ?? '') && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

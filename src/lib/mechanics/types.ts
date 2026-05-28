@@ -9,6 +9,7 @@ export type MechanicId =
   | 'story_builder'
   | 'speed_match'
   | 'talk_time'
+  | 'content_block'
   | 'speed_debate'
   | 'roleplay_quest'
 
