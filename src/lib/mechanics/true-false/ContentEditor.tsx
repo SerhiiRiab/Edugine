@@ -118,11 +118,10 @@ export function TrueFalseContentEditor({ set, initialItems }: Props) {
     setSaveStatus('saving')
     const timer = setTimeout(async () => {
       statementTimers.current.delete(id)
-      // Read latest value from state
       setRows((prev) => {
         const latest = prev.find((r) => r.id === id)
         if (!latest) return prev
-        updateContentItem(id, { statement: latest.statement })
+        updateContentItem(id, { statement: latest.statement, isTrue: latest.isTrue })
           .then(markSaved)
           .catch(() => setSaveStatus('error'))
         return prev
@@ -134,10 +133,11 @@ export function TrueFalseContentEditor({ set, initialItems }: Props) {
   // ── Toggle isTrue ──────────────────────────────────────────────────────────
 
   async function handleToggle(id: string, isTrue: boolean) {
+    const row = rows.find((r) => r.id === id)
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, isTrue } : r))
     setSaveStatus('saving')
     try {
-      await updateContentItem(id, { isTrue })
+      await updateContentItem(id, { statement: row?.statement ?? '', isTrue })
       markSaved()
     } catch {
       setSaveStatus('error')
