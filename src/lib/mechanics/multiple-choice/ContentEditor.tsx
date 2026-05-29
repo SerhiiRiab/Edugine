@@ -93,26 +93,28 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
     }, 1500)
   }
 
-  // ── Debounced save per question ───────────────────────────────────────────
+  // ── Debounced save per question (reads latest state at fire time) ─────────
 
-  function scheduleSave(row: MCRow) {
-    const existing = saveTimers.current.get(row.id)
+  function scheduleSave(id: string) {
+    const existing = saveTimers.current.get(id)
     if (existing) clearTimeout(existing)
     setSaveStatus('saving')
-    const timer = setTimeout(async () => {
-      saveTimers.current.delete(row.id)
-      try {
-        await updateContentItem(row.id, {
-          question: row.question,
-          options: row.options,
-          correctIndex: row.correctIndex,
+    const timer = setTimeout(() => {
+      saveTimers.current.delete(id)
+      setRows((prev) => {
+        const latest = prev.find((r) => r.id === id)
+        if (!latest) return prev
+        updateContentItem(id, {
+          question: latest.question,
+          options: latest.options,
+          correctIndex: latest.correctIndex,
         })
-        markSaved()
-      } catch {
-        setSaveStatus('error')
-      }
+          .then(markSaved)
+          .catch(() => setSaveStatus('error'))
+        return prev
+      })
     }, 800)
-    saveTimers.current.set(row.id, timer)
+    saveTimers.current.set(id, timer)
   }
 
   // ── Add question ───────────────────────────────────────────────────────────
@@ -136,7 +138,7 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
     setRows((prev) => {
       const next = prev.map((r) => r.id === id ? { ...r, question } : r)
       const row = next.find((r) => r.id === id)
-      if (row) scheduleSave(row)
+      if (row) scheduleSave(id)
       return next
     })
   }
@@ -152,7 +154,7 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
         return { ...r, options }
       })
       const row = next.find((r) => r.id === id)
-      if (row) scheduleSave(row)
+      if (row) scheduleSave(id)
       return next
     })
   }
@@ -166,7 +168,7 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
         return { ...r, options: [...r.options, ''] }
       })
       const row = next.find((r) => r.id === id)
-      if (row) scheduleSave(row)
+      if (row) scheduleSave(id)
       return next
     })
   }
@@ -180,24 +182,32 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
         return { ...r, options, correctIndex }
       })
       const row = next.find((r) => r.id === id)
-      if (row) scheduleSave(row)
+      if (row) scheduleSave(id)
       return next
     })
   }
 
   // ── Set correct answer ─────────────────────────────────────────────────────
 
-  async function handleSetCorrect(id: string, correctIndex: number) {
-    setRows((prev) => prev.map((r) => r.id === id ? { ...r, correctIndex } : r))
-    setSaveStatus('saving')
-    const row = rows.find((r) => r.id === id)
-    if (!row) return
-    try {
-      await updateContentItem(id, { question: row.question, options: row.options, correctIndex })
-      markSaved()
-    } catch {
-      setSaveStatus('error')
-    }
+  function handleSetCorrect(id: string, correctIndex: number) {
+    // Cancel any pending debounce so it doesn't overwrite correctIndex afterward
+    const existing = saveTimers.current.get(id)
+    if (existing) { clearTimeout(existing); saveTimers.current.delete(id) }
+
+    setRows((prev) => {
+      const next = prev.map((r) => r.id === id ? { ...r, correctIndex } : r)
+      const latest = next.find((r) => r.id === id)
+      if (!latest) return next
+      setSaveStatus('saving')
+      updateContentItem(id, {
+        question: latest.question,
+        options: latest.options,
+        correctIndex: latest.correctIndex,
+      })
+        .then(markSaved)
+        .catch(() => setSaveStatus('error'))
+      return next
+    })
   }
 
   // ── Delete question ────────────────────────────────────────────────────────
