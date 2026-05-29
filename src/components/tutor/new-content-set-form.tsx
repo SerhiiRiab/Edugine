@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react'
 import Link from 'next/link'
-import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, Mic, MessageCircle, Theater, Clapperboard } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, Mic, MessageCircle, Theater, Clapperboard, CheckSquare, ListChecks } from 'lucide-react'
 import { createContentSet } from '@/lib/actions/content-sets'
 import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import { Input } from '@/components/ui/input'
@@ -74,6 +74,22 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
     available: true,
     badge: 'border-orange-300 bg-orange-50',
     dot: 'border-orange-500 bg-orange-500',
+  },
+  true_false: {
+    name: 'True or False',
+    desc: 'Students decide if each statement is true or false — instant feedback',
+    Icon: CheckSquare,
+    available: true,
+    badge: 'border-rose-300 bg-rose-50',
+    dot: 'border-rose-500 bg-rose-500',
+  },
+  multiple_choice: {
+    name: 'Multiple Choice',
+    desc: 'Pick the correct answer from 2–6 options — reading comprehension',
+    Icon: ListChecks,
+    available: true,
+    badge: 'border-rose-300 bg-rose-50',
+    dot: 'border-rose-500 bg-rose-500',
   },
   speed_debate: {
     name: 'Speed Debate',

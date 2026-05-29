@@ -10,6 +10,8 @@ export type MechanicId =
   | 'speed_match'
   | 'talk_time'
   | 'content_block'
+  | 'true_false'
+  | 'multiple_choice'
   | 'speed_debate'
   | 'roleplay_quest'
 

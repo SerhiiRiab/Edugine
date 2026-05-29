@@ -30,6 +30,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   ClipboardList,
+  CheckSquare,
+  ListChecks,
 } from 'lucide-react'
 import {
   DndContext,
@@ -120,10 +122,20 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: Theater,
     classes: 'bg-orange-100 text-orange-700 border-orange-200',
   },
+  true_false: {
+    label: 'True or False',
+    Icon: CheckSquare,
+    classes: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
+  multiple_choice: {
+    label: 'Multiple Choice',
+    Icon: ListChecks,
+    classes: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
 }
 
 // Mechanics that only support individual mode (shared unavailable)
-const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest'])
+const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'true_false', 'multiple_choice', 'speed_debate', 'roleplay_quest'])
 // Mechanics that only support shared mode (individual unavailable)
 const SHARED_ONLY = new Set(['story_builder', 'talk_time'])
 
@@ -444,6 +456,8 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                     selectedSet.mechanic_id === 'talk_time' ? 'Speak about the prompt when it\'s your turn' :
                     selectedSet.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
                     selectedSet.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
+                    selectedSet.mechanic_id === 'true_false' ? 'Read each statement and decide if it\'s true or false' :
+                    selectedSet.mechanic_id === 'multiple_choice' ? 'Read the question and choose the correct answer' :
                     'Swipe right if correct, left if wrong'
                   }
                   maxLength={200}
@@ -656,6 +670,8 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
                 activity.mechanic_id === 'talk_time' ? 'Speak about the prompt when it\'s your turn' :
                 activity.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
                 activity.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
+                activity.mechanic_id === 'true_false' ? 'Read each statement and decide if it\'s true or false' :
+                activity.mechanic_id === 'multiple_choice' ? 'Read the question and choose the correct answer' :
                 'Swipe right if correct, left if wrong'
               }
               maxLength={200}

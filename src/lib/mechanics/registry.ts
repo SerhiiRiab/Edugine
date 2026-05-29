@@ -4,6 +4,8 @@ import { storyBuilderDefinition } from './story-builder'
 import { speedMatchDefinition } from './speed-match'
 import { talkTimeDefinition } from './talk-time'
 import { contentBlockDefinition } from './content-block'
+import { trueFalseDefinition } from './true-false'
+import { multipleChoiceDefinition } from './multiple-choice'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -12,6 +14,8 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   speed_match: speedMatchDefinition as MechanicDefinition,
   talk_time: talkTimeDefinition as MechanicDefinition,
   content_block: contentBlockDefinition as MechanicDefinition,
+  true_false: trueFalseDefinition as MechanicDefinition,
+  multiple_choice: multipleChoiceDefinition as MechanicDefinition,
   // Placeholders — replace with real definitions when implemented
   speed_debate: null as unknown as MechanicDefinition,
   roleplay_quest: null as unknown as MechanicDefinition,

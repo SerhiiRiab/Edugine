@@ -78,6 +78,11 @@ export default async function PlayPage({ params }: Props) {
             isCorrect: (i.data.isCorrect as boolean | undefined) ?? true,
             front: (i.data.front as string | undefined) ?? (i.data.word as string | undefined) ?? '',
             back: (i.data.back as string | undefined) ?? (i.data.translation as string | undefined) ?? '',
+            statement: i.data.statement as string | undefined,
+            isTrue: i.data.isTrue as boolean | undefined,
+            question: i.data.question as string | undefined,
+            options: i.data.options as string[] | undefined,
+            correctIndex: i.data.correctIndex as number | undefined,
           })),
       }))
 
@@ -114,6 +119,11 @@ export default async function PlayPage({ params }: Props) {
       isCorrect: (d.isCorrect as boolean | undefined) ?? true,
       front: (d.front as string | undefined) ?? (d.word as string | undefined) ?? '',
       back: (d.back as string | undefined) ?? (d.translation as string | undefined) ?? '',
+      statement: d.statement as string | undefined,
+      isTrue: d.isTrue as boolean | undefined,
+      question: d.question as string | undefined,
+      options: d.options as string[] | undefined,
+      correctIndex: d.correctIndex as number | undefined,
     }
   })
 

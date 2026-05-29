@@ -24,6 +24,8 @@ import { TalkTimeHostPanel, } from '@/lib/mechanics/talk-time/HostComponent'
 import { computeTimeLeft } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockHostPanel } from '@/lib/mechanics/content-block/HostComponent'
+import { TrueFalseHostPanel } from '@/lib/mechanics/true-false/HostComponent'
+import { MultipleChoiceHostPanel } from '@/lib/mechanics/multiple-choice/HostComponent'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -32,6 +34,11 @@ interface CardItem {
   word: string
   translation: string
   isCorrect: boolean
+  statement?: string
+  isTrue?: boolean
+  question?: string
+  options?: string[]
+  correctIndex?: number
 }
 
 interface SwipeRecord {
@@ -379,6 +386,23 @@ export function SessionHostView({ session, lesson }: Props) {
             setMirrorFlash(null)
           }, 700)
         }
+      })
+      // ── True/False + Multiple Choice per-question answers ──────────────────
+      .on('broadcast', { event: 'question_answer' }, ({ payload }) => {
+        const p = payload as {
+          participantId: string; questionIndex: number; correct: boolean; score: number; activityIndex?: number
+        }
+        if (!p.participantId) return
+        setParticipants(prev => prev.map(x => {
+          if (x.id !== p.participantId) return x
+          return {
+            ...x,
+            cardIndex: p.questionIndex + 1,
+            score: p.score,
+            correctCount: x.correctCount + (p.correct ? 1 : 0),
+            totalSwipes: x.totalSwipes + 1,
+          }
+        }))
       })
       // ── Activity / game complete (per-participant) ──────────────────────────
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
@@ -1214,8 +1238,36 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── TRUE OR FALSE HOST PANEL ─────────────────────────────── */}
+            {currentMechanicId === 'true_false' && (
+              <TrueFalseHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── MULTIPLE CHOICE HOST PANEL ───────────────────────────── */}
+            {currentMechanicId === 'multiple_choice' && (
+              <MultipleChoiceHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block'].includes(currentMechanicId ?? '') && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId ?? '') && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

@@ -16,6 +16,8 @@ import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimePlayerPanel } from '@/lib/mechanics/talk-time/PlayerComponent'
 import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockPlayerPanel } from '@/lib/mechanics/content-block/PlayerComponent'
+import { TrueFalsePlayerPanel } from '@/lib/mechanics/true-false/PlayerComponent'
+import { MultipleChoicePlayerPanel } from '@/lib/mechanics/multiple-choice/PlayerComponent'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -26,6 +28,13 @@ interface CardItem {
   isCorrect: boolean
   front?: string
   back?: string
+  // True/False
+  statement?: string
+  isTrue?: boolean
+  // Multiple Choice
+  question?: string
+  options?: string[]
+  correctIndex?: number
 }
 
 interface LessonActivity {
@@ -749,8 +758,51 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* True or False */}
+          {currentMechanicId === 'true_false' && participantId && (
+            <TrueFalsePlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems.map(i => ({
+                id: i.id,
+                statement: i.statement ?? '',
+                isTrue: i.isTrue ?? true,
+              }))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
+          {/* Multiple Choice */}
+          {currentMechanicId === 'multiple_choice' && participantId && (
+            <MultipleChoicePlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems.map(i => ({
+                id: i.id,
+                question: i.question ?? '',
+                options: i.options ?? [],
+                correctIndex: i.correctIndex ?? 0,
+              }))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block'].includes(currentMechanicId) && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId) && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}
@@ -842,6 +894,10 @@ export function PlayerView({ session, lesson }: Props) {
                         ? 'Group Story Builder'
                         : act?.mechanic_id === 'speed_match'
                         ? 'Speed Match'
+                        : act?.mechanic_id === 'true_false'
+                        ? 'True or False'
+                        : act?.mechanic_id === 'multiple_choice'
+                        ? 'Multiple Choice'
                         : `Activity ${entry.activityIndex + 1}`
                       return (
                         <div key={i} className="flex items-center justify-between text-sm">

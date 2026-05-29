@@ -65,6 +65,11 @@ export default async function HostPage({
             word: (i.data.word as string | undefined) ?? (i.data.front as string | undefined) ?? '',
             translation: (i.data.translation as string | undefined) ?? (i.data.back as string | undefined) ?? '',
             isCorrect: (i.data.isCorrect as boolean | undefined) ?? true,
+            statement: i.data.statement as string | undefined,
+            isTrue: i.data.isTrue as boolean | undefined,
+            question: i.data.question as string | undefined,
+            options: i.data.options as string[] | undefined,
+            correctIndex: i.data.correctIndex as number | undefined,
           })),
       }))
 

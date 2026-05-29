@@ -52,11 +52,13 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
 // Canonical mapping: mechanic_id → skill category.
 // New mechanics: add an entry here and set skill_category in MechanicDefinition.
 export const MECHANIC_TO_CATEGORY: Record<string, SkillCategoryId> = {
-  swipe_battle:   'vocabulary',
-  speed_match:    'vocabulary',
-  story_builder:  'writing',
-  talk_time:      'speaking',
-  content_block:  'content',
-  speed_debate:   'speaking',
-  roleplay_quest: 'speaking',
+  swipe_battle:     'vocabulary',
+  speed_match:      'vocabulary',
+  story_builder:    'writing',
+  talk_time:        'speaking',
+  content_block:    'content',
+  true_false:       'reading',
+  multiple_choice:  'reading',
+  speed_debate:     'speaking',
+  roleplay_quest:   'speaking',
 }
