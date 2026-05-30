@@ -88,9 +88,13 @@ export function ContentSetCard({ set }: ContentSetProps) {
     if (!window.confirm(`Delete "${set.title}"? This cannot be undone.`)) return
     setBusy(true)
     try {
-      await deleteContentSet(set.id)
-      toast.success('Set deleted')
-      router.refresh()
+      const result = await deleteContentSet(set.id)
+      if (result?.error) {
+        toast.error(result.error)
+      } else {
+        toast.success('Set deleted')
+        router.refresh()
+      }
     } catch {
       toast.error('Failed to delete')
     } finally {

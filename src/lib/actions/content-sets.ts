@@ -63,10 +63,23 @@ export async function updateContentSet(
 
 // ── Delete ───────────────────────────────────────────────────────────────────
 
-export async function deleteContentSet(id: string) {
+export async function deleteContentSet(id: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  if (!user) return { error: 'Unauthorized' }
+
+  // Block if this set is referenced by lesson_activities (ON DELETE RESTRICT)
+  const { count, error: countErr } = await supabase
+    .from('lesson_activities')
+    .select('id', { count: 'exact', head: true })
+    .eq('content_set_id', id)
+
+  if (countErr) return { error: countErr.message }
+  if (count && count > 0) {
+    return {
+      error: `Cannot delete: this set is used in ${count} lesson activit${count === 1 ? 'y' : 'ies'}. Remove it from all lessons first.`,
+    }
+  }
 
   const { error } = await supabase
     .from('content_sets')
@@ -74,8 +87,9 @@ export async function deleteContentSet(id: string) {
     .eq('id', id)
     .eq('owner_id', user.id)
 
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
   revalidatePath('/tutor/content-sets')
+  return {}
 }
 
 // ── Duplicate ────────────────────────────────────────────────────────────────
