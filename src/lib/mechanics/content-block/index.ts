@@ -19,6 +19,7 @@ export const contentBlockDefinition: MechanicDefinition<ContentBlockConfig, Cont
   name: 'Content Block',
   description: 'Present text or video material to students.',
   skill_category: 'content',
+  skill_categories: ['content'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: HostStub as any,

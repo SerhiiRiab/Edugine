@@ -16,6 +16,7 @@ export const talkTimeDefinition: MechanicDefinition<TalkTimeConfig, TalkTimeItem
   name: 'Talk Time',
   description: 'Speak on a prompt against the clock, taking turns.',
   skill_category: 'speaking',
+  skill_categories: ['speaking'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: HostStub as any,

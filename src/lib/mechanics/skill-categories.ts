@@ -49,16 +49,21 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
   },
 ]
 
-// Canonical mapping: mechanic_id → skill category.
-// New mechanics: add an entry here and set skill_category in MechanicDefinition.
-export const MECHANIC_TO_CATEGORY: Record<string, SkillCategoryId> = {
-  swipe_battle:     'vocabulary',
-  speed_match:      'vocabulary',
-  story_builder:    'writing',
-  talk_time:        'speaking',
-  content_block:    'content',
-  true_false:       'reading',
-  multiple_choice:  'reading',
-  speed_debate:     'speaking',
-  roleplay_quest:   'speaking',
+// Multi-category mapping — a mechanic can appear under several skill categories.
+// UI components use this to show a mechanic (or content set) in every relevant section.
+export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
+  swipe_battle:    ['vocabulary'],
+  speed_match:     ['vocabulary'],
+  story_builder:   ['writing'],
+  talk_time:       ['speaking'],
+  content_block:   ['content'],
+  true_false:      ['reading', 'listening', 'vocabulary'],
+  multiple_choice: ['reading', 'listening', 'vocabulary', 'grammar'],
+  speed_debate:    ['speaking'],
+  roleplay_quest:  ['speaking'],
 }
+
+// Derived single-category map (first/primary) — kept for badge display and legacy compat.
+export const MECHANIC_TO_CATEGORY: Record<string, SkillCategoryId> = Object.fromEntries(
+  Object.entries(MECHANIC_TO_CATEGORIES).map(([id, cats]) => [id, cats[0]]),
+) as Record<string, SkillCategoryId>

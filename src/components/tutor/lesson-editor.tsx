@@ -59,7 +59,7 @@ import {
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
-import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
+import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORIES } from '@/lib/mechanics/skill-categories'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -280,7 +280,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                 <div className="space-y-4">
                   {SKILL_CATEGORIES.map((category) => {
                     const categorySets = contentSets.filter(
-                      (cs) => MECHANIC_TO_CATEGORY[cs.mechanic_id] === category.id,
+                      (cs) => MECHANIC_TO_CATEGORIES[cs.mechanic_id]?.includes(category.id),
                     )
                     const CategoryIcon = category.Icon
                     const isEmpty = categorySets.length === 0

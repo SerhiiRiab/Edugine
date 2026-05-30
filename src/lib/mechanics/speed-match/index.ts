@@ -19,6 +19,7 @@ export const speedMatchDefinition: MechanicDefinition<
   name: 'Speed Match',
   description: 'Match pairs against the clock.',
   skill_category: 'vocabulary',
+  skill_categories: ['vocabulary'],
 
   HostComponent: SpeedMatchHostComponent,
   PlayerComponent: SpeedMatchPlayerComponent,

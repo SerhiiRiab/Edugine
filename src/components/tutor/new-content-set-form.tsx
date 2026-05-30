@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Loader2, Target, Zap, PenLine, Mic, MessageCircle, Theater, Clapperboard, CheckSquare, ListChecks } from 'lucide-react'
 import { createContentSet } from '@/lib/actions/content-sets'
-import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
+import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORIES } from '@/lib/mechanics/skill-categories'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -190,8 +190,8 @@ export function NewContentSetForm() {
 
           {SKILL_CATEGORIES.map((category) => {
               const CategoryIcon = category.Icon
-              const mechanicIds = Object.keys(MECHANIC_TO_CATEGORY).filter(
-                (mid) => MECHANIC_TO_CATEGORY[mid] === category.id,
+              const mechanicIds = Object.keys(MECHANIC_TO_CATEGORIES).filter(
+                (mid) => MECHANIC_TO_CATEGORIES[mid]?.includes(category.id),
               )
               const hasAnyMechanic = mechanicIds.length > 0
               return (

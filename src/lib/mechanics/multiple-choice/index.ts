@@ -20,6 +20,7 @@ export const multipleChoiceDefinition: MechanicDefinition<MultipleChoiceConfig, 
   name: 'Multiple Choice',
   description: 'Pick the correct answer from options.',
   skill_category: 'reading',
+  skill_categories: ['reading', 'listening', 'vocabulary', 'grammar'],
 
   HostComponent: MultipleChoiceHostComponent,
   PlayerComponent: MultipleChoicePlayerComponent,

@@ -23,6 +23,7 @@ export const swipeBattleDefinition: MechanicDefinition<
   name: 'Vocabulary Swipe Battle',
   description: 'Swipe right if the translation is correct, left if it\'s wrong.',
   skill_category: 'vocabulary',
+  skill_categories: ['vocabulary'],
 
   HostComponent: SwipeBattleHostComponent,
   PlayerComponent: SwipeBattlePlayerComponent,

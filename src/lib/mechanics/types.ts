@@ -75,7 +75,8 @@ export interface MechanicDefinition<
   id: MechanicId
   name: string
   description: string
-  skill_category: SkillCategoryId
+  skill_category: SkillCategoryId    // primary (legacy compat — use skill_categories for UI)
+  skill_categories: SkillCategoryId[]
 
   // React components — loaded lazily to keep bundle size down
   HostComponent: ComponentType<MechanicHostProps<TState>>
