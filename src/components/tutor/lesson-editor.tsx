@@ -955,7 +955,8 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
     if (!window.confirm('Remove this activity from the lesson?')) return
     setActivities((prev) => prev.filter((a) => a.id !== id))
     try {
-      await deleteActivity(id)
+      await deleteActivity(id, lesson.id)
+      router.refresh()
     } catch {
       toast.error('Failed to delete activity')
       router.refresh()

@@ -159,13 +159,14 @@ export async function updateActivity(
   if (error) throw new Error(error.message)
 }
 
-export async function deleteActivity(id: string) {
+export async function deleteActivity(id: string, lessonId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
   const { error } = await supabase.from('lesson_activities').delete().eq('id', id)
   if (error) throw new Error(error.message)
+  revalidatePath(`/tutor/lessons/${lessonId}/edit`)
 }
 
 export async function reorderActivities(lessonId: string, orderedIds: string[]) {
