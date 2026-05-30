@@ -344,9 +344,14 @@ export async function endSession(sessionId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
+  // Increment lifetime counter atomically before deleting session data.
+  await supabase.rpc('increment_sessions_completed', { uid: user.id })
+
+  // Delete session — CASCADE removes session_participants, session_events,
+  // participant_progress, and shared_activity_state automatically.
   const { error } = await supabase
     .from('sessions')
-    .update({ status: 'finished', finished_at: new Date().toISOString() })
+    .delete()
     .eq('id', sessionId)
     .eq('host_id', user.id)
 

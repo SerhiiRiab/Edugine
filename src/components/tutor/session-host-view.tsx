@@ -704,12 +704,15 @@ export function SessionHostView({ session, lesson }: Props) {
         event: 'lesson_complete',
         payload: { activityResults },
       })
-      await endSession(session.id)
 
-      // Load authoritative per-student scores from DB (session_id filter is enforced
-      // inside getAllStudentsProgress — cannot be omitted by accident).
+      // Read from DB before endSession deletes the session and cascades
+      // participant_progress / shared_activity_state.
       const studentIds = participants.map(p => p.id).filter(Boolean)
       const byPid = await getAllStudentsProgress(session.id, studentIds)
+      const teamResults = await getTeamActivityResults(session.id)
+
+      await endSession(session.id)
+
       if (Object.keys(byPid).length > 0) {
         setPerStudentResults(prev => {
           const merged = { ...prev }
@@ -717,7 +720,6 @@ export function SessionHostView({ session, lesson }: Props) {
             if (!merged[pid] || merged[pid].length === 0) {
               merged[pid] = dbEntries
             } else {
-              // Broadcast data has correct/incorrect; DB score is authoritative
               merged[pid] = merged[pid].map(r => {
                 const db = dbEntries.find(e => e.activityIndex === r.activityIndex)
                 return db ? { ...r, score: db.score } : r
@@ -733,8 +735,6 @@ export function SessionHostView({ session, lesson }: Props) {
         })
       }
 
-      // Load team (shared activity) scores from shared_activity_state
-      const teamResults = await getTeamActivityResults(session.id)
       if (teamResults.length > 0) setTeamActivityResults(teamResults)
 
       setPhase('finished')

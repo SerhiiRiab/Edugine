@@ -81,18 +81,7 @@ export async function deleteContentSet(id: string): Promise<{ error?: string }> 
     }
   }
 
-  // Block if referenced by sessions (ON DELETE RESTRICT) — sessions hold score history
-  const { count: sessCount, error: sessErr } = await supabase
-    .from('sessions')
-    .select('id', { count: 'exact', head: true })
-    .eq('set_id', id)
-
-  if (sessErr) return { error: sessErr.message }
-  if (sessCount && sessCount > 0) {
-    return {
-      error: `Cannot delete: this set was used in ${sessCount} session${sessCount === 1 ? '' : 's'}. Delete those sessions first or keep this set.`,
-    }
-  }
+  // Sessions are deleted on completion — no FK block expected from sessions.set_id.
 
   const { error } = await supabase
     .from('content_sets')

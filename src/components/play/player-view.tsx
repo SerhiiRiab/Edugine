@@ -446,13 +446,19 @@ export function PlayerView({ session, lesson }: Props) {
       .eq('id', session.id)
       .single()
 
-    if (currentSession?.status === 'active') {
+    if (!currentSession) {
+      setNicknameError('This session has already ended.')
+      setIsJoining(false)
+      return
+    }
+
+    if (currentSession.status === 'active') {
       setNicknameError('The game has already started. Ask your teacher for a new session.')
       setIsJoining(false)
       return
     }
 
-    if (currentSession?.status === 'finished') {
+    if (currentSession.status === 'finished') {
       setNicknameError('This session has already ended.')
       setIsJoining(false)
       return
