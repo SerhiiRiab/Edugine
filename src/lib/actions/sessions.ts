@@ -2,14 +2,31 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/content-block/types'
+
+// Silently delete this host's abandoned waiting/active sessions older than 2 hours.
+// Called before creating a new session so stale sessions don't accumulate.
+// 2h threshold: safe margin above the longest realistic lesson (60-90 min).
+async function purgeAbandonedSessions(supabase: SupabaseClient, hostId: string) {
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+  await supabase
+    .from('sessions')
+    .delete()
+    .eq('host_id', hostId)
+    .in('status', ['waiting', 'active'])
+    .lt('updated_at', cutoff)
+  // Errors are ignored — cleanup failure must not block session creation.
+}
 
 export async function createLessonSession(lessonId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  await purgeAbandonedSessions(supabase, user.id)
 
   const { data: lesson } = await supabase
     .from('lessons')
@@ -64,6 +81,8 @@ export async function createSession(contentSetId: string, instructions?: string)
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  await purgeAbandonedSessions(supabase, user.id)
 
   const { data: set } = await supabase
     .from('content_sets')
