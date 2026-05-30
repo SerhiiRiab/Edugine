@@ -81,7 +81,18 @@ export async function deleteContentSet(id: string): Promise<{ error?: string }> 
     }
   }
 
-  // Sessions are deleted on completion — no FK block expected from sessions.set_id.
+  // Safety net: sessions should be auto-deleted on completion, but check anyway
+  // to avoid exposing a raw FK violation if any legacy rows remain.
+  const { count: sessCount } = await supabase
+    .from('sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('set_id', id)
+
+  if (sessCount && sessCount > 0) {
+    return {
+      error: `Cannot delete: this set is still referenced by ${sessCount} session${sessCount === 1 ? '' : 's'}. They will be cleaned up automatically — try again shortly.`,
+    }
+  }
 
   const { error } = await supabase
     .from('content_sets')
