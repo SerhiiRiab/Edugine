@@ -68,16 +68,29 @@ export async function deleteContentSet(id: string): Promise<{ error?: string }> 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  // Block if this set is referenced by lesson_activities (ON DELETE RESTRICT)
-  const { count, error: countErr } = await supabase
+  // Block if referenced by lesson_activities (ON DELETE RESTRICT)
+  const { count: actCount, error: actErr } = await supabase
     .from('lesson_activities')
     .select('id', { count: 'exact', head: true })
     .eq('content_set_id', id)
 
-  if (countErr) return { error: countErr.message }
-  if (count && count > 0) {
+  if (actErr) return { error: actErr.message }
+  if (actCount && actCount > 0) {
     return {
-      error: `Cannot delete: this set is used in ${count} lesson activit${count === 1 ? 'y' : 'ies'}. Remove it from all lessons first.`,
+      error: `Cannot delete: this set is used in ${actCount} lesson activit${actCount === 1 ? 'y' : 'ies'}. Remove it from all lessons first.`,
+    }
+  }
+
+  // Block if referenced by sessions (ON DELETE RESTRICT) — sessions hold score history
+  const { count: sessCount, error: sessErr } = await supabase
+    .from('sessions')
+    .select('id', { count: 'exact', head: true })
+    .eq('set_id', id)
+
+  if (sessErr) return { error: sessErr.message }
+  if (sessCount && sessCount > 0) {
+    return {
+      error: `Cannot delete: this set was used in ${sessCount} session${sessCount === 1 ? '' : 's'}. Delete those sessions first or keep this set.`,
     }
   }
 
