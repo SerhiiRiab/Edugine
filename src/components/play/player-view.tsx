@@ -452,12 +452,6 @@ export function PlayerView({ session, lesson }: Props) {
       return
     }
 
-    if (currentSession.status === 'active') {
-      setNicknameError('The game has already started. Ask your teacher for a new session.')
-      setIsJoining(false)
-      return
-    }
-
     if (currentSession.status === 'finished') {
       setNicknameError('This session has already ended.')
       setIsJoining(false)
@@ -505,7 +499,8 @@ export function PlayerView({ session, lesson }: Props) {
       .order('joined_at', { ascending: true })
 
     setWaitingParticipants(list?.map(p => ({ ...p, online: false })) ?? [])
-    setPhase('waiting')
+    // Late join: session already running — skip waiting room and play immediately.
+    setPhase(currentSession.status === 'active' ? 'playing' : 'waiting')
     setIsJoining(false)
 
     try {
@@ -550,43 +545,42 @@ export function PlayerView({ session, lesson }: Props) {
               </p>
             </div>
 
-            {session.status === 'active' ? (
-              <div className="text-center space-y-3 py-4">
-                <div className="text-slate-400"><Rocket className="w-8 h-8 inline" /></div>
-                <p className="font-semibold text-slate-300">Game in progress</p>
-                <p className="text-slate-500 text-sm">The session has already started. Ask your teacher for a new one.</p>
+            {session.status === 'active' && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
+                <Rocket className="w-4 h-4 shrink-0" />
+                <span>Session in progress — you can still join!</span>
               </div>
-            ) : (
-              <form onSubmit={handleJoin} className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-300">Your name</label>
-                  <input
-                    type="text"
-                    value={nickname}
-                    onChange={e => setNickname(e.target.value)}
-                    placeholder="e.g. Alex"
-                    maxLength={30}
-                    autoFocus
-                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3
-                      text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500
-                      focus:ring-2 focus:ring-violet-500/20 text-lg"
-                  />
-                  {nicknameError && (
-                    <p className="text-red-400 text-sm">{nicknameError}</p>
-                  )}
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={isJoining || !nickname.trim()}
-                  className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50
-                    disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl
-                    text-base transition-colors"
-                >
-                  {isJoining ? 'Joining...' : 'Join →'}
-                </button>
-              </form>
             )}
+
+            <form onSubmit={handleJoin} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm text-slate-300">Your name</label>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={e => setNickname(e.target.value)}
+                  placeholder="e.g. Alex"
+                  maxLength={30}
+                  autoFocus
+                  className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3
+                    text-white placeholder:text-slate-500 focus:outline-none focus:border-violet-500
+                    focus:ring-2 focus:ring-violet-500/20 text-lg"
+                />
+                {nicknameError && (
+                  <p className="text-red-400 text-sm">{nicknameError}</p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={isJoining || !nickname.trim()}
+                className="w-full bg-violet-600 hover:bg-violet-700 disabled:opacity-50
+                  disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl
+                  text-base transition-colors"
+              >
+                {isJoining ? 'Joining...' : 'Join →'}
+              </button>
+            </form>
           </div>
         </div>
       )}
