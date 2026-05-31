@@ -15,6 +15,7 @@ export type MechanicId =
   | 'speed_debate'
   | 'roleplay_quest'
   | 'fill_the_gap'
+  | 'word_bank'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 

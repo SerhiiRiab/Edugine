@@ -34,6 +34,7 @@ import {
   ListChecks,
   BarChart2,
   PenLine,
+  Library,
 } from 'lucide-react'
 import {
   DndContext,
@@ -138,6 +139,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Fill the Gap',
     Icon: PenLine,
     classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  word_bank: {
+    label: 'Word Bank',
+    Icon: Library,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
 }
 
@@ -726,6 +732,7 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
                 activity.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
                 activity.mechanic_id === 'true_false' ? 'Read each statement and decide if it\'s true or false' :
                 activity.mechanic_id === 'multiple_choice' ? 'Read the question and choose the correct answer' :
+                activity.mechanic_id === 'word_bank' ? 'Fill in the blanks using words from the word bank' :
                 'Swipe right if correct, left if wrong'
               }
               maxLength={200}

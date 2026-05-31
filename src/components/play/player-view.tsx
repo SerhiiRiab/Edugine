@@ -19,6 +19,8 @@ import { ContentBlockPlayerPanel } from '@/lib/mechanics/content-block/PlayerCom
 import { TrueFalsePlayerPanel, TrueFalseVotePlayerPanel } from '@/lib/mechanics/true-false/PlayerComponent'
 import { MultipleChoicePlayerPanel, MultipleChoiceVotePlayerPanel } from '@/lib/mechanics/multiple-choice/PlayerComponent'
 import { FillTheGapPlayerPanel } from '@/lib/mechanics/fill-the-gap/PlayerComponent'
+import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
+import { WordBankPlayerPanel, WordBankSharedPlayerPanel } from '@/lib/mechanics/word-bank/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
@@ -40,6 +42,9 @@ interface CardItem {
   // Fill the Gap
   sentence?: string
   blanks?: Array<{ answer: string; options?: string[] }>
+  // Word Bank
+  text?: string
+  wordBank?: string[]
 }
 
 interface LessonActivity {
@@ -114,6 +119,9 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Vote mode (T/F and MC in vote mode) ──────────────────────────────────────
   const [voteState, setVoteState] = useState<VoteState | null>(null)
+
+  // ── Word Bank shared mode ─────────────────────────────────────────────────────
+  const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
 
   // ── Instructions (set by host at game start / activity advance) ───────────────
   const [currentInstructions, setCurrentInstructions] = useState<string | null>(null)
@@ -203,6 +211,24 @@ export function PlayerView({ session, lesson }: Props) {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentActivity?.mode, voteState])
+
+  // ── Word Bank shared: fetch from DB on reconnect ─────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'word_bank' || currentActivity?.mode !== 'shared' || wordBankSharedState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'fills' in (data.state as Record<string, unknown>)) {
+          setWordBankSharedState(data.state as unknown as WordBankSharedState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, wordBankSharedState])
 
   // ── Story: fetch participant list when empty (reconnect path) ─────────────────
   useEffect(() => {
@@ -340,7 +366,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -349,6 +375,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTalkTimeState(p.talkTimeState ?? null)
         setContentBlockState(p.contentBlockState ?? null)
         setVoteState(p.voteState ?? null)
+        setWordBankSharedState(p.wordBankSharedState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -372,15 +399,20 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
         setContentBlockState(p.contentBlockState ?? null)
         setVoteState(p.voteState ?? null)
+        setWordBankSharedState(p.wordBankSharedState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
+      })
+      .on('broadcast', { event: 'word_bank_state_update' }, ({ payload }) => {
+        const p = payload as { state: WordBankSharedState }
+        if (p.state) setWordBankSharedState(p.state)
       })
       .on('broadcast', { event: 'lesson_complete' }, async () => {
         setLessonComplete(true)
@@ -873,6 +905,53 @@ export function PlayerView({ session, lesson }: Props) {
             />
           )}
 
+          {/* Word Bank — individual mode */}
+          {currentMechanicId === 'word_bank' && currentActivity?.mode !== 'shared' && participantId && (
+            <WordBankPlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems.map(i => ({
+                id: i.id,
+                text: i.text ?? '',
+                blanks: (i.blanks ?? []).map(b => ({ answer: b.answer })),
+                wordBank: i.wordBank ?? [],
+              }))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
+          {/* Word Bank — shared mode */}
+          {currentMechanicId === 'word_bank' && currentActivity?.mode === 'shared' && participantId && (
+            wordBankSharedState
+              ? (
+                <WordBankSharedPlayerPanel
+                  sessionId={session.id}
+                  activityIndex={currentActivityIndex}
+                  participantId={participantId}
+                  items={currentItems.map(i => ({
+                    id: i.id,
+                    text: i.text ?? '',
+                    blanks: (i.blanks ?? []).map(b => ({ answer: b.answer })),
+                    wordBank: i.wordBank ?? [],
+                  }))}
+                  channelRef={channelRef}
+                  sharedState={wordBankSharedState}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading shared board...</p>
+                </div>
+              )
+          )}
+
           {/* Multiple Choice — vote mode */}
           {currentMechanicId === 'multiple_choice' && currentActivity?.mode === 'vote' && participantId && (
             voteState
@@ -893,7 +972,7 @@ export function PlayerView({ session, lesson }: Props) {
           )}
 
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

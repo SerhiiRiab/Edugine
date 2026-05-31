@@ -7,6 +7,7 @@ import { contentBlockDefinition } from './content-block'
 import { trueFalseDefinition } from './true-false'
 import { multipleChoiceDefinition } from './multiple-choice'
 import { fillTheGapDefinition } from './fill-the-gap'
+import { wordBankDefinition } from './word-bank'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -18,6 +19,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   true_false: trueFalseDefinition as MechanicDefinition,
   multiple_choice: multipleChoiceDefinition as MechanicDefinition,
   fill_the_gap: fillTheGapDefinition as MechanicDefinition,
+  word_bank: wordBankDefinition as MechanicDefinition,
   // Placeholders — replace with real definitions when implemented
   speed_debate: null as unknown as MechanicDefinition,
   roleplay_quest: null as unknown as MechanicDefinition,

@@ -27,6 +27,8 @@ import { ContentBlockHostPanel } from '@/lib/mechanics/content-block/HostCompone
 import { TrueFalseHostPanel, TrueFalseVoteHostPanel } from '@/lib/mechanics/true-false/HostComponent'
 import { MultipleChoiceHostPanel, MultipleChoiceVoteHostPanel } from '@/lib/mechanics/multiple-choice/HostComponent'
 import { FillTheGapHostPanel } from '@/lib/mechanics/fill-the-gap/HostComponent'
+import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
+import { WordBankIndividualHostPanel, WordBankSharedHostPanel } from '@/lib/mechanics/word-bank/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
@@ -43,6 +45,9 @@ interface CardItem {
   correctIndex?: number
   sentence?: string
   blanks?: Array<{ answer: string; options?: string[] }>
+  // Word Bank
+  text?: string
+  wordBank?: string[]
 }
 
 interface SwipeRecord {
@@ -162,6 +167,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Vote mode shared state (T/F and MC in vote mode)
   const [voteState, setVoteState] = useState<VoteState | null>(null)
 
+  // Word Bank shared state (word_bank in shared mode)
+  const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -186,6 +194,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const storyStateRef = useRef<StoryBuilderState | null>(null)
   const talkTimeStateRef = useRef<TalkTimeState | null>(null)
   const voteStateRef = useRef<VoteState | null>(null)
+  const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
@@ -193,6 +202,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { storyStateRef.current = storyState }, [storyState])
   useEffect(() => { talkTimeStateRef.current = talkTimeState }, [talkTimeState])
   useEffect(() => { voteStateRef.current = voteState }, [voteState])
+  useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
@@ -303,6 +313,19 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'votes' in (stateRow.state as Record<string, unknown>)) {
             setVoteState(stateRow.state as unknown as VoteState)
+          }
+        }
+
+        // Restore word_bank shared state from DB on tab restore / reconnect
+        if (currentMechanic === 'word_bank' && currentActivityMode === 'shared' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'fills' in (stateRow.state as Record<string, unknown>)) {
+            setWordBankSharedState(stateRow.state as unknown as WordBankSharedState)
           }
         }
       } catch { /* participants will be populated via presence on reconnect */ }
@@ -496,6 +519,27 @@ export function SessionHostView({ session, lesson }: Props) {
           payload: { state: newState },
         })
       })
+      .on('broadcast', { event: 'word_bank_fill' }, ({ payload }) => {
+        const p = payload as { blankIndex: number; word: string | null; activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setWordBankSharedState(prev => {
+          if (!prev) return prev
+          const newFills = { ...prev.fills }
+          if (p.word === null) { delete newFills[p.blankIndex] } else { newFills[p.blankIndex] = p.word }
+          const newState: WordBankSharedState = { ...prev, fills: newFills }
+          wordBankSharedStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({
+            type: 'broadcast', event: 'word_bank_state_update', payload: { state: newState },
+          })
+          return newState
+        })
+      })
       .on('broadcast', { event: 'content_block_viewed' }, ({ payload }) => {
         const p = payload as { participantId: string }
         if (!p.participantId) return
@@ -648,6 +692,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newTalkTimeState: TalkTimeState | undefined
         let newContentBlockState: ContentBlockState | undefined
         let newVoteState: VoteState | undefined
+        let newWordBankSharedState: WordBankSharedState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
@@ -680,11 +725,23 @@ export function SessionHostView({ session, lesson }: Props) {
           setStoryState(null)
           setTalkTimeState(null)
           setContentBlockState(null)
+          setWordBankSharedState(null)
+        } else if (firstActivity?.mechanic_id === 'word_bank' && firstActivity?.mode === 'shared') {
+          newWordBankSharedState = { itemIndex: 0, fills: {}, revealed: false, phase: 'playing' }
+          const supabase = createClient()
+          await supabase.from('shared_activity_state').upsert({
+            session_id: session.id, activity_index: currentActivityIndex,
+            state: newWordBankSharedState as unknown as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          setWordBankSharedState(newWordBankSharedState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
           setContentBlockState(null)
           setVoteState(null)
+          setWordBankSharedState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -699,6 +756,7 @@ export function SessionHostView({ session, lesson }: Props) {
             talkTimeState: newTalkTimeState,
             contentBlockState: newContentBlockState,
             voteState: newVoteState,
+            wordBankSharedState: newWordBankSharedState,
             instructions: startInstructions ?? null,
           },
         })
@@ -741,6 +799,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newTalkTimeState: TalkTimeState | undefined
       let newContentBlockState: ContentBlockState | undefined
       let newVoteState: VoteState | undefined
+      let newWordBankSharedState: WordBankSharedState | undefined
       const nextActivityItems = lesson.activities[nextIndex]?.items ?? []
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
@@ -748,18 +807,21 @@ export function SessionHostView({ session, lesson }: Props) {
         setTalkTimeState(null)
         setContentBlockState(null)
         setVoteState(null)
+        setWordBankSharedState(null)
       } else if (nextActivity?.mechanic_id === 'talk_time') {
         newTalkTimeState = await initTalkTimeState(session.id, nextIndex)
         setTalkTimeState(newTalkTimeState)
         setStoryState(null)
         setContentBlockState(null)
         setVoteState(null)
+        setWordBankSharedState(null)
       } else if (nextActivity?.mechanic_id === 'content_block') {
         newContentBlockState = await initContentBlockState(session.id, nextIndex)
         setContentBlockState(newContentBlockState)
         setStoryState(null)
         setTalkTimeState(null)
         setVoteState(null)
+        setWordBankSharedState(null)
       } else if (
         nextActivity?.mode === 'vote' &&
         (nextActivity.mechanic_id === 'true_false' || nextActivity.mechanic_id === 'multiple_choice')
@@ -773,11 +835,23 @@ export function SessionHostView({ session, lesson }: Props) {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
+        setWordBankSharedState(null)
+      } else if (nextActivity?.mechanic_id === 'word_bank' && nextActivity?.mode === 'shared') {
+        newWordBankSharedState = { itemIndex: 0, fills: {}, revealed: false, phase: 'playing' }
+        const supabase = createClient()
+        await supabase.from('shared_activity_state').upsert({
+          session_id: session.id, activity_index: nextIndex,
+          state: newWordBankSharedState as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        })
+        setWordBankSharedState(newWordBankSharedState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
         setVoteState(null)
+        setWordBankSharedState(null)
       }
 
       await channelRef.current?.send({
@@ -790,6 +864,7 @@ export function SessionHostView({ session, lesson }: Props) {
           talkTimeState: newTalkTimeState,
           contentBlockState: newContentBlockState,
           voteState: newVoteState,
+          wordBankSharedState: newWordBankSharedState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
         },
       })
@@ -1046,6 +1121,21 @@ export function SessionHostView({ session, lesson }: Props) {
       currentQuestionIndex: voteState.currentQuestionIndex + 1,
       votes: {},
       revealed: false,
+    })
+  }
+
+  // ── Word Bank shared handlers ─────────────────────────────────────────────────
+  async function handleWordBankReveal() {
+    if (!wordBankSharedState) return
+    const newState: WordBankSharedState = { ...wordBankSharedState, revealed: true }
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setWordBankSharedState(newState)
+    channelRef.current?.send({
+      type: 'broadcast', event: 'word_bank_state_update', payload: { state: newState },
     })
   }
 
@@ -1449,6 +1539,40 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── WORD BANK — individual mode ──────────────────────────── */}
+            {currentMechanicId === 'word_bank' && currentActivityMode !== 'shared' && (
+              <WordBankIndividualHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── WORD BANK — shared mode ──────────────────────────────── */}
+            {currentMechanicId === 'word_bank' && currentActivityMode === 'shared' && wordBankSharedState && (
+              <WordBankSharedHostPanel
+                state={wordBankSharedState}
+                items={currentActivityItems.map(i => ({
+                  text: i.text ?? '',
+                  blanks: (i.blanks ?? []).map(b => ({ answer: b.answer })),
+                  wordBank: i.wordBank ?? [],
+                }))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onReveal={handleWordBankReveal}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
             {/* ── MULTIPLE CHOICE — vote mode ─────────────────────────── */}
             {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
               <MultipleChoiceVoteHostPanel
@@ -1467,7 +1591,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

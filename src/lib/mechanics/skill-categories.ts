@@ -60,6 +60,7 @@ export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
   true_false:      ['reading', 'listening', 'vocabulary'],
   multiple_choice: ['reading', 'listening', 'vocabulary', 'grammar'],
   fill_the_gap:    ['grammar', 'writing'],
+  word_bank:       ['grammar', 'reading', 'writing'],
   speed_debate:    ['speaking'],
   roleplay_quest:  ['speaking'],
 }
