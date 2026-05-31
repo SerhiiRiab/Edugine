@@ -78,7 +78,11 @@ export async function advanceActivity(sessionId: string, nextIndex: number) {
   if (error) throw new Error(error.message)
 }
 
-export async function createSession(contentSetId: string, instructions?: string) {
+export async function createSession(
+  contentSetId: string,
+  instructions?: string,
+  mode?: 'individual' | 'vote',
+) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -94,6 +98,10 @@ export async function createSession(contentSetId: string, instructions?: string)
 
   if (!set) throw new Error('Content set not found')
 
+  const config: Record<string, unknown> = {}
+  if (instructions) config.instructions = instructions
+  if (mode === 'vote') config.voteMode = true
+
   const { data: session, error } = await supabase
     .from('sessions')
     .insert({
@@ -101,7 +109,7 @@ export async function createSession(contentSetId: string, instructions?: string)
       mechanic_id: set.mechanic_id,
       set_id: contentSetId,
       status: 'waiting',
-      config: instructions ? { instructions } : {},
+      config,
     })
     .select('id')
     .single()

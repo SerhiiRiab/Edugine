@@ -22,7 +22,7 @@ export default async function PlayPage({ params }: Props) {
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('id, status, mechanic_id, set_id, lesson_id, current_activity_index, code')
+    .select('id, status, mechanic_id, set_id, lesson_id, current_activity_index, code, config')
     .eq('code', upperCode)
     .single()
 
@@ -141,7 +141,7 @@ export default async function PlayPage({ params }: Props) {
         activities: [{
           id: '',
           mechanic_id: session.mechanic_id ?? 'swipe_battle',
-          mode: 'individual' as const,
+          mode: ((session.config as Record<string, unknown> | null)?.voteMode === true ? 'vote' : 'individual') as 'individual' | 'shared' | 'vote',
           items: mappedItems,
         }],
       }}

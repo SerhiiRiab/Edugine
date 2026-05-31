@@ -101,7 +101,9 @@ export default async function HostPage({
     .order('position', { ascending: true })
 
   const cs = session.content_sets as { id: string; title: string }
-  const singleInstructions = (session.config as Record<string, unknown> | null)?.instructions as string | undefined
+  const sessionConfig = (session.config as Record<string, unknown> | null) ?? {}
+  const singleInstructions = sessionConfig.instructions as string | undefined
+  const singleVoteMode = sessionConfig.voteMode === true
 
   const mappedItems = (items ?? []).map((i) => ({
     id: i.id,
@@ -126,7 +128,7 @@ export default async function HostPage({
         activities: [{
           id: '',
           mechanic_id: session.mechanic_id,
-          mode: 'individual' as const,
+          mode: (singleVoteMode ? 'vote' : 'individual') as 'individual' | 'shared' | 'vote',
           content_set_title: cs.title,
           instructions: singleInstructions,
           items: mappedItems,

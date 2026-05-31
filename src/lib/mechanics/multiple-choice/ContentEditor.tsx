@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2,
-  ClipboardList, ListChecks, Rocket, X,
+  ClipboardList, ListChecks, Rocket, X, BarChart2, User,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -71,6 +71,7 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [startingSession, startSessionTransition] = useTransition()
+  const [voteMode, setVoteMode] = useState(false)
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -225,7 +226,7 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
   function handleStartSession() {
     startSessionTransition(async () => {
       try {
-        await createSession(set.id)
+        await createSession(set.id, undefined, voteMode ? 'vote' : 'individual')
       } catch { /* redirect error is expected */ }
     })
   }
@@ -292,6 +293,27 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
 
           <div className="flex items-center gap-3 shrink-0">
             <SaveIndicator />
+            {/* Mode toggle */}
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setVoteMode(false)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors ${
+                  !voteMode ? 'bg-emerald-50 text-emerald-700' : 'text-slate-400 hover:bg-slate-50'
+                }`}
+              >
+                <User className="w-3 h-3" />Individual
+              </button>
+              <button
+                type="button"
+                onClick={() => setVoteMode(true)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 border-l border-slate-200 transition-colors ${
+                  voteMode ? 'bg-amber-50 text-amber-700' : 'text-slate-400 hover:bg-slate-50'
+                }`}
+              >
+                <BarChart2 className="w-3 h-3" />Vote
+              </button>
+            </div>
             <button
               onClick={() => router.push('/tutor/content-sets')}
               className="flex items-center gap-2 border border-slate-300 bg-white text-slate-700
