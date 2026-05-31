@@ -127,8 +127,9 @@ export async function addActivity(
   },
 ): Promise<{ id: string }> {
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  console.log('[addActivity] user:', user?.id ?? 'NULL', 'authError:', authError?.message ?? 'none')
+  if (!user) throw new Error('Unauthorized: ' + (authError?.message ?? 'no session'))
 
   const { data: activity, error } = await supabase
     .from('lesson_activities')
@@ -147,8 +148,9 @@ export async function addActivity(
     console.error('[addActivity] DB error:', error?.code, error?.message, error?.details, {
       lessonId, mechanic_id: data.mechanic_id, mode: data.mode, position: data.position,
     })
-    throw new Error(error?.message ?? 'Failed to add activity')
+    throw new Error(`[${error?.code}] ${error?.message ?? 'Failed to add activity'}`)
   }
+  console.log('[addActivity] success:', activity.id)
   return activity
 }
 

@@ -213,8 +213,12 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
   const voteCap = selectedSet ? VOTE_CAPABLE.has(selectedSet.mechanic_id) : false
 
-  // Auto-select mode when mechanic restricts it
-  const effectiveMode: 'individual' | 'shared' | 'vote' = sharedOnly ? 'shared' : indOnly ? 'individual' : mode
+  // Auto-select mode when mechanic restricts it; guard against stale 'vote' for non-voteCap mechanics
+  const effectiveMode: 'individual' | 'shared' | 'vote' =
+    sharedOnly ? 'shared' :
+    indOnly ? 'individual' :
+    (mode === 'vote' && !voteCap) ? 'individual' :
+    mode
 
   const STEP_LABELS = ['Content Set', 'Mechanic', 'Mode', 'Config']
 
