@@ -46,6 +46,11 @@ interface BlankState {
   options: string[]
 }
 
+interface BulkLine {
+  text: string      // includes ___ markers
+  answers: string[] // aligned with ___ occurrences in order
+}
+
 interface FTGRow {
   id: string
   sentence: string
@@ -93,7 +98,7 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [showBulkImport, setShowBulkImport] = useState(false)
-  const [bulkText, setBulkText] = useState('')
+  const [bulkLines, setBulkLines] = useState<BulkLine[]>([])
   const [bulkImporting, setBulkImporting] = useState(false)
   const [bulkSelection, setBulkSelection] = useState<{ start: number; end: number; text: string } | null>(null)
   const bulkTextareaRef = useRef<HTMLTextAreaElement>(null)
@@ -154,10 +159,36 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
     setBulkSelection({ start: rawStart + leading, end: rawEnd - trailing, text: trimmed })
   }
 
+  function handleBulkTextChange(newFullText: string) {
+    const newLineTexts = newFullText.split('\n')
+    setBulkLines(prev => newLineTexts.map((text, i) => {
+      const oldLine = prev[i]
+      if (!oldLine) return { text, answers: [] }
+      const newCount = countBlanks(text)
+      const oldCount = countBlanks(oldLine.text)
+      if (newCount === oldCount) return { text, answers: oldLine.answers }
+      return { text, answers: Array.from({ length: newCount }, (_, j) => oldLine.answers[j] ?? '') }
+    }))
+    setBulkSelection(null)
+  }
+
   function handleBulkMakeBlank() {
     if (!bulkSelection) return
-    const { start, end } = bulkSelection
-    setBulkText(prev => prev.slice(0, start) + '___' + prev.slice(end))
+    const { start, end, text: selectedText } = bulkSelection
+    const fullText = bulkLines.map(l => l.text).join('\n')
+    const textBefore = fullText.slice(0, start)
+    const lineIndex = (textBefore.match(/\n/g) ?? []).length
+    const lineStart = textBefore.lastIndexOf('\n') + 1
+    const colStart = start - lineStart
+    const colEnd = end - lineStart
+    setBulkLines(prev => prev.map((line, i) => {
+      if (i !== lineIndex) return line
+      const newText = line.text.slice(0, colStart) + '___' + line.text.slice(colEnd)
+      const blanksBefore = (line.text.slice(0, colStart).match(/___/g) ?? []).length
+      const newAnswers = [...line.answers]
+      newAnswers.splice(blanksBefore, 0, selectedText)
+      return { text: newText, answers: newAnswers }
+    }))
     setBulkSelection(null)
   }
 
@@ -264,45 +295,25 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
   // ── Bulk import ────────────────────────────────────────────────────────────
 
   async function handleBulkImport() {
-    const lines = bulkText.split('\n').map(l => l.trim()).filter(Boolean)
-    if (lines.length === 0) return
+    const validLines = bulkLines.filter(l => l.text.trim())
+    if (validLines.length === 0) return
     setBulkImporting(true)
 
-    const parsed: Array<Record<string, unknown>> = []
-    for (const line of lines) {
-      const parts = line.split('|').map(p => p.trim())
-      if (parts.length < 2) continue
-      const sentence = parts[0]
-      if (!sentence || !sentence.includes('___')) continue
+    const parsed = validLines.map(line => {
+      const sentence = line.text.trim()
       const blankCount = countBlanks(sentence)
-      const answers = parts[1].split(',').map(a => a.trim()).filter(Boolean)
-      if (answers.length === 0) continue
-
-      const blanks: Array<{ answer: string; options?: string[] }> = []
-      let valid = true
-      for (let i = 0; i < blankCount; i++) {
-        const answer = answers[i] ?? ''
-        if (!answer) { valid = false; break }
-        const optStr = parts[i + 2]
-        const options = optStr ? optStr.split(',').map(o => o.trim()).filter(Boolean) : []
-        blanks.push({ answer, ...(options.length > 0 ? { options } : {}) })
-      }
-      if (!valid) continue
-      parsed.push({ sentence, blanks })
-    }
-
-    if (parsed.length === 0) {
-      toast.error('No valid lines found. Format: sentence with ___ | answer | options')
-      setBulkImporting(false)
-      return
-    }
+      const blanks = Array.from({ length: blankCount }, (_, i) => ({
+        answer: line.answers[i]?.trim() ?? '',
+      }))
+      return { sentence, blanks }
+    })
 
     try {
       const items = await bulkCreateContentItems(set.id, parsed)
       setRows(prev => [...prev, ...items.map(it => rawToRow({ id: it.id, position: 0, data: it.data as Record<string, unknown> }))])
-      setBulkText('')
+      setBulkLines([])
       setShowBulkImport(false)
-      toast.success(`Added ${items.length} sentence${items.length !== 1 ? 's' : ''}`)
+      toast.success(`Added ${items.length} item${items.length !== 1 ? 's' : ''}`)
     } catch {
       toast.error('Bulk import failed')
     } finally {
@@ -426,61 +437,117 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
         </div>
 
         {/* Bulk import panel */}
-        {showBulkImport && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
-            <p className="text-sm font-semibold text-slate-700">Bulk import</p>
-            <p className="text-xs text-slate-400">
-              One sentence per line. Fields separated by <code className="bg-slate-100 px-1 rounded">|</code>
-            </p>
-            <pre className="text-xs text-slate-400 bg-slate-50 rounded-xl p-3 leading-relaxed whitespace-pre-wrap">
-{`She ___ to school every day. | goes
-He ___ to the store. | went | went, goes, gone, go
-She ___ and ___ yesterday. | ate, slept | ate,eat,eating | slept,sleep,sleeping`}
-            </pre>
-            <textarea
-              ref={bulkTextareaRef}
-              value={bulkText}
-              onChange={e => { setBulkText(e.target.value); setBulkSelection(null) }}
-              onSelect={checkBulkSelection}
-              onMouseUp={checkBulkSelection}
-              onKeyUp={checkBulkSelection}
-              placeholder="She ___ to school every day. | goes"
-              rows={5}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-mono
-                focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
-                resize-none transition-colors placeholder:text-slate-300"
-            />
-            <button
-              type="button"
-              onMouseDown={e => e.preventDefault()}
-              onClick={handleBulkMakeBlank}
-              disabled={!bulkSelection}
-              className="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white
-                disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
-            >
-              <Scissors className="w-3.5 h-3.5" />
-              {bulkSelection ? `Make blank: "${bulkSelection.text}"` : 'Select a word to make blank'}
-            </button>
-            <div className="flex gap-2">
+        {showBulkImport && (() => {
+          const bulkFullText = bulkLines.map(l => l.text).join('\n')
+          const nonEmptyLines = bulkLines.filter(l => l.text.trim())
+          const allAnswers = bulkLines.flatMap(l => l.answers).filter(Boolean)
+          return (
+            <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+              <p className="text-sm font-semibold text-slate-700">Bulk import</p>
+              <p className="text-xs text-slate-400">
+                Paste any text — one sentence per line. Select a word and click <strong>Make blank</strong> to turn it into a fill-the-gap.
+                Lines without blanks import as read-only text items.
+              </p>
+
+              <textarea
+                ref={bulkTextareaRef}
+                value={bulkFullText}
+                onChange={e => handleBulkTextChange(e.target.value)}
+                onSelect={checkBulkSelection}
+                onMouseUp={checkBulkSelection}
+                onKeyUp={checkBulkSelection}
+                placeholder={"She goes to school every day.\nHe went to the store yesterday.\nShe ate and slept well."}
+                rows={6}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-mono
+                  focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
+                  resize-none transition-colors placeholder:text-slate-300"
+              />
+
               <button
-                onClick={handleBulkImport}
-                disabled={bulkImporting || !bulkText.trim()}
-                className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700
-                  disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+                type="button"
+                onMouseDown={e => e.preventDefault()}
+                onClick={handleBulkMakeBlank}
+                disabled={!bulkSelection}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                  bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white
+                  disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
               >
-                {bulkImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                Import
+                <Scissors className="w-3.5 h-3.5" />
+                {bulkSelection ? `Make blank: "${bulkSelection.text}"` : 'Select a word to make blank'}
               </button>
-              <button
-                onClick={() => setShowBulkImport(false)}
-                className="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors"
-              >
-                Cancel
-              </button>
+
+              {/* Preview */}
+              {nonEmptyLines.length > 0 && (
+                <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5 space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Preview</p>
+                  {nonEmptyLines.map((line, i) => {
+                    const hasBlanks = countBlanks(line.text) > 0
+                    if (!hasBlanks) {
+                      return (
+                        <p key={i} className="text-sm text-slate-400 leading-relaxed flex items-start gap-2">
+                          <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-slate-300 shrink-0" />
+                          {line.text.trim()}
+                        </p>
+                      )
+                    }
+                    const parts = line.text.trim().split('___')
+                    return (
+                      <p key={i} className="text-sm font-medium text-slate-700 leading-relaxed flex items-start gap-2">
+                        <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-sky-400 shrink-0" />
+                        <span>
+                          {parts.map((part, pi) => (
+                            <span key={pi}>
+                              {part}
+                              {pi < parts.length - 1 && (
+                                <span className="inline-flex items-center mx-0.5 px-1.5 py-0.5 rounded
+                                  bg-sky-100 border border-sky-300 text-sky-700 font-bold text-xs">
+                                  {line.answers[pi] || '?'}
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </span>
+                      </p>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Word bank */}
+              {allAnswers.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Word bank</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {allAnswers.map((word, i) => (
+                      <span key={i} className="px-2.5 py-1 rounded-lg bg-sky-100 border border-sky-200
+                        text-sky-700 text-xs font-semibold">
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  onClick={handleBulkImport}
+                  disabled={bulkImporting || nonEmptyLines.length === 0}
+                  className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700
+                    disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+                >
+                  {bulkImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  Import {nonEmptyLines.length > 0 ? `${nonEmptyLines.length} item${nonEmptyLines.length !== 1 ? 's' : ''}` : ''}
+                </button>
+                <button
+                  onClick={() => setShowBulkImport(false)}
+                  className="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-slate-600 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
