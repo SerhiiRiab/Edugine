@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -9,10 +9,6 @@ import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { WordBankIndividualState, WordBankSharedState, WordBankBlank } from './types'
 import type { IndividualQuizResult } from '@/lib/mechanics/true-false/PlayerComponent'
 
-export function WordBankPlayerComponent(_props: MechanicPlayerProps<WordBankIndividualState>) {
-  return null
-}
-
 // ── Shared types ──────────────────────────────────────────────────────────────
 
 interface WBItem {
@@ -20,6 +16,37 @@ interface WBItem {
   text: string
   blanks: WordBankBlank[]
   wordBank: string[]
+}
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function buildCombinedWordBank(items: WBItem[]): string[] {
+  const answers = items.flatMap(i => i.blanks.map(b => b.answer))
+  const answerKeys = new Set(answers.map(a => a.toLowerCase()))
+  const distractors: string[] = []
+  const seenDistractors = new Set<string>()
+  for (const item of items) {
+    const itemAnswerKeys = new Set(item.blanks.map(b => b.answer.toLowerCase()))
+    for (const word of item.wordBank) {
+      const key = word.toLowerCase()
+      if (!itemAnswerKeys.has(key) && !answerKeys.has(key) && !seenDistractors.has(key)) {
+        seenDistractors.add(key)
+        distractors.push(word)
+      }
+    }
+  }
+  return shuffleArray([...answers, ...distractors])
+}
+
+export function WordBankPlayerComponent(_props: MechanicPlayerProps<WordBankIndividualState>) {
+  return null
 }
 
 // ── BlankSlot ─────────────────────────────────────────────────────────────────
@@ -135,9 +162,7 @@ export function WordBankPlayerPanel({
   totalActivities,
   onComplete,
 }: WordBankPlayerPanelProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
-  const [correctItems, setCorrectItems] = useState(0)
   const [fills, setFills] = useState<Array<{ word: string; bankIdx: number } | null>>([])
   const [selectedBlank, setSelectedBlank] = useState<number | null>(null)
   const [submitted, setSubmitted] = useState(false)
@@ -154,25 +179,27 @@ export function WordBankPlayerPanel({
   useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
-  // Reset per-item state when item changes
+  const combinedBlanks = useMemo(() => items.flatMap(i => i.blanks), [items])
+  const combinedText = useMemo(() => items.map(i => i.text).join('\n\n'), [items])
+  const combinedWordBank = useMemo(() => buildCombinedWordBank(items), [items])
+
   useEffect(() => {
-    const item = items[currentIndex]
-    if (!item) return
-    setFills(Array(item.blanks.length).fill(null))
+    setFills(Array(combinedBlanks.length).fill(null))
     setSelectedBlank(null)
     setSubmitted(false)
     setResults([])
-  }, [currentIndex, items])
+  }, [combinedBlanks.length])
 
   const finishGameRef = useRef<() => void>(() => {})
 
   function finishGame() {
     if (isCompletedRef.current) return
     isCompletedRef.current = true
+    const correctBlanks = results.filter(Boolean).length
     const result: IndividualQuizResult = {
-      totalCards: items.length,
-      correct: correctItems,
-      incorrect: items.length - correctItems,
+      totalCards: combinedBlanks.length,
+      correct: correctBlanks,
+      incorrect: combinedBlanks.length - correctBlanks,
       score: scoreRef.current,
     }
     if (participantIdRef.current) {
@@ -183,8 +210,8 @@ export function WordBankPlayerPanel({
           participant_id: participantIdRef.current,
           activity_index: activityIndexRef.current,
           score: scoreRef.current,
-          current_card_index: items.length,
-          state: { correct: correctItems, incorrect: result.incorrect, totalCards: items.length },
+          current_card_index: combinedBlanks.length,
+          state: { correct: result.correct, incorrect: result.incorrect, totalCards: result.totalCards },
           updated_at: new Date().toISOString(),
         }, { onConflict: 'session_id,participant_id,activity_index' })
         .then(undefined, () => {})
@@ -215,7 +242,6 @@ export function WordBankPlayerPanel({
   const handleSelectBlank = useCallback((i: number) => {
     if (submitted) return
     if (fills[i]) {
-      // Return word to bank
       setFills(prev => prev.map((f, idx) => idx === i ? null : f))
       setSelectedBlank(null)
     } else {
@@ -242,19 +268,15 @@ export function WordBankPlayerPanel({
 
   const handleSubmit = useCallback(() => {
     if (submitted || isCompletedRef.current) return
-    const item = items[currentIndex]
-    if (!item) return
 
-    const blankResults = item.blanks.map((blank, i) => {
+    const blankResults = combinedBlanks.map((blank, i) => {
       const userWord = (fills[i]?.word ?? '').trim().toLowerCase()
       return userWord === blank.answer.trim().toLowerCase()
     })
-    const allCorrect = blankResults.every(Boolean)
     const correctBlanks = blankResults.filter(Boolean).length
-    const newScore = scoreRef.current + correctBlanks
-    scoreRef.current = newScore
-    setScore(newScore)
-    if (allCorrect) setCorrectItems(prev => prev + 1)
+    const allCorrect = blankResults.every(Boolean)
+    scoreRef.current = correctBlanks
+    setScore(correctBlanks)
     setResults(blankResults)
     setSubmitted(true)
 
@@ -267,9 +289,9 @@ export function WordBankPlayerPanel({
       payload: {
         participantId: participantIdRef.current,
         nickname: stored.nickname ?? nickname,
-        questionIndex: currentIndex,
+        questionIndex: 0,
         correct: allCorrect,
-        score: newScore,
+        score: correctBlanks,
         activityIndex: activityIndexRef.current,
       },
     })
@@ -282,8 +304,6 @@ export function WordBankPlayerPanel({
           participant_id: participantIdRef.current,
           event_type: 'question_answer',
           payload: {
-            item_id: item.id,
-            question_index: currentIndex,
             activity_index: activityIndexRef.current,
             fills: fills.map(f => f?.word ?? null),
             results: blankResults,
@@ -292,20 +312,13 @@ export function WordBankPlayerPanel({
         .then(undefined, () => {})
     }
 
-    setTimeout(() => {
-      const next = currentIndex + 1
-      if (next >= items.length) {
-        setTimeout(() => finishGameRef.current(), 300)
-      } else {
-        setCurrentIndex(next)
-      }
-    }, 2000)
+    setTimeout(() => finishGameRef.current(), 2000)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, items, fills, submitted])
+  }, [combinedBlanks, fills, submitted])
 
-  const item = items[currentIndex]
   const usedBankIndices = new Set(fills.map(f => f?.bankIdx).filter(x => x !== undefined) as number[])
-  const allFilled = item?.blanks.every((_, i) => fills[i] !== null) ?? false
+  const remainingBlanks = combinedBlanks.filter((_, i) => !fills[i]).length
+  const allFilled = remainingBlanks === 0
 
   return (
     <div className="flex-1 flex flex-col">
@@ -327,28 +340,17 @@ export function WordBankPlayerPanel({
           </div>
         )}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-slate-400">
-            {items.length > 1 ? `Passage ${currentIndex + 1}/${items.length}` : 'Fill the blanks'}
-          </span>
+          <span className="text-sm text-slate-400">Fill the blanks</span>
           <span className="text-lg font-black text-sky-400">{score} pts</span>
         </div>
-        {items.length > 1 && (
-          <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
-            <motion.div
-              className="h-full rounded-full bg-sky-500"
-              animate={{ width: `${(currentIndex / items.length) * 100}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        )}
       </div>
 
       {/* Main */}
       <div className="flex-1 flex flex-col px-4 py-3 gap-4 overflow-y-auto">
         <AnimatePresence mode="wait">
-          {item && (
+          {combinedBlanks.length > 0 && (
             <motion.div
-              key={`${activityIndex}-${currentIndex}`}
+              key={activityIndex}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
@@ -358,8 +360,8 @@ export function WordBankPlayerPanel({
               {/* Passage */}
               <div className="bg-slate-800 rounded-3xl border border-slate-700 px-5 py-5 shadow-xl">
                 <PassageDisplay
-                  text={item.text}
-                  blanks={item.blanks}
+                  text={combinedText}
+                  blanks={combinedBlanks}
                   fills={fills}
                   selectedBlank={selectedBlank}
                   submitted={submitted}
@@ -376,7 +378,7 @@ export function WordBankPlayerPanel({
                     {selectedBlank !== null && <span className="text-sky-400 normal-case font-normal ml-2">→ tap a word to fill blank {selectedBlank + 1}</span>}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {item.wordBank.map((word, wi) => {
+                    {combinedWordBank.map((word, wi) => {
                       const used = usedBankIndices.has(wi)
                       return (
                         <button
@@ -407,7 +409,7 @@ export function WordBankPlayerPanel({
                     bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed
                     text-white active:scale-[0.98] shadow-sm"
                 >
-                  {allFilled ? 'Check answers' : `Fill ${item.blanks.filter((_, i) => !fills[i]).length} more blank${item.blanks.filter((_, i) => !fills[i]).length !== 1 ? 's' : ''}`}
+                  {allFilled ? 'Check answers' : `Fill ${remainingBlanks} more blank${remainingBlanks !== 1 ? 's' : ''}`}
                 </button>
               )}
 
@@ -418,7 +420,7 @@ export function WordBankPlayerPanel({
                   animate={{ opacity: 1, y: 0 }}
                   className="bg-slate-800/60 border border-slate-700 rounded-2xl px-5 py-4 space-y-2"
                 >
-                  {item.blanks.map((blank, i) => (
+                  {combinedBlanks.map((blank, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm">
                       {results[i]
                         ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -435,24 +437,6 @@ export function WordBankPlayerPanel({
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Stats */}
-        <div className="flex justify-around text-center pt-1">
-          <div>
-            <div className="text-xl font-black text-emerald-400">{correctItems}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Correct</div>
-          </div>
-          <div>
-            <div className="text-xl font-black text-sky-400">{score}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Points</div>
-          </div>
-          <div>
-            <div className="text-xl font-black text-slate-300">
-              {Math.max(0, items.length - currentIndex - (submitted ? 1 : 0))}
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">Left</div>
-          </div>
-        </div>
       </div>
     </div>
   )
@@ -525,35 +509,28 @@ export function WordBankSharedPlayerPanel({
 }: WordBankSharedPlayerPanelProps) {
   const [selectedBlank, setSelectedBlank] = useState<number | null>(null)
 
-  // Reset selection when state changes externally
   useEffect(() => { setSelectedBlank(null) }, [sharedState.itemIndex])
 
-  const item = items[sharedState.itemIndex]
-  if (!item) return null
+  const combinedText = useMemo(() => items.map(i => i.text).join('\n\n'), [items])
+  const combinedBlanks = useMemo(() => items.flatMap(i => i.blanks), [items])
+  const combinedWordBank = useMemo(() => buildCombinedWordBank(items), [items])
+
+  if (!items.length) return null
 
   const fills = sharedState.fills
   const revealed = sharedState.revealed
 
-  const usedWords = new Set(Object.values(fills))
-  const availableBank = item.wordBank.filter((_, i) => {
-    // Track by index to allow duplicate words
-    const usedCount = Object.values(fills).filter(w => w === item.wordBank[i]).length
-    const totalInBank = item.wordBank.filter(w => w === item.wordBank[i]).length
-    return usedCount < totalInBank
-  })
-  // Build a deduplicated available list tracking by position
-  const bankAvailability = item.wordBank.map((word, wi) => {
-    const filledWithThis = Object.values(fills).filter(w => w === word).length
-    const totalInBank = item.wordBank.slice(0, wi + 1).filter(w => w === word).length
+  const bankAvailability = combinedWordBank.map((word, wi) => {
+    const filledWithThis = Object.values(fills).filter(w => w === combinedWordBank[wi]).length
+    const totalInBank = combinedWordBank.slice(0, wi + 1).filter(w => w === combinedWordBank[wi]).length
     return filledWithThis < totalInBank
   })
-  void usedWords
-  void availableBank
+
+  const parts = combinedText.split('___')
 
   function handleSelectBlank(bi: number) {
     if (revealed) return
     if (fills[bi] !== undefined) {
-      // Return word to bank
       channelRef.current?.send({
         type: 'broadcast',
         event: 'word_bank_fill',
@@ -568,9 +545,7 @@ export function WordBankSharedPlayerPanel({
     if (revealed || !bankAvailability[wi]) return
     const target = selectedBlank !== null && fills[selectedBlank] === undefined
       ? selectedBlank
-      : Object.entries(fills).length < item.blanks.length
-        ? item.blanks.findIndex((_, i) => fills[i] === undefined)
-        : -1
+      : combinedBlanks.findIndex((_, i) => fills[i] === undefined)
     if (target === -1) return
     channelRef.current?.send({
       type: 'broadcast',
@@ -580,8 +555,6 @@ export function WordBankSharedPlayerPanel({
     setSelectedBlank(null)
   }
 
-  const parts = item.text.split('___')
-
   return (
     <div className="flex-1 flex flex-col px-4 py-4 gap-5 overflow-y-auto">
       {/* Passage */}
@@ -590,10 +563,10 @@ export function WordBankSharedPlayerPanel({
           {parts.map((part, pi) => (
             <span key={pi}>
               <span>{part}</span>
-              {pi < item.blanks.length && (
+              {pi < combinedBlanks.length && (
                 <SharedBlankSlot
                   fill={fills[pi]}
-                  blank={item.blanks[pi]}
+                  blank={combinedBlanks[pi]}
                   isSelected={selectedBlank === pi}
                   revealed={revealed}
                   onClick={() => handleSelectBlank(pi)}
@@ -612,7 +585,7 @@ export function WordBankSharedPlayerPanel({
             {selectedBlank !== null && <span className="text-sky-400 normal-case font-normal ml-2">→ tap to fill blank {selectedBlank + 1}</span>}
           </p>
           <div className="flex flex-wrap gap-2">
-            {item.wordBank.map((word, wi) => {
+            {combinedWordBank.map((word, wi) => {
               const available = bankAvailability[wi]
               return (
                 <button
