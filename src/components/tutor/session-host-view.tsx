@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -174,9 +174,16 @@ export function SessionHostView({ session, lesson }: Props) {
   const completedParticipantIdsRef = useRef<Set<string>>(new Set())
   // Mirror participant count so game_complete handler can check it without a state updater
   const participantCountRef = useRef(0)
+  // Refs so presence join handler (stale closure) can access current values
+  const phaseRef = useRef<SessionStatus>(session.status)
+  const storyStateRef = useRef<StoryBuilderState | null>(null)
+  const talkTimeStateRef = useRef<TalkTimeState | null>(null)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
+  useEffect(() => { phaseRef.current = phase }, [phase])
+  useEffect(() => { storyStateRef.current = storyState }, [storyState])
+  useEffect(() => { talkTimeStateRef.current = talkTimeState }, [talkTimeState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
@@ -306,7 +313,40 @@ export function SessionHostView({ session, lesson }: Props) {
         for (const p of players) {
           if (!p.participantId) continue
           const nickname = p.nickname ?? 'Student'
-          toast.success(`${nickname} joined!`)
+
+          const isActive = phaseRef.current === 'active'
+          const activeStory = storyStateRef.current?.status === 'active' ? storyStateRef.current : null
+          const activeTalkTime = talkTimeStateRef.current?.status === 'active' ? talkTimeStateRef.current : null
+
+          if (isActive && (activeStory || activeTalkTime)) {
+            const pid = p.participantId
+            const actIdx = currentActivityIndexRef.current
+            addLateJoinerToTurnOrder(session.id, pid, actIdx).then(newState => {
+              if (newState) {
+                toast.success(`${nickname} joined and was added to the queue!`)
+                if (activeStory) {
+                  setStoryState(newState as unknown as StoryBuilderState)
+                  channelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'story_state_update',
+                    payload: { state: newState },
+                  })
+                } else {
+                  setTalkTimeState(newState as unknown as TalkTimeState)
+                  channelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'talk_time_state_update',
+                    payload: { state: newState },
+                  })
+                }
+              } else {
+                toast.success(`${nickname} rejoined!`)
+              }
+            }).catch(() => toast.success(`${nickname} joined!`))
+          } else {
+            toast.success(`${nickname} joined!`)
+          }
+
           setParticipants(prev => {
             // Already in list → mark online
             if (prev.some(x => x.id === p.participantId)) {

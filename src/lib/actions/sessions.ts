@@ -154,13 +154,20 @@ export async function initStoryState(
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('config, lesson_id, set_id')
+    .select('lesson_id, set_id')
     .eq('id', sessionId)
     .single()
 
   if (!session) throw new Error('Session not found')
 
-  const turnOrder = ((session.config as Record<string, unknown> | null)?.turnOrder as string[]) ?? []
+  // Re-query all current participants so late joiners who arrived after startSession are included
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const turnOrder = (participantRows ?? []).map(p => p.id)
 
   let contentSetId: string
 
@@ -223,13 +230,20 @@ export async function initTalkTimeState(
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('config, lesson_id, set_id')
+    .select('lesson_id, set_id')
     .eq('id', sessionId)
     .single()
 
   if (!session) throw new Error('Session not found')
 
-  const turnOrder = ((session.config as Record<string, unknown>)?.turnOrder as string[]) ?? []
+  // Re-query all current participants so late joiners who arrived after startSession are included
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const turnOrder = (participantRows ?? []).map(p => p.id)
 
   let contentSetId: string
   let timerDuration = 60
@@ -356,6 +370,39 @@ export async function initContentBlockState(
   )
 
   return initialState
+}
+
+export async function addLateJoinerToTurnOrder(
+  sessionId: string,
+  participantId: string,
+  activityIndex: number,
+): Promise<Record<string, unknown> | null> {
+  const supabase = await createClient()
+
+  const { data: row } = await supabase
+    .from('shared_activity_state')
+    .select('state')
+    .eq('session_id', sessionId)
+    .eq('activity_index', activityIndex)
+    .single()
+
+  if (!row?.state) return null
+
+  const state = row.state as Record<string, unknown>
+  const turnOrder = Array.isArray(state.turnOrder) ? (state.turnOrder as string[]) : []
+
+  if (turnOrder.includes(participantId)) return null
+
+  const newState = { ...state, turnOrder: [...turnOrder, participantId] }
+
+  const { error } = await supabase
+    .from('shared_activity_state')
+    .update({ state: newState, updated_at: new Date().toISOString() })
+    .eq('session_id', sessionId)
+    .eq('activity_index', activityIndex)
+
+  if (error) throw new Error(error.message)
+  return newState
 }
 
 export async function endSession(sessionId: string) {
