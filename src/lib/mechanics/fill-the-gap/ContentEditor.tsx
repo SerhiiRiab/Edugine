@@ -295,11 +295,13 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
   // ── Bulk import ────────────────────────────────────────────────────────────
 
   async function handleBulkImport() {
-    const validLines = bulkLines.filter(l => l.text.trim())
-    if (validLines.length === 0) return
+    const nonEmpty = bulkLines.filter(l => l.text.trim())
+    const withBlanks = nonEmpty.filter(l => countBlanks(l.text) > 0)
+    const skipped = nonEmpty.length - withBlanks.length
+    if (withBlanks.length === 0) return
     setBulkImporting(true)
 
-    const parsed = validLines.map(line => {
+    const parsed = withBlanks.map(line => {
       const sentence = line.text.trim()
       const blankCount = countBlanks(sentence)
       const blanks = Array.from({ length: blankCount }, (_, i) => ({
@@ -314,6 +316,7 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
       setBulkLines([])
       setShowBulkImport(false)
       toast.success(`Added ${items.length} item${items.length !== 1 ? 's' : ''}`)
+      if (skipped > 0) toast.warning(`${skipped} рядк${skipped === 1 ? '' : skipped < 5 ? 'и' : 'ів'} без бланків пропущено`)
     } catch {
       toast.error('Bulk import failed')
     } finally {
@@ -440,6 +443,8 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
         {showBulkImport && (() => {
           const bulkFullText = bulkLines.map(l => l.text).join('\n')
           const nonEmptyLines = bulkLines.filter(l => l.text.trim())
+          const linesWithBlanks = nonEmptyLines.filter(l => countBlanks(l.text) > 0)
+          const skippedCount = nonEmptyLines.length - linesWithBlanks.length
           const allAnswers = bulkLines.flatMap(l => l.answers).filter(Boolean)
           return (
             <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
@@ -528,15 +533,21 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
                 </div>
               )}
 
+              {skippedCount > 0 && (
+                <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  {skippedCount} рядк{skippedCount === 1 ? '' : skippedCount < 5 ? 'и' : 'ів'} без бланків буде пропущено
+                </p>
+              )}
+
               <div className="flex gap-2 pt-1">
                 <button
                   onClick={handleBulkImport}
-                  disabled={bulkImporting || nonEmptyLines.length === 0}
+                  disabled={bulkImporting || linesWithBlanks.length === 0}
                   className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700
                     disabled:opacity-40 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
                 >
                   {bulkImporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  Import {nonEmptyLines.length > 0 ? `${nonEmptyLines.length} item${nonEmptyLines.length !== 1 ? 's' : ''}` : ''}
+                  Import {linesWithBlanks.length > 0 ? `${linesWithBlanks.length} item${linesWithBlanks.length !== 1 ? 's' : ''}` : ''}
                 </button>
                 <button
                   onClick={() => setShowBulkImport(false)}
