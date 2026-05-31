@@ -316,7 +316,7 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
       setBulkLines([])
       setShowBulkImport(false)
       toast.success(`Added ${items.length} item${items.length !== 1 ? 's' : ''}`)
-      if (skipped > 0) toast.warning(`${skipped} рядк${skipped === 1 ? '' : skipped < 5 ? 'и' : 'ів'} без бланків пропущено`)
+      if (skipped > 0) toast.warning(`${skipped} line${skipped === 1 ? '' : 's'} without blanks were skipped`)
     } catch {
       toast.error('Bulk import failed')
     } finally {
@@ -535,7 +535,7 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
 
               {skippedCount > 0 && (
                 <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                  {skippedCount} рядк{skippedCount === 1 ? '' : skippedCount < 5 ? 'и' : 'ів'} без бланків буде пропущено
+                  {skippedCount} line{skippedCount === 1 ? '' : 's'} without blanks will be skipped
                 </p>
               )}
 
