@@ -105,6 +105,8 @@ interface ParticipantGameState {
   totalSwipes: number
   recentSwipes: SwipeRecord[]
   gameResult: GameResult | null
+  wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
+  wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
 }
 
 interface Props {
@@ -477,6 +479,7 @@ export function SessionHostView({ session, lesson }: Props) {
       .on('broadcast', { event: 'question_answer' }, ({ payload }) => {
         const p = payload as {
           participantId: string; questionIndex: number; correct: boolean; score: number; activityIndex?: number
+          wbFills?: (string | null)[]; wbResults?: boolean[]
         }
         if (!p.participantId) return
         setParticipants(prev => prev.map(x => {
@@ -487,6 +490,8 @@ export function SessionHostView({ session, lesson }: Props) {
             score: p.score,
             correctCount: x.correctCount + (p.correct ? 1 : 0),
             totalSwipes: x.totalSwipes + 1,
+            ...(p.wbFills !== undefined && { wbFills: p.wbFills }),
+            ...(p.wbResults !== undefined && { wbResults: p.wbResults }),
           }
         }))
       })
@@ -1542,8 +1547,12 @@ export function SessionHostView({ session, lesson }: Props) {
             {/* ── WORD BANK — individual mode ──────────────────────────── */}
             {currentMechanicId === 'word_bank' && currentActivityMode !== 'shared' && (
               <WordBankIndividualHostPanel
+                items={currentActivityItems.map(i => ({
+                  text: i.text ?? '',
+                  blanks: (i.blanks ?? []).map(b => ({ answer: b.answer })),
+                  wordBank: i.wordBank ?? [],
+                }))}
                 participants={participants}
-                totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
                 isLesson={isLesson}

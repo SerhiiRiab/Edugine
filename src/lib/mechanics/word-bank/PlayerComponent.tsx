@@ -293,6 +293,8 @@ export function WordBankPlayerPanel({
         correct: allCorrect,
         score: correctBlanks,
         activityIndex: activityIndexRef.current,
+        wbFills: fills.map(f => f?.word ?? null),
+        wbResults: blankResults,
       },
     })
 
