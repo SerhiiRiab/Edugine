@@ -16,8 +16,9 @@ import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimePlayerPanel } from '@/lib/mechanics/talk-time/PlayerComponent'
 import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockPlayerPanel } from '@/lib/mechanics/content-block/PlayerComponent'
-import { TrueFalsePlayerPanel } from '@/lib/mechanics/true-false/PlayerComponent'
-import { MultipleChoicePlayerPanel } from '@/lib/mechanics/multiple-choice/PlayerComponent'
+import { TrueFalsePlayerPanel, TrueFalseVotePlayerPanel } from '@/lib/mechanics/true-false/PlayerComponent'
+import { MultipleChoicePlayerPanel, MultipleChoiceVotePlayerPanel } from '@/lib/mechanics/multiple-choice/PlayerComponent'
+import type { VoteState } from '@/lib/mechanics/vote/types'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -40,7 +41,7 @@ interface CardItem {
 interface LessonActivity {
   id: string
   mechanic_id: string
-  mode: 'individual' | 'shared'
+  mode: 'individual' | 'shared' | 'vote'
   items: CardItem[]
 }
 
@@ -106,6 +107,9 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Content Block (driven by channel broadcasts) ──────────────────────────────
   const [contentBlockState, setContentBlockState] = useState<ContentBlockState | null>(null)
+
+  // ── Vote mode (T/F and MC in vote mode) ──────────────────────────────────────
+  const [voteState, setVoteState] = useState<VoteState | null>(null)
 
   // ── Instructions (set by host at game start / activity advance) ───────────────
   const [currentInstructions, setCurrentInstructions] = useState<string | null>(null)
@@ -177,6 +181,24 @@ export function PlayerView({ session, lesson }: Props) {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId])
+
+  // ── Vote state: fetch from DB on reconnect ───────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing') return
+    if (currentActivity?.mode !== 'vote') return
+    if (voteState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state) setVoteState(data.state as unknown as VoteState)
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentActivity?.mode, voteState])
 
   // ── Story: fetch participant list when empty (reconnect path) ─────────────────
   useEffect(() => {
@@ -314,7 +336,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -322,6 +344,7 @@ export function PlayerView({ session, lesson }: Props) {
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
         setContentBlockState(p.contentBlockState ?? null)
+        setVoteState(p.voteState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -335,18 +358,23 @@ export function PlayerView({ session, lesson }: Props) {
         const p = payload as { state: TalkTimeState }
         if (p.state) setTalkTimeState(p.state)
       })
+      .on('broadcast', { event: 'vote_state_update' }, ({ payload }) => {
+        const p = payload as { state: VoteState }
+        if (p.state) setVoteState(p.state)
+      })
       .on('broadcast', { event: 'typing_indicator' }, ({ payload }) => {
         const p = payload as { participantId: string; name: string; isTyping: boolean }
         if (p.participantId === participantIdRef.current) return
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
         setTalkTimeState(p.talkTimeState ?? null)
         setContentBlockState(p.contentBlockState ?? null)
+        setVoteState(p.voteState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -758,8 +786,8 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
-          {/* True or False */}
-          {currentMechanicId === 'true_false' && participantId && (
+          {/* True or False — individual mode */}
+          {currentMechanicId === 'true_false' && currentActivity?.mode !== 'vote' && participantId && (
             <TrueFalsePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}
@@ -779,8 +807,27 @@ export function PlayerView({ session, lesson }: Props) {
             />
           )}
 
-          {/* Multiple Choice */}
-          {currentMechanicId === 'multiple_choice' && participantId && (
+          {/* True or False — vote mode */}
+          {currentMechanicId === 'true_false' && currentActivity?.mode === 'vote' && participantId && (
+            voteState
+              ? (
+                <TrueFalseVotePlayerPanel
+                  participantId={participantId}
+                  voteState={voteState}
+                  items={currentItems.map(i => ({ statement: i.statement ?? '', isTrue: i.isTrue ?? true }))}
+                  participants={waitingParticipants}
+                  channelRef={channelRef}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading vote...</p>
+                </div>
+              )
+          )}
+
+          {/* Multiple Choice — individual mode */}
+          {currentMechanicId === 'multiple_choice' && currentActivity?.mode !== 'vote' && participantId && (
             <MultipleChoicePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}
@@ -801,8 +848,27 @@ export function PlayerView({ session, lesson }: Props) {
             />
           )}
 
+          {/* Multiple Choice — vote mode */}
+          {currentMechanicId === 'multiple_choice' && currentActivity?.mode === 'vote' && participantId && (
+            voteState
+              ? (
+                <MultipleChoiceVotePlayerPanel
+                  participantId={participantId}
+                  voteState={voteState}
+                  items={currentItems.map(i => ({ question: i.question ?? '', options: i.options ?? [], correctIndex: i.correctIndex ?? 0 }))}
+                  participants={waitingParticipants}
+                  channelRef={channelRef}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading vote...</p>
+                </div>
+              )
+          )}
+
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId) && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

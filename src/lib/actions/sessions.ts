@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/content-block/types'
+import type { VoteState } from '@/lib/mechanics/vote/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -357,6 +358,36 @@ export async function initContentBlockState(
     status: 'active',
     viewedByParticipantIds: [],
     content,
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initVoteState(
+  sessionId: string,
+  activityIndex: number,
+  mechanic: 'true_false' | 'multiple_choice',
+  totalQuestions: number,
+): Promise<VoteState> {
+  const supabase = await createClient()
+
+  const initialState: VoteState = {
+    mechanic,
+    currentQuestionIndex: 0,
+    votes: {},
+    revealed: false,
+    status: 'active',
+    totalQuestions,
   }
 
   await supabase.from('shared_activity_state').upsert(

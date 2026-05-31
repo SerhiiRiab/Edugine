@@ -32,6 +32,7 @@ import {
   ClipboardList,
   CheckSquare,
   ListChecks,
+  BarChart2,
 } from 'lucide-react'
 import {
   DndContext,
@@ -73,7 +74,7 @@ export interface ActivityRow {
   id: string
   content_set_id: string
   mechanic_id: string
-  mode: 'individual' | 'shared'
+  mode: 'individual' | 'shared' | 'vote'
   position: number
   config: Record<string, unknown>
   content_set_title: string
@@ -134,10 +135,12 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
   },
 }
 
-// Mechanics that only support individual mode (shared unavailable)
-const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'true_false', 'multiple_choice', 'speed_debate', 'roleplay_quest'])
-// Mechanics that only support shared mode (individual unavailable)
+// Mechanics that only support individual mode
+const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest'])
+// Mechanics that only support shared mode
 const SHARED_ONLY = new Set(['story_builder', 'talk_time'])
+// Mechanics that support individual OR vote mode
+const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
 
 // ── Save indicator ────────────────────────────────────────────────────────────
 
@@ -178,7 +181,7 @@ interface AddModalProps {
   onAdd: (data: {
     content_set_id: string
     mechanic_id: string
-    mode: 'individual' | 'shared'
+    mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
   }) => Promise<void>
   onClose: () => void
@@ -187,7 +190,7 @@ interface AddModalProps {
 function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [selectedSet, setSelectedSet] = useState<ContentSetOption | null>(null)
-  const [mode, setMode] = useState<'individual' | 'shared'>('individual')
+  const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>('individual')
   const [timerSeconds, setTimerSeconds] = useState('')
   const [instructions, setInstructions] = useState('')
   const [adding, setAdding] = useState(false)
@@ -196,9 +199,10 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const MechanicIcon = mechanic?.Icon ?? Gamepad2
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
   const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
+  const voteCap = selectedSet ? VOTE_CAPABLE.has(selectedSet.mechanic_id) : false
 
   // Auto-select mode when mechanic restricts it
-  const effectiveMode = sharedOnly ? 'shared' : indOnly ? 'individual' : mode
+  const effectiveMode: 'individual' | 'shared' | 'vote' = sharedOnly ? 'shared' : indOnly ? 'individual' : mode
 
   const STEP_LABELS = ['Content Set', 'Mechanic', 'Mode', 'Config']
 
@@ -375,67 +379,94 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
             <div className="space-y-3">
               <p className="text-sm text-slate-500">How will students play this activity?</p>
 
-              <div
-                role="button"
-                tabIndex={sharedOnly ? -1 : 0}
-                onClick={() => !sharedOnly && setMode('individual')}
-                className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                  effectiveMode === 'individual'
-                    ? 'border-emerald-400 bg-emerald-50'
-                    : sharedOnly
-                    ? 'border-slate-100 opacity-50 cursor-not-allowed select-none'
-                    : 'border-slate-100 hover:border-slate-200 cursor-pointer'
-                }`}
-              >
-                <User className="w-6 h-6 text-slate-500 shrink-0" />
-                <div className="flex-1">
-                  <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    Individual
-                    {sharedOnly && (
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                        Not available
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">Each student plays at their own pace</p>
-                </div>
-                {effectiveMode === 'individual' && (
-                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-white" />
+              {/* Individual */}
+              {!sharedOnly && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setMode('individual')}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                    effectiveMode === 'individual'
+                      ? 'border-emerald-400 bg-emerald-50'
+                      : 'border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  <User className="w-6 h-6 text-slate-500 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 text-sm">Individual</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Each student plays at their own pace</p>
                   </div>
-                )}
-              </div>
-
-              <div
-                role="button"
-                tabIndex={indOnly ? -1 : 0}
-                onClick={() => !indOnly && setMode('shared')}
-                className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                  effectiveMode === 'shared'
-                    ? 'border-blue-400 bg-blue-50'
-                    : indOnly
-                    ? 'border-slate-100 opacity-50 cursor-not-allowed select-none'
-                    : 'border-slate-100 hover:border-slate-200 cursor-pointer'
-                }`}
-              >
-                <Users className="w-6 h-6 text-slate-500 shrink-0" />
-                <div className="flex-1">
-                  <p className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                    Shared
-                    {indOnly && (
-                      <span className="text-[10px] font-medium text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                        Not available
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-0.5">All students see the same board in real-time</p>
+                  {effectiveMode === 'individual' && (
+                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
                 </div>
-                {effectiveMode === 'shared' && (
+              )}
+
+              {/* Vote (T/F and MC only) */}
+              {voteCap && (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setMode('vote')}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                    effectiveMode === 'vote'
+                      ? 'border-amber-400 bg-amber-50'
+                      : 'border-slate-100 hover:border-slate-200'
+                  }`}
+                >
+                  <BarChart2 className="w-6 h-6 text-slate-500 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 text-sm">Vote</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Everyone votes on each question — tutor reveals results</p>
+                  </div>
+                  {effectiveMode === 'vote' && (
+                    <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Shared (story_builder, talk_time) */}
+              {!indOnly && !voteCap && (
+                <div
+                  role="button"
+                  tabIndex={sharedOnly ? -1 : 0}
+                  onClick={() => !indOnly && setMode('shared')}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                    effectiveMode === 'shared'
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-slate-100 hover:border-slate-200 cursor-pointer'
+                  }`}
+                >
+                  <Users className="w-6 h-6 text-slate-500 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 text-sm">Shared</p>
+                    <p className="text-xs text-slate-400 mt-0.5">All students see the same board in real-time</p>
+                  </div>
+                  {effectiveMode === 'shared' && (
+                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3 text-white" />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Shared-only mechanics auto-show shared */}
+              {sharedOnly && (
+                <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-blue-400 bg-blue-50">
+                  <Users className="w-6 h-6 text-blue-500 shrink-0" />
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 text-sm">Shared</p>
+                    <p className="text-xs text-slate-400 mt-0.5">All students see the same board in real-time</p>
+                  </div>
                   <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
                     <Check className="w-3 h-3 text-white" />
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -509,7 +540,9 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Mode</span>
                     <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
-                      {effectiveMode === 'individual' ? <><User className="w-3.5 h-3.5" />Individual</> : <><Users className="w-3.5 h-3.5" />Shared</>}
+                      {effectiveMode === 'individual' ? <><User className="w-3.5 h-3.5" />Individual</>
+                        : effectiveMode === 'vote' ? <><BarChart2 className="w-3.5 h-3.5" />Vote</>
+                        : <><Users className="w-3.5 h-3.5" />Shared</>}
                     </span>
                   </div>
                   {timerSeconds && !isNaN(parseInt(timerSeconds)) && (
@@ -574,12 +607,12 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
 
 interface EditModalProps {
   activity: ActivityRow
-  onSave: (id: string, data: { mode: 'individual' | 'shared'; config: Record<string, unknown> }) => Promise<void>
+  onSave: (id: string, data: { mode: 'individual' | 'shared' | 'vote'; config: Record<string, unknown> }) => Promise<void>
   onClose: () => void
 }
 
 function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
-  const [mode, setMode] = useState<'individual' | 'shared'>(activity.mode)
+  const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>(activity.mode)
   const [timerSeconds, setTimerSeconds] = useState(
     typeof activity.config.timerSeconds === 'number' ? String(activity.config.timerSeconds) : '',
   )
@@ -588,6 +621,7 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
   )
   const [saving, setSaving] = useState(false)
   const indOnly = INDIVIDUAL_ONLY.has(activity.mechanic_id)
+  const voteCap = VOTE_CAPABLE.has(activity.mechanic_id)
 
   async function handleSave() {
     setSaving(true)
@@ -629,31 +663,45 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
           <div className="space-y-2">
             <p className="text-sm font-semibold text-slate-700">Mode</p>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setMode('individual')}
-                className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                  mode === 'individual'
-                    ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-                    : 'border-slate-100 text-slate-500 hover:border-slate-200'
-                }`}
-              >
-                <span>👤</span> Individual
-              </button>
-              <button
-                type="button"
-                disabled={indOnly}
-                onClick={() => !indOnly && setMode('shared')}
-                className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                  mode === 'shared'
-                    ? 'border-blue-400 bg-blue-50 text-blue-700'
-                    : indOnly
-                    ? 'border-slate-100 text-slate-300 opacity-50 cursor-not-allowed'
-                    : 'border-slate-100 text-slate-500 hover:border-slate-200'
-                }`}
-              >
-                <span>🤝</span> Shared
-              </button>
+              {!SHARED_ONLY.has(activity.mechanic_id) && (
+                <button
+                  type="button"
+                  onClick={() => setMode('individual')}
+                  className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                    mode === 'individual'
+                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                      : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                  }`}
+                >
+                  <span>👤</span> Individual
+                </button>
+              )}
+              {voteCap && (
+                <button
+                  type="button"
+                  onClick={() => setMode('vote')}
+                  className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                    mode === 'vote'
+                      ? 'border-amber-400 bg-amber-50 text-amber-700'
+                      : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                  }`}
+                >
+                  <span>🗳️</span> Vote
+                </button>
+              )}
+              {!indOnly && !voteCap && (
+                <button
+                  type="button"
+                  onClick={() => setMode('shared')}
+                  className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                    mode === 'shared'
+                      ? 'border-blue-400 bg-blue-50 text-blue-700'
+                      : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                  }`}
+                >
+                  <span>🤝</span> Shared
+                </button>
+              )}
             </div>
           </div>
 
@@ -808,11 +856,15 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
           className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
             activity.mode === 'individual'
               ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
+              : activity.mode === 'vote'
+              ? 'bg-amber-50 text-amber-600 border-amber-200'
               : 'bg-blue-50 text-blue-600 border-blue-200'
           }`}
         >
           {activity.mode === 'individual'
             ? <><User className="w-3 h-3" />Individual</>
+            : activity.mode === 'vote'
+            ? <><BarChart2 className="w-3 h-3" />Vote</>
             : <><Users className="w-3 h-3" />Shared</>}
         </span>
         <button
@@ -916,7 +968,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   async function handleAddActivity(data: {
     content_set_id: string
     mechanic_id: string
-    mode: 'individual' | 'shared'
+    mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
   }) {
     const position = activities.length
@@ -942,7 +994,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
 
   async function handleEditActivity(
     id: string,
-    data: { mode: 'individual' | 'shared'; config: Record<string, unknown> },
+    data: { mode: 'individual' | 'shared' | 'vote'; config: Record<string, unknown> },
   ) {
     await updateActivity(id, data)
     setActivities((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)))

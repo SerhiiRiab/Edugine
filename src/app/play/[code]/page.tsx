@@ -68,7 +68,7 @@ export default async function PlayPage({ params }: Props) {
       .map((act) => ({
         id: act.id,
         mechanic_id: act.mechanic_id,
-        mode: act.mode as 'individual' | 'shared',
+        mode: act.mode as 'individual' | 'shared' | 'vote',
         items: (act.content_sets?.content_items ?? [])
           .sort((a, b) => a.position - b.position)
           .map((i) => ({

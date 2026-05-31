@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { TrueFalseState } from './types'
+import type { VoteState } from '@/lib/mechanics/vote/types'
 
 // Registry stub — satisfies MechanicDefinition type
 export function TrueFalsePlayerComponent(_props: MechanicPlayerProps<TrueFalseState>) {
@@ -361,6 +362,203 @@ function TFButton({
         <span className="text-2xl">{value ? '✓' : '✗'}</span>
       )}
       <span>{label}</span>
+    </button>
+  )
+}
+
+// ── Vote mode player panel ────────────────────────────────────────────────────
+
+export interface TrueFalseVotePlayerPanelProps {
+  participantId: string
+  voteState: VoteState
+  items: Array<{ statement: string; isTrue: boolean }>
+  participants: Array<{ id: string; nickname: string }>
+  channelRef: { current: RealtimeChannel | null }
+}
+
+export function TrueFalseVotePlayerPanel({
+  participantId,
+  voteState,
+  items,
+  participants,
+  channelRef,
+}: TrueFalseVotePlayerPanelProps) {
+  const [localVote, setLocalVote] = useState<boolean | null>(null)
+
+  // Reset local vote when question changes
+  useEffect(() => {
+    setLocalVote(null)
+  }, [voteState.currentQuestionIndex])
+
+  const item = items[voteState.currentQuestionIndex]
+  const myVote = voteState.votes[participantId]
+  const hasVoted = myVote !== undefined || localVote !== null
+  const totalVoted = Object.keys(voteState.votes).length
+  const totalParticipants = participants.length
+
+  // Vote counts for reveal
+  const voteValues = Object.values(voteState.votes)
+  const trueCount = voteValues.filter(v => v === true).length
+  const falseCount = voteValues.filter(v => v === false).length
+
+  function handleVote(choice: boolean) {
+    if (hasVoted) return
+    setLocalVote(choice)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'vote_cast',
+      payload: { participantId, answer: choice },
+    })
+  }
+
+  if (voteState.status === 'finished') {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <div className="text-center space-y-3">
+          <div className="text-4xl">✅</div>
+          <p className="text-white font-bold text-lg">All done!</p>
+          <p className="text-slate-400 text-sm">Waiting for teacher to continue...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex-1 flex flex-col">
+      {/* Progress */}
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-slate-400">
+            Question {voteState.currentQuestionIndex + 1}/{voteState.totalQuestions}
+          </span>
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+            🗳️ Vote
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-amber-500"
+            style={{ width: `${((voteState.currentQuestionIndex) / voteState.totalQuestions) * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-4 gap-6">
+
+        {/* Statement */}
+        <AnimatePresence mode="wait">
+          {item && (
+            <motion.div
+              key={voteState.currentQuestionIndex}
+              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -12, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-sm bg-slate-800 rounded-3xl border border-slate-700 p-7 min-h-[120px] flex items-center justify-center shadow-xl"
+            >
+              <p className="text-center text-xl font-bold text-white leading-snug">
+                {item.statement}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* True / False vote buttons */}
+        <div className="flex gap-4 w-full max-w-sm">
+          <VoteTFButton
+            label="True"
+            value={true}
+            myVote={typeof myVote === 'boolean' ? myVote : localVote}
+            correctAnswer={voteState.revealed ? item?.isTrue : undefined}
+            count={voteState.revealed ? trueCount : undefined}
+            disabled={hasVoted}
+            onClick={() => handleVote(true)}
+          />
+          <VoteTFButton
+            label="False"
+            value={false}
+            myVote={typeof myVote === 'boolean' ? myVote : localVote}
+            correctAnswer={voteState.revealed ? item?.isTrue : undefined}
+            count={voteState.revealed ? falseCount : undefined}
+            disabled={hasVoted}
+            onClick={() => handleVote(false)}
+          />
+        </div>
+
+        {/* Status */}
+        {!hasVoted && !voteState.revealed && (
+          <p className="text-slate-400 text-sm">Tap to vote — one chance only</p>
+        )}
+        {hasVoted && !voteState.revealed && (
+          <div className="text-center space-y-1">
+            <p className="text-emerald-400 font-semibold text-sm">Vote locked in!</p>
+            <p className="text-slate-500 text-xs">{totalVoted}/{totalParticipants} answered</p>
+          </div>
+        )}
+        {voteState.revealed && (
+          <div className="text-center space-y-1">
+            <p className={`font-bold text-sm ${
+              (typeof myVote === 'boolean' ? myVote : localVote) === item?.isTrue
+                ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {(typeof myVote === 'boolean' ? myVote : localVote) === item?.isTrue
+                ? '✓ Correct!' : '✗ Wrong!'}
+            </p>
+            <p className="text-slate-500 text-xs">Waiting for next question...</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function VoteTFButton({
+  label, value, myVote, correctAnswer, count, disabled, onClick,
+}: {
+  label: string
+  value: boolean
+  myVote: boolean | null
+  correctAnswer?: boolean
+  count?: number
+  disabled: boolean
+  onClick: () => void
+}) {
+  const isMyChoice = myVote === value
+  const revealed = correctAnswer !== undefined
+  const isCorrect = correctAnswer === value
+  const isWrong = revealed && isMyChoice && !isCorrect
+
+  let classes = 'flex-1 flex flex-col items-center justify-center gap-1.5 py-5 rounded-2xl border-2 font-black text-xl transition-all select-none '
+
+  if (!revealed && !isMyChoice && !disabled) {
+    classes += value
+      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 active:scale-95'
+      : 'bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 active:scale-95'
+  } else if (!revealed && isMyChoice) {
+    classes += value
+      ? 'bg-emerald-500/25 border-emerald-400 text-emerald-300 scale-105'
+      : 'bg-red-500/25 border-red-400 text-red-300 scale-105'
+  } else if (!revealed) {
+    classes += value
+      ? 'bg-emerald-500/5 border-emerald-500/20 text-emerald-700 opacity-50'
+      : 'bg-red-500/5 border-red-500/20 text-red-700 opacity-50'
+  } else if (isCorrect) {
+    classes += 'bg-emerald-500/25 border-emerald-400 text-emerald-300'
+  } else if (isWrong) {
+    classes += 'bg-red-500/25 border-red-400 text-red-300'
+  } else {
+    classes += value
+      ? 'bg-emerald-500/5 border-emerald-500/15 text-emerald-700 opacity-40'
+      : 'bg-red-500/5 border-red-500/15 text-red-700 opacity-40'
+  }
+
+  return (
+    <button onClick={onClick} disabled={disabled || revealed} className={classes}>
+      <span className="text-2xl">{value ? '✓' : '✗'}</span>
+      <span>{label}</span>
+      {count !== undefined && (
+        <span className="text-sm font-bold opacity-80">{count}</span>
+      )}
     </button>
   )
 }

@@ -121,7 +121,7 @@ export async function addActivity(
   data: {
     content_set_id: string
     mechanic_id: string
-    mode: 'individual' | 'shared'
+    mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
     position: number
   },
@@ -149,7 +149,7 @@ export async function addActivity(
 
 export async function updateActivity(
   id: string,
-  data: { mode?: 'individual' | 'shared'; config?: Record<string, unknown> },
+  data: { mode?: 'individual' | 'shared' | 'vote'; config?: Record<string, unknown> },
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

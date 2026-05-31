@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -24,8 +24,9 @@ import { TalkTimeHostPanel, } from '@/lib/mechanics/talk-time/HostComponent'
 import { computeTimeLeft } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockHostPanel } from '@/lib/mechanics/content-block/HostComponent'
-import { TrueFalseHostPanel } from '@/lib/mechanics/true-false/HostComponent'
-import { MultipleChoiceHostPanel } from '@/lib/mechanics/multiple-choice/HostComponent'
+import { TrueFalseHostPanel, TrueFalseVoteHostPanel } from '@/lib/mechanics/true-false/HostComponent'
+import { MultipleChoiceHostPanel, MultipleChoiceVoteHostPanel } from '@/lib/mechanics/multiple-choice/HostComponent'
+import type { VoteState } from '@/lib/mechanics/vote/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -63,7 +64,7 @@ interface GameResult {
 interface LessonActivity {
   id: string
   mechanic_id: string
-  mode: 'individual' | 'shared'
+  mode: 'individual' | 'shared' | 'vote'
   content_set_title: string
   instructions?: string
   items: CardItem[]
@@ -155,6 +156,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Content Block shared state
   const [contentBlockState, setContentBlockState] = useState<ContentBlockState | null>(null)
 
+  // Vote mode shared state (T/F and MC in vote mode)
+  const [voteState, setVoteState] = useState<VoteState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -178,15 +182,18 @@ export function SessionHostView({ session, lesson }: Props) {
   const phaseRef = useRef<SessionStatus>(session.status)
   const storyStateRef = useRef<StoryBuilderState | null>(null)
   const talkTimeStateRef = useRef<TalkTimeState | null>(null)
+  const voteStateRef = useRef<VoteState | null>(null)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
   useEffect(() => { phaseRef.current = phase }, [phase])
   useEffect(() => { storyStateRef.current = storyState }, [storyState])
   useEffect(() => { talkTimeStateRef.current = talkTimeState }, [talkTimeState])
+  useEffect(() => { voteStateRef.current = voteState }, [voteState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
+  const currentActivityMode = lesson?.activities[currentActivityIndex]?.mode
 
   const [shareUrl, setShareUrl] = useState(`/play/${session.code}`)
   useEffect(() => {
@@ -281,6 +288,19 @@ export function SessionHostView({ session, lesson }: Props) {
             .eq('activity_index', actIdx)
             .single()
           if (stateRow?.state) setContentBlockState(stateRow.state as unknown as ContentBlockState)
+        }
+
+        // Restore vote state from DB on tab restore / reconnect
+        if ((currentMechanic === 'true_false' || currentMechanic === 'multiple_choice') && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'votes' in (stateRow.state as Record<string, unknown>)) {
+            setVoteState(stateRow.state as unknown as VoteState)
+          }
         }
       } catch { /* participants will be populated via presence on reconnect */ }
     }
@@ -453,6 +473,26 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: TalkTimeState }
         if (p.state) setTalkTimeState(p.state)
       })
+      .on('broadcast', { event: 'vote_cast' }, ({ payload }) => {
+        const p = payload as { participantId: string; answer: number | boolean }
+        if (!p.participantId) return
+        const current = voteStateRef.current
+        if (!current || current.votes[p.participantId] !== undefined) return
+        const newState: VoteState = { ...current, votes: { ...current.votes, [p.participantId]: p.answer } }
+        voteStateRef.current = newState
+        setVoteState(newState)
+        const supabase = createClient()
+        supabase.from('shared_activity_state')
+          .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+          .eq('session_id', session.id)
+          .eq('activity_index', currentActivityIndexRef.current)
+          .then(undefined, () => {})
+        channelRef.current?.send({
+          type: 'broadcast',
+          event: 'vote_state_update',
+          payload: { state: newState },
+        })
+      })
       .on('broadcast', { event: 'content_block_viewed' }, ({ payload }) => {
         const p = payload as { participantId: string }
         if (!p.participantId) return
@@ -604,26 +644,44 @@ export function SessionHostView({ session, lesson }: Props) {
         let newStoryState: StoryBuilderState | undefined
         let newTalkTimeState: TalkTimeState | undefined
         let newContentBlockState: ContentBlockState | undefined
+        let newVoteState: VoteState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
           setStoryState(newStoryState)
           setTalkTimeState(null)
           setContentBlockState(null)
+          setVoteState(null)
         } else if (firstActivity?.mechanic_id === 'talk_time') {
           newTalkTimeState = await initTalkTimeState(session.id, currentActivityIndex)
           setTalkTimeState(newTalkTimeState)
           setStoryState(null)
           setContentBlockState(null)
+          setVoteState(null)
         } else if (firstActivity?.mechanic_id === 'content_block') {
           newContentBlockState = await initContentBlockState(session.id, currentActivityIndex)
           setContentBlockState(newContentBlockState)
           setStoryState(null)
           setTalkTimeState(null)
+          setVoteState(null)
+        } else if (
+          firstActivity?.mode === 'vote' &&
+          (firstActivity.mechanic_id === 'true_false' || firstActivity.mechanic_id === 'multiple_choice')
+        ) {
+          newVoteState = await initVoteState(
+            session.id, currentActivityIndex,
+            firstActivity.mechanic_id as 'true_false' | 'multiple_choice',
+            currentActivityItems.length,
+          )
+          setVoteState(newVoteState)
+          setStoryState(null)
+          setTalkTimeState(null)
+          setContentBlockState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
           setContentBlockState(null)
+          setVoteState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -637,6 +695,7 @@ export function SessionHostView({ session, lesson }: Props) {
             storyState: newStoryState,
             talkTimeState: newTalkTimeState,
             contentBlockState: newContentBlockState,
+            voteState: newVoteState,
             instructions: startInstructions ?? null,
           },
         })
@@ -678,25 +737,44 @@ export function SessionHostView({ session, lesson }: Props) {
       let newStoryState: StoryBuilderState | undefined
       let newTalkTimeState: TalkTimeState | undefined
       let newContentBlockState: ContentBlockState | undefined
+      let newVoteState: VoteState | undefined
+      const nextActivityItems = lesson.activities[nextIndex]?.items ?? []
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
         setStoryState(newStoryState)
         setTalkTimeState(null)
         setContentBlockState(null)
+        setVoteState(null)
       } else if (nextActivity?.mechanic_id === 'talk_time') {
         newTalkTimeState = await initTalkTimeState(session.id, nextIndex)
         setTalkTimeState(newTalkTimeState)
         setStoryState(null)
         setContentBlockState(null)
+        setVoteState(null)
       } else if (nextActivity?.mechanic_id === 'content_block') {
         newContentBlockState = await initContentBlockState(session.id, nextIndex)
         setContentBlockState(newContentBlockState)
         setStoryState(null)
         setTalkTimeState(null)
+        setVoteState(null)
+      } else if (
+        nextActivity?.mode === 'vote' &&
+        (nextActivity.mechanic_id === 'true_false' || nextActivity.mechanic_id === 'multiple_choice')
+      ) {
+        newVoteState = await initVoteState(
+          session.id, nextIndex,
+          nextActivity.mechanic_id as 'true_false' | 'multiple_choice',
+          nextActivityItems.length,
+        )
+        setVoteState(newVoteState)
+        setStoryState(null)
+        setTalkTimeState(null)
+        setContentBlockState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
+        setVoteState(null)
       }
 
       await channelRef.current?.send({
@@ -708,6 +786,7 @@ export function SessionHostView({ session, lesson }: Props) {
           storyState: newStoryState,
           talkTimeState: newTalkTimeState,
           contentBlockState: newContentBlockState,
+          voteState: newVoteState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
         },
       })
@@ -934,6 +1013,36 @@ export function SessionHostView({ session, lesson }: Props) {
       status: 'finished',
       timerRunning: false,
       timerStartedAt: null,
+    })
+  }
+
+  // ── Vote handlers ─────────────────────────────────────────────────────────────
+  async function voteStateUpdate(newState: VoteState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setVoteState(newState)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'vote_state_update',
+      payload: { state: newState },
+    })
+  }
+
+  async function handleVoteReveal() {
+    if (!voteState) return
+    await voteStateUpdate({ ...voteState, revealed: true })
+  }
+
+  async function handleVoteNextQuestion() {
+    if (!voteState) return
+    await voteStateUpdate({
+      ...voteState,
+      currentQuestionIndex: voteState.currentQuestionIndex + 1,
+      votes: {},
+      revealed: false,
     })
   }
 
@@ -1278,8 +1387,8 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
-            {/* ── TRUE OR FALSE HOST PANEL ─────────────────────────────── */}
-            {currentMechanicId === 'true_false' && (
+            {/* ── TRUE OR FALSE — individual mode ─────────────────────── */}
+            {currentMechanicId === 'true_false' && currentActivityMode !== 'vote' && (
               <TrueFalseHostPanel
                 participants={participants}
                 totalItems={currentActivityItems.length}
@@ -1292,8 +1401,25 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
-            {/* ── MULTIPLE CHOICE HOST PANEL ───────────────────────────── */}
-            {currentMechanicId === 'multiple_choice' && (
+            {/* ── TRUE OR FALSE — vote mode ────────────────────────────── */}
+            {currentMechanicId === 'true_false' && currentActivityMode === 'vote' && voteState && (
+              <TrueFalseVoteHostPanel
+                voteState={voteState}
+                items={currentActivityItems.map(i => ({ statement: i.statement ?? '', isTrue: i.isTrue ?? true }))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onReveal={handleVoteReveal}
+                onNextQuestion={handleVoteNextQuestion}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── MULTIPLE CHOICE — individual mode ───────────────────── */}
+            {currentMechanicId === 'multiple_choice' && currentActivityMode !== 'vote' && (
               <MultipleChoiceHostPanel
                 participants={participants}
                 totalItems={currentActivityItems.length}
@@ -1306,8 +1432,25 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── MULTIPLE CHOICE — vote mode ─────────────────────────── */}
+            {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
+              <MultipleChoiceVoteHostPanel
+                voteState={voteState}
+                items={currentActivityItems.map(i => ({ question: i.question ?? '', options: i.options ?? [], correctIndex: i.correctIndex ?? 0 }))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onReveal={handleVoteReveal}
+                onNextQuestion={handleVoteNextQuestion}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId ?? '') && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

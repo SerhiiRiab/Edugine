@@ -55,7 +55,7 @@ export default async function HostPage({
       .map((act) => ({
         id: act.id,
         mechanic_id: act.mechanic_id,
-        mode: act.mode as 'individual' | 'shared',
+        mode: act.mode as 'individual' | 'shared' | 'vote',
         content_set_title: act.content_sets?.title ?? '(deleted)',
         instructions: ((act.config as Record<string, unknown> | null)?.instructions as string | undefined) ?? undefined,
         items: (act.content_sets?.content_items ?? [])
