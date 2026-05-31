@@ -85,6 +85,8 @@ export default async function PlayPage({ params }: Props) {
             correctIndex: i.data.correctIndex as number | undefined,
             sentence: i.data.sentence as string | undefined,
             blanks: i.data.blanks as Array<{ answer: string; options?: string[] }> | undefined,
+            text: i.data.text as string | undefined,
+            wordBank: i.data.wordBank as string[] | undefined,
           })),
       }))
 
@@ -128,6 +130,8 @@ export default async function PlayPage({ params }: Props) {
       correctIndex: d.correctIndex as number | undefined,
       sentence: d.sentence as string | undefined,
       blanks: d.blanks as Array<{ answer: string; options?: string[] }> | undefined,
+      text: d.text as string | undefined,
+      wordBank: d.wordBank as string[] | undefined,
     }
   })
 
