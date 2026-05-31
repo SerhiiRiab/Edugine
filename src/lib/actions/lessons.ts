@@ -143,7 +143,12 @@ export async function addActivity(
     .select('id')
     .single()
 
-  if (error || !activity) throw new Error(error?.message ?? 'Failed to add activity')
+  if (error || !activity) {
+    console.error('[addActivity] DB error:', error?.code, error?.message, error?.details, {
+      lessonId, mechanic_id: data.mechanic_id, mode: data.mode, position: data.position,
+    })
+    throw new Error(error?.message ?? 'Failed to add activity')
+  }
   return activity
 }
 

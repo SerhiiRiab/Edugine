@@ -233,8 +233,9 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
         config: cfg,
       })
       onClose()
-    } catch {
-      toast.error('Failed to add activity')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to add activity'
+      toast.error(msg)
     } finally {
       setAdding(false)
     }
