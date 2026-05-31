@@ -95,6 +95,8 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
   const [showBulkImport, setShowBulkImport] = useState(false)
   const [bulkText, setBulkText] = useState('')
   const [bulkImporting, setBulkImporting] = useState(false)
+  const [bulkSelection, setBulkSelection] = useState<{ start: number; end: number; text: string } | null>(null)
+  const bulkTextareaRef = useRef<HTMLTextAreaElement>(null)
   const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -134,6 +136,29 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
       })
     }, 800)
     saveTimers.current.set(id, timer)
+  }
+
+  // ── Bulk textarea selection ────────────────────────────────────────────────
+
+  function checkBulkSelection() {
+    const el = bulkTextareaRef.current
+    if (!el) return
+    const rawStart = el.selectionStart
+    const rawEnd = el.selectionEnd
+    const rawText = el.value.slice(rawStart, rawEnd)
+    if (!rawText || rawStart === rawEnd) { setBulkSelection(null); return }
+    const trimmed = rawText.trim()
+    if (!trimmed || trimmed.includes('___')) { setBulkSelection(null); return }
+    const leading = rawText.length - rawText.trimStart().length
+    const trailing = rawText.length - rawText.trimEnd().length
+    setBulkSelection({ start: rawStart + leading, end: rawEnd - trailing, text: trimmed })
+  }
+
+  function handleBulkMakeBlank() {
+    if (!bulkSelection) return
+    const { start, end } = bulkSelection
+    setBulkText(prev => prev.slice(0, start) + '___' + prev.slice(end))
+    setBulkSelection(null)
   }
 
   // ── Add item ───────────────────────────────────────────────────────────────
@@ -413,14 +438,30 @@ He ___ to the store. | went | went, goes, gone, go
 She ___ and ___ yesterday. | ate, slept | ate,eat,eating | slept,sleep,sleeping`}
             </pre>
             <textarea
+              ref={bulkTextareaRef}
               value={bulkText}
-              onChange={e => setBulkText(e.target.value)}
+              onChange={e => { setBulkText(e.target.value); setBulkSelection(null) }}
+              onSelect={checkBulkSelection}
+              onMouseUp={checkBulkSelection}
+              onKeyUp={checkBulkSelection}
               placeholder="She ___ to school every day. | goes"
               rows={5}
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-mono
                 focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
                 resize-none transition-colors placeholder:text-slate-300"
             />
+            <button
+              type="button"
+              onMouseDown={e => e.preventDefault()}
+              onClick={handleBulkMakeBlank}
+              disabled={!bulkSelection}
+              className="self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white
+                disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+            >
+              <Scissors className="w-3.5 h-3.5" />
+              {bulkSelection ? `Make blank: "${bulkSelection.text}"` : 'Select a word to make blank'}
+            </button>
             <div className="flex gap-2">
               <button
                 onClick={handleBulkImport}
