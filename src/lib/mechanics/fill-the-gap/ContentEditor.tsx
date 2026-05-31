@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2,
-  ClipboardList, PenLine, Rocket, X, Upload,
+  ClipboardList, PenLine, Rocket, X, Upload, Scissors,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -170,6 +170,18 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
       while (blanks.length < newCount) blanks.push({ answer: '', options: [] })
       blanks.length = newCount
       return { ...r, sentence, blanks }
+    }))
+    scheduleSave(id)
+  }
+
+  // ── Make blank (interactive selection) ────────────────────────────────────
+
+  function handleMakeBlank(id: string, newSentence: string, blankInsertIndex: number, answer: string) {
+    setRows(prev => prev.map(r => {
+      if (r.id !== id) return r
+      const newBlanks = [...r.blanks]
+      newBlanks.splice(blankInsertIndex, 0, { answer, options: [] })
+      return { ...r, sentence: newSentence, blanks: newBlanks }
     }))
     scheduleSave(id)
   }
@@ -443,6 +455,7 @@ She ___ and ___ yesterday. | ate, slept | ate,eat,eating | slept,sleep,sleeping`
                 row={row}
                 index={i}
                 onSentenceChange={(s) => handleSentenceChange(row.id, s)}
+                onMakeBlank={(newSentence, blankIdx, answer) => handleMakeBlank(row.id, newSentence, blankIdx, answer)}
                 onAnswerChange={(bi, a) => handleAnswerChange(row.id, bi, a)}
                 onOptionChange={(bi, oi, v) => handleOptionChange(row.id, bi, oi, v)}
                 onAddOption={(bi) => handleAddOption(row.id, bi)}
@@ -457,47 +470,134 @@ She ___ and ___ yesterday. | ate, slept | ate,eat,eating | slept,sleep,sleeping`
   )
 }
 
+// ── SentencePreview ───────────────────────────────────────────────────────────
+
+function SentencePreview({ sentence, blanks }: { sentence: string; blanks: BlankState[] }) {
+  const parts = sentence.split('___')
+  return (
+    <p className="text-sm font-medium text-slate-700 leading-relaxed">
+      {parts.map((part, i) => (
+        <span key={i}>
+          {part}
+          {i < blanks.length && (
+            <span className="inline-flex items-center mx-0.5 px-2 py-0.5 rounded-md
+              bg-sky-100 border border-sky-300 text-sky-700 font-bold text-sm">
+              {blanks[i].answer || `___`}
+            </span>
+          )}
+        </span>
+      ))}
+    </p>
+  )
+}
+
 // ── FTGItemCard ───────────────────────────────────────────────────────────────
+
+interface FTGSelection {
+  start: number
+  end: number
+  text: string
+}
 
 function FTGItemCard({
   row, index,
-  onSentenceChange, onAnswerChange, onOptionChange, onAddOption, onRemoveOption, onDelete,
+  onSentenceChange, onMakeBlank,
+  onAnswerChange, onOptionChange, onAddOption, onRemoveOption, onDelete,
 }: {
   row: FTGRow
   index: number
   onSentenceChange: (s: string) => void
+  onMakeBlank: (newSentence: string, blankInsertIndex: number, answer: string) => void
   onAnswerChange: (blankIdx: number, answer: string) => void
   onOptionChange: (blankIdx: number, optIdx: number, value: string) => void
   onAddOption: (blankIdx: number) => void
   onRemoveOption: (blankIdx: number, optIdx: number) => void
   onDelete: () => void
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [selection, setSelection] = useState<FTGSelection | null>(null)
+
+  function checkSelection() {
+    const el = textareaRef.current
+    if (!el) return
+    const rawStart = el.selectionStart
+    const rawEnd = el.selectionEnd
+    const rawText = el.value.slice(rawStart, rawEnd)
+    if (!rawText || rawStart === rawEnd) { setSelection(null); return }
+    const trimmedText = rawText.trim()
+    if (!trimmedText || trimmedText.includes('___')) { setSelection(null); return }
+    const leadingSpaces = rawText.length - rawText.trimStart().length
+    const trailingSpaces = rawText.length - rawText.trimEnd().length
+    setSelection({
+      start: rawStart + leadingSpaces,
+      end: rawEnd - trailingSpaces,
+      text: trimmedText,
+    })
+  }
+
+  function handleMakeBlankClick() {
+    if (!selection) return
+    const { start, end, text } = selection
+    const newSentence = row.sentence.slice(0, start) + '___' + row.sentence.slice(end)
+    const blanksBefore = (row.sentence.slice(0, start).match(/___/g) ?? []).length
+    onMakeBlank(newSentence, blanksBefore, text)
+    setSelection(null)
+  }
+
   const blankCount = countBlanks(row.sentence)
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 hover:border-sky-200 p-5 space-y-4 transition-colors group">
+
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className="w-7 h-7 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
           {index + 1}
         </div>
-        <div className="flex-1 space-y-1">
+        <div className="flex-1 space-y-2">
           <textarea
+            ref={textareaRef}
             value={row.sentence}
-            onChange={e => onSentenceChange(e.target.value)}
-            placeholder='Type sentence with ___ for each blank. e.g. "She ___ to school every day."'
+            onChange={e => { onSentenceChange(e.target.value); setSelection(null) }}
+            onSelect={checkSelection}
+            onMouseUp={checkSelection}
+            onKeyUp={checkSelection}
+            placeholder="Type your sentence, then select a word and click 'Make blank'"
             rows={2}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium
               focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20
               resize-none transition-colors placeholder:text-slate-300"
           />
-          {row.sentence && blankCount === 0 && (
-            <p className="text-xs text-amber-500">Use <code>___</code> to mark blanks</p>
-          )}
+
+          {/* Make blank button */}
+          <button
+            type="button"
+            onMouseDown={e => e.preventDefault()}
+            onClick={handleMakeBlankClick}
+            disabled={!selection}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+              bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white
+              disabled:opacity-35 disabled:cursor-not-allowed transition-colors"
+          >
+            <Scissors className="w-3.5 h-3.5" />
+            {selection ? `Make blank: "${selection.text}"` : 'Select a word to make blank'}
+          </button>
+
+          {/* Preview */}
           {blankCount > 0 && (
-            <p className="text-xs text-slate-400">{blankCount} blank{blankCount !== 1 ? 's' : ''} detected</p>
+            <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Preview</p>
+              <SentencePreview sentence={row.sentence} blanks={row.blanks} />
+            </div>
+          )}
+
+          {row.sentence && blankCount === 0 && (
+            <p className="text-xs text-amber-500">
+              Select a word above and click <strong>Make blank</strong>, or type <code>___</code> manually
+            </p>
           )}
         </div>
+
         <button
           onClick={onDelete}
           className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg flex items-center
