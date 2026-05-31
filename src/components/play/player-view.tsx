@@ -18,6 +18,7 @@ import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockPlayerPanel } from '@/lib/mechanics/content-block/PlayerComponent'
 import { TrueFalsePlayerPanel, TrueFalseVotePlayerPanel } from '@/lib/mechanics/true-false/PlayerComponent'
 import { MultipleChoicePlayerPanel, MultipleChoiceVotePlayerPanel } from '@/lib/mechanics/multiple-choice/PlayerComponent'
+import { FillTheGapPlayerPanel } from '@/lib/mechanics/fill-the-gap/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
@@ -36,6 +37,9 @@ interface CardItem {
   question?: string
   options?: string[]
   correctIndex?: number
+  // Fill the Gap
+  sentence?: string
+  blanks?: Array<{ answer: string; options?: string[] }>
 }
 
 interface LessonActivity {
@@ -848,6 +852,27 @@ export function PlayerView({ session, lesson }: Props) {
             />
           )}
 
+          {/* Fill the Gap */}
+          {currentMechanicId === 'fill_the_gap' && participantId && (
+            <FillTheGapPlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems.map(i => ({
+                id: i.id,
+                sentence: i.sentence ?? '',
+                blanks: i.blanks ?? [],
+              }))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
           {/* Multiple Choice — vote mode */}
           {currentMechanicId === 'multiple_choice' && currentActivity?.mode === 'vote' && participantId && (
             voteState
@@ -868,7 +893,7 @@ export function PlayerView({ session, lesson }: Props) {
           )}
 
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

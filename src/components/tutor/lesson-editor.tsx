@@ -33,6 +33,7 @@ import {
   CheckSquare,
   ListChecks,
   BarChart2,
+  PenLine,
 } from 'lucide-react'
 import {
   DndContext,
@@ -133,10 +134,15 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: ListChecks,
     classes: 'bg-rose-100 text-rose-700 border-rose-200',
   },
+  fill_the_gap: {
+    label: 'Fill the Gap',
+    Icon: PenLine,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
 }
 
 // Mechanics that only support individual mode
-const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest'])
+const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest', 'fill_the_gap'])
 // Mechanics that only support shared mode
 const SHARED_ONLY = new Set(['story_builder', 'talk_time'])
 // Mechanics that support individual OR vote mode

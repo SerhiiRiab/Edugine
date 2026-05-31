@@ -83,6 +83,8 @@ export default async function PlayPage({ params }: Props) {
             question: i.data.question as string | undefined,
             options: i.data.options as string[] | undefined,
             correctIndex: i.data.correctIndex as number | undefined,
+            sentence: i.data.sentence as string | undefined,
+            blanks: i.data.blanks as Array<{ answer: string; options?: string[] }> | undefined,
           })),
       }))
 
@@ -124,6 +126,8 @@ export default async function PlayPage({ params }: Props) {
       question: d.question as string | undefined,
       options: d.options as string[] | undefined,
       correctIndex: d.correctIndex as number | undefined,
+      sentence: d.sentence as string | undefined,
+      blanks: d.blanks as Array<{ answer: string; options?: string[] }> | undefined,
     }
   })
 

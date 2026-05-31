@@ -14,6 +14,7 @@ export type MechanicId =
   | 'multiple_choice'
   | 'speed_debate'
   | 'roleplay_quest'
+  | 'fill_the_gap'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 

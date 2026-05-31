@@ -26,6 +26,7 @@ import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockHostPanel } from '@/lib/mechanics/content-block/HostComponent'
 import { TrueFalseHostPanel, TrueFalseVoteHostPanel } from '@/lib/mechanics/true-false/HostComponent'
 import { MultipleChoiceHostPanel, MultipleChoiceVoteHostPanel } from '@/lib/mechanics/multiple-choice/HostComponent'
+import { FillTheGapHostPanel } from '@/lib/mechanics/fill-the-gap/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
@@ -40,6 +41,8 @@ interface CardItem {
   question?: string
   options?: string[]
   correctIndex?: number
+  sentence?: string
+  blanks?: Array<{ answer: string; options?: string[] }>
 }
 
 interface SwipeRecord {
@@ -1432,6 +1435,20 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── FILL THE GAP ─────────────────────────────────────────── */}
+            {currentMechanicId === 'fill_the_gap' && (
+              <FillTheGapHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
             {/* ── MULTIPLE CHOICE — vote mode ─────────────────────────── */}
             {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
               <MultipleChoiceVoteHostPanel
@@ -1450,7 +1467,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

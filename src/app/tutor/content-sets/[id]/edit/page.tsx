@@ -7,6 +7,7 @@ import { TalkTimeContentEditor } from '@/lib/mechanics/talk-time/ContentEditor'
 import { ContentBlockContentEditorPage } from '@/lib/mechanics/content-block/ContentEditor'
 import { TrueFalseContentEditor } from '@/lib/mechanics/true-false/ContentEditor'
 import { MultipleChoiceContentEditorPage } from '@/lib/mechanics/multiple-choice/ContentEditor'
+import { FillTheGapContentEditor } from '@/lib/mechanics/fill-the-gap/ContentEditor'
 
 export default async function EditContentSetPage({
   params,
@@ -55,6 +56,10 @@ export default async function EditContentSetPage({
 
   if (set.mechanic_id === 'multiple_choice') {
     return <MultipleChoiceContentEditorPage set={set} initialItems={items ?? []} />
+  }
+
+  if (set.mechanic_id === 'fill_the_gap') {
+    return <FillTheGapContentEditor set={set} initialItems={items ?? []} />
   }
 
   return <ContentSetEditor set={set} initialItems={items ?? []} />
