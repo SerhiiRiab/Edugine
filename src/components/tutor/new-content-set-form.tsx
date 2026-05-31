@@ -91,6 +91,14 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
     badge: 'border-rose-300 bg-rose-50',
     dot: 'border-rose-500 bg-rose-500',
   },
+  fill_the_gap: {
+    name: 'Fill the Gap',
+    desc: 'Complete sentences by filling in the missing words — grammar practice',
+    Icon: PenLine,
+    available: true,
+    badge: 'border-sky-300 bg-sky-50',
+    dot: 'border-sky-500 bg-sky-500',
+  },
   speed_debate: {
     name: 'Speed Debate',
     desc: 'Debate topics in real-time',
