@@ -1,40 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
-import {
-  ArrowRight, GraduationCap, LayoutList, Plus, Gamepad2,
-  Target, Zap, PenLine, Mic, Clapperboard, CheckSquare,
-  ListChecks, PencilRuler, Library, MessageCircle, Theater,
-  Trophy, ChevronRight,
-} from 'lucide-react'
-import type { ComponentType } from 'react'
+import { GraduationCap, LayoutList, Plus, Trophy, ChevronRight } from 'lucide-react'
 import { LaunchLessonButton } from '@/components/tutor/launch-lesson-button'
-
-// ── Icon map (UI only — new mechanics with unmapped IDs get the default) ──────
-const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
-  swipe_battle:    Target,
-  speed_match:     Zap,
-  story_builder:   PenLine,
-  talk_time:       Mic,
-  content_block:   Clapperboard,
-  true_false:      CheckSquare,
-  multiple_choice: ListChecks,
-  fill_the_gap:    PencilRuler,
-  word_bank:       Library,
-  speed_debate:    MessageCircle,
-  roleplay_quest:  Theater,
-}
-
-// ── Category accent colors (spec) ─────────────────────────────────────────────
-const CATEGORY_COLORS: Record<string, { tile: string; icon: string; badge: string }> = {
-  vocabulary: { tile: 'hover:border-blue-200',   icon: 'bg-blue-100 text-blue-600',    badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-  speaking:   { tile: 'hover:border-orange-200', icon: 'bg-orange-100 text-orange-600', badge: 'bg-orange-50 text-orange-700 border-orange-200' },
-  writing:    { tile: 'hover:border-green-200',  icon: 'bg-green-100 text-green-600',  badge: 'bg-green-50 text-green-700 border-green-200' },
-  grammar:    { tile: 'hover:border-purple-200', icon: 'bg-purple-100 text-purple-600', badge: 'bg-purple-50 text-purple-700 border-purple-200' },
-  listening:  { tile: 'hover:border-yellow-200', icon: 'bg-yellow-100 text-yellow-600', badge: 'bg-yellow-50 text-yellow-700 border-yellow-200' },
-  reading:    { tile: 'hover:border-teal-200',   icon: 'bg-teal-100 text-teal-600',    badge: 'bg-teal-50 text-teal-700 border-teal-200' },
-  content:    { tile: 'hover:border-slate-300',  icon: 'bg-slate-100 text-slate-500',  badge: 'bg-slate-50 text-slate-600 border-slate-200' },
-}
-const DEFAULT_COLORS = { tile: 'hover:border-violet-200', icon: 'bg-violet-100 text-violet-600', badge: 'bg-violet-50 text-violet-700 border-violet-200' }
+import { ActivityLibrary } from '@/components/tutor/activity-library'
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -52,7 +20,6 @@ export default async function DashboardPage() {
 
   const name = user?.email?.split('@')[0] ?? 'teacher'
 
-  // ── Parallel data fetches ──────────────────────────────────────────────────
   const [profileResult, mechanicsResult, lessonsResult] = await Promise.all([
     supabase
       .from('profiles')
@@ -62,7 +29,7 @@ export default async function DashboardPage() {
 
     supabase
       .from('mechanics')
-      .select('id, name, description, skill_category')
+      .select('id, name, description, skill_category, skill_categories')
       .order('name', { ascending: true }),
 
     supabase
@@ -74,7 +41,10 @@ export default async function DashboardPage() {
   ])
 
   const sessionsCompleted = profileResult.data?.sessions_completed ?? 0
-  const mechanics = mechanicsResult.data ?? []
+  const mechanics = (mechanicsResult.data ?? []).map(m => ({
+    ...m,
+    skill_categories: (m.skill_categories as string[] | null) ?? [],
+  }))
   const lessons = (lessonsResult.data ?? []).map(l => ({
     ...l,
     activity_count: ((l.lesson_activities ?? []) as { id: string }[]).length,
@@ -106,62 +76,11 @@ export default async function DashboardPage() {
 
       {/* ── Section 1: Quick Start — Activity Library ───────────────────────── */}
       <section>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Quick Start</h2>
-            <p className="text-sm text-slate-400 mt-0.5">Create a new activity and launch a live session</p>
-          </div>
-          <Link
-            href="/tutor/content-sets/new"
-            className="flex items-center gap-1.5 text-sm text-violet-600 font-semibold hover:text-violet-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Custom
-          </Link>
+        <div className="mb-4">
+          <h2 className="text-xl font-bold text-slate-800">Quick Start</h2>
+          <p className="text-sm text-slate-400 mt-0.5">Create a new activity and launch a live session</p>
         </div>
-
-        {mechanics.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-400">
-            No activity types available yet.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {mechanics.map((m) => {
-              const Icon = MECHANIC_ICONS[m.id] ?? Gamepad2
-              const colors = CATEGORY_COLORS[m.skill_category ?? ''] ?? DEFAULT_COLORS
-              return (
-                <Link
-                  key={m.id}
-                  href={`/tutor/content-sets/new?mechanic=${m.id}`}
-                  className={`group flex flex-col gap-3 bg-white border-2 border-slate-100 rounded-2xl p-4
-                    hover:shadow-md transition-all duration-150 ${colors.tile}`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${colors.icon}`}>
-                      <Icon className="w-4.5 h-4.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-semibold text-slate-800 text-sm leading-snug group-hover:text-violet-700 transition-colors">
-                        {m.name}
-                      </p>
-                      {m.description && (
-                        <p className="text-xs text-slate-400 mt-0.5 line-clamp-2 leading-relaxed">
-                          {m.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border capitalize ${colors.badge}`}>
-                      {m.skill_category}
-                    </span>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-violet-500 group-hover:translate-x-0.5 transition-all" />
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        )}
+        <ActivityLibrary mechanics={mechanics} />
       </section>
 
       {/* ── Section 2: Recent Lessons ────────────────────────────────────────── */}
@@ -218,7 +137,6 @@ export default async function DashboardPage() {
                 <LaunchLessonButton lessonId={lesson.id} />
               </div>
             ))}
-
             <div className="px-5 py-3 text-center">
               <Link
                 href="/tutor/lessons"
