@@ -11,6 +11,7 @@ import { FillTheGapContentEditor } from '@/lib/mechanics/fill-the-gap/ContentEdi
 import { WordBankContentEditor } from '@/lib/mechanics/word-bank/ContentEditor'
 import { SpeedDebateContentEditor } from '@/lib/mechanics/speed-debate/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
+import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { AddToLessonPrompt } from '@/components/tutor/add-to-lesson-prompt'
 import { ActivityLessonsPanel } from '@/components/tutor/activity-lessons-panel'
 
@@ -19,10 +20,10 @@ export default async function EditContentSetPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ lessonId?: string; justCreated?: string }>
+  searchParams: Promise<{ lessonId?: string; justCreated?: string; returnToLesson?: string }>
 }) {
   const { id } = await params
-  const { lessonId, justCreated } = await searchParams
+  const { lessonId, justCreated, returnToLesson } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -42,9 +43,14 @@ export default async function EditContentSetPage({
     .order('position', { ascending: true })
 
   // Always fetch: linked lessons + all tutor lessons (for Lessons panel)
-  const [lessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw] = await Promise.all([
+  const returnLessonId = returnToLesson ?? lessonId
+
+  const [lessonResult, returnLessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw] = await Promise.all([
     lessonId
       ? supabase.from('lessons').select('id, title').eq('id', lessonId).single()
+      : Promise.resolve({ data: null }),
+    returnToLesson && !lessonId
+      ? supabase.from('lessons').select('id, title').eq('id', returnToLesson).single()
       : Promise.resolve({ data: null }),
     justCreated === '1'
       ? supabase.from('lessons').select('id, title').eq('owner_id', user!.id).order('updated_at', { ascending: false }).limit(20)
@@ -61,6 +67,7 @@ export default async function EditContentSetPage({
   ])
 
   const lessonInfo = lessonResult.data as { id: string; title: string } | null
+  const returnLessonInfo = (returnLessonResult.data ?? lessonInfo) as { id: string; title: string } | null
   const tutorLessons = (justCreatedLessonsResult.data ?? []) as { id: string; title: string }[]
 
   const linked = (linkedRaw.data ?? []).map(la => ({
@@ -85,6 +92,9 @@ export default async function EditContentSetPage({
 
   return (
     <>
+      {returnToLesson && returnLessonInfo && (
+        <BackToLessonBanner lessonId={returnToLesson} lessonTitle={returnLessonInfo.title} />
+      )}
       {lessonId && lessonInfo && (
         <LessonReturnBanner contentSetId={id} lessonId={lessonId} lessonTitle={lessonInfo.title} />
       )}

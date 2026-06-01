@@ -36,6 +36,7 @@ import {
   PenLine,
   Library,
   Search,
+  ExternalLink,
 } from 'lucide-react'
 import {
   DndContext,
@@ -868,11 +869,12 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
 interface ActivityCardProps {
   activity: ActivityRow
   index: number
+  lessonId: string
   onEdit: (a: ActivityRow) => void
   onDelete: (id: string) => void
 }
 
-function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCardProps) {
+function SortableActivityCard({ activity, index, lessonId, onEdit, onDelete }: ActivityCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
   })
@@ -952,11 +954,20 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
             ? <><BarChart2 className="w-3 h-3" />Vote</>
             : <><Users className="w-3 h-3" />Shared</>}
         </span>
+        <Link
+          href={`/tutor/content-sets/${activity.content_set_id}/edit?returnToLesson=${lessonId}`}
+          title="Edit activity content"
+          className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8 rounded-lg
+            hover:bg-violet-50 text-slate-300 hover:text-violet-600 transition-all"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </Link>
         <button
           type="button"
           onClick={() => onEdit(activity)}
+          title="Edit mode & config"
           className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8 rounded-lg
-            hover:bg-slate-100 text-slate-300 hover:text-violet-600 transition-all"
+            hover:bg-slate-100 text-slate-300 hover:text-slate-600 transition-all"
         >
           <Pencil className="w-3.5 h-3.5" />
         </button>
@@ -1207,6 +1218,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                   <SortableActivityCard
                     activity={activity}
                     index={index}
+                    lessonId={lesson.id}
                     onEdit={setEditingActivity}
                     onDelete={handleDeleteActivity}
                   />
