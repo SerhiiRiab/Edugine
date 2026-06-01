@@ -35,6 +35,7 @@ import {
   BarChart2,
   PenLine,
   Library,
+  Search,
 } from 'lucide-react'
 import {
   DndContext,
@@ -189,6 +190,7 @@ function SaveIndicator({ status, savedAt }: { status: SaveStatus; savedAt: Date 
 // ── Add Activity Modal ────────────────────────────────────────────────────────
 
 interface AddModalProps {
+  lessonId: string
   contentSets: ContentSetOption[]
   onAdd: (data: {
     content_set_id: string
@@ -199,8 +201,9 @@ interface AddModalProps {
   onClose: () => void
 }
 
-function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
+function AddActivityModal({ lessonId, contentSets, onAdd, onClose }: AddModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [search, setSearch] = useState('')
   const [selectedSet, setSelectedSet] = useState<ContentSetOption | null>(null)
   const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>('individual')
   const [timerSeconds, setTimerSeconds] = useState('')
@@ -288,87 +291,134 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
           {/* Step 1 — Content Set */}
           {step === 1 && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-500">Choose an activity:</p>
+              {/* Search input */}
+              <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                <input
+                  autoFocus
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search activities…"
+                  className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+                />
+                {search && (
+                  <button onClick={() => setSearch('')} className="text-slate-300 hover:text-slate-500">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
               {contentSets.length === 0 ? (
                 <div className="py-12 text-center">
                   <div className="text-5xl mb-3">📭</div>
                   <p className="text-slate-600 font-semibold text-sm">No activities yet</p>
-                  <p className="text-slate-400 text-xs mt-1 mb-4">Create an activity first, then come back</p>
-                  <Link
-                    href="/tutor/content-sets/new"
-                    onClick={onClose}
-                    className="inline-flex items-center gap-1.5 text-sm text-violet-600 font-semibold hover:underline"
-                  >
-                    Create activity →
-                  </Link>
+                  <p className="text-slate-400 text-xs mt-1 mb-4">Create an activity first to add it here</p>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {SKILL_CATEGORIES.map((category) => {
-                    const categorySets = contentSets.filter(
-                      (cs) => MECHANIC_TO_CATEGORIES[cs.mechanic_id]?.includes(category.id),
-                    )
-                    const CategoryIcon = category.Icon
-                    const isEmpty = categorySets.length === 0
+              ) : (() => {
+                const q = search.toLowerCase()
+                const filtered = q
+                  ? contentSets.filter(cs => cs.title.toLowerCase().includes(q))
+                  : null
 
-                    return (
-                      <div key={category.id}>
-                        {/* Category header */}
-                        <div className={`flex items-center gap-2 mb-2 ${isEmpty ? 'opacity-50' : ''}`}>
-                          <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${category.colors.bg}`}>
-                            <CategoryIcon className={`w-3 h-3 ${category.colors.text}`} />
-                          </div>
-                          <span className={`text-xs font-bold uppercase tracking-wide ${isEmpty ? 'text-slate-400' : category.colors.text}`}>
-                            {category.label}
-                          </span>
-                        </div>
+                if (filtered !== null) {
+                  // Flat search results
+                  return filtered.length === 0 ? (
+                    <p className="text-center text-slate-400 text-sm py-8">No activities match &ldquo;{search}&rdquo;</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {filtered.map((cs) => {
+                        const meta = MECHANIC_META[cs.mechanic_id]
+                        const Icon = meta?.Icon ?? Gamepad2
+                        const isSelected = selectedSet?.id === cs.id
+                        return (
+                          <button
+                            key={cs.id}
+                            type="button"
+                            onClick={() => setSelectedSet(cs)}
+                            className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
+                              isSelected ? 'border-violet-400 bg-violet-50' : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
+                              <p className="text-xs text-slate-400 mt-0.5">
+                                {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
+                              </p>
+                            </div>
+                            {isSelected && <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )
+                }
 
-                        {isEmpty ? (
-                          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-dashed border-slate-200 text-slate-300">
-                            <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
-                            <span className="text-xs font-medium">Coming soon</span>
+                // Categorised list (no search)
+                return (
+                  <div className="space-y-4">
+                    {SKILL_CATEGORIES.map((category) => {
+                      const categorySets = contentSets.filter(
+                        (cs) => MECHANIC_TO_CATEGORIES[cs.mechanic_id]?.includes(category.id),
+                      )
+                      const CategoryIcon = category.Icon
+                      const isEmpty = categorySets.length === 0
+
+                      return (
+                        <div key={category.id}>
+                          <div className={`flex items-center gap-2 mb-2 ${isEmpty ? 'opacity-50' : ''}`}>
+                            <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 ${category.colors.bg}`}>
+                              <CategoryIcon className={`w-3 h-3 ${category.colors.text}`} />
+                            </div>
+                            <span className={`text-xs font-bold uppercase tracking-wide ${isEmpty ? 'text-slate-400' : category.colors.text}`}>
+                              {category.label}
+                            </span>
                           </div>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {categorySets.map((cs) => {
-                              const meta = MECHANIC_META[cs.mechanic_id]
-                              const Icon = meta?.Icon ?? Gamepad2
-                              const isSelected = selectedSet?.id === cs.id
-                              return (
-                                <button
-                                  key={cs.id}
-                                  type="button"
-                                  onClick={() => setSelectedSet(cs)}
-                                  className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
-                                    isSelected
-                                      ? 'border-violet-400 bg-violet-50'
-                                      : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
-                                  }`}
-                                >
-                                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
-                                    <Icon className="w-4 h-4" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
-                                    <p className="text-xs text-slate-400 mt-0.5">
-                                      {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
-                                    </p>
-                                  </div>
-                                  {isSelected && (
-                                    <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0">
-                                      <Check className="w-3 h-3 text-white" />
+
+                          {isEmpty ? (
+                            <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-dashed border-slate-200 text-slate-300">
+                              <CategoryIcon className="w-3.5 h-3.5 shrink-0" />
+                              <span className="text-xs font-medium">Coming soon</span>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {categorySets.map((cs) => {
+                                const meta = MECHANIC_META[cs.mechanic_id]
+                                const Icon = meta?.Icon ?? Gamepad2
+                                const isSelected = selectedSet?.id === cs.id
+                                return (
+                                  <button
+                                    key={cs.id}
+                                    type="button"
+                                    onClick={() => setSelectedSet(cs)}
+                                    className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
+                                      isSelected ? 'border-violet-400 bg-violet-50' : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
+                                      <Icon className="w-4 h-4" />
                                     </div>
-                                  )}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
+                                      <p className="text-xs text-slate-400 mt-0.5">
+                                        {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
+                                      </p>
+                                    </div>
+                                    {isSelected && <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
+                                  </button>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
             </div>
           )}
 
@@ -587,14 +637,26 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
-          <button
-            type="button"
-            onClick={() => step === 1 ? onClose() : setStep((s) => (s - 1) as 1 | 2 | 3 | 4)}
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            {step === 1 ? 'Cancel' : 'Back'}
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => step === 1 ? onClose() : setStep((s) => (s - 1) as 1 | 2 | 3 | 4)}
+              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              {step === 1 ? 'Cancel' : 'Back'}
+            </button>
+            {step === 1 && (
+              <Link
+                href={`/tutor/content-sets/new?lessonId=${lessonId}`}
+                onClick={onClose}
+                className="flex items-center gap-1.5 text-sm text-violet-600 font-semibold hover:text-violet-700 transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Create new activity
+              </Link>
+            )}
+          </div>
 
           {step < 4 ? (
             <button
@@ -1186,6 +1248,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
       {showAddModal && (
         <AddActivityModal
+          lessonId={lesson.id}
           contentSets={contentSets}
           onAdd={handleAddActivity}
           onClose={() => setShowAddModal(false)}

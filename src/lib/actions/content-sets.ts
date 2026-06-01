@@ -38,7 +38,11 @@ export async function createContentSet(
   if (error || !set) return { error: error?.message ?? 'Failed to create' }
 
   revalidatePath('/tutor/content-sets')
-  redirect(`/tutor/content-sets/${set.id}/edit`)
+  const lessonId = (formData.get('lessonId') as string | null)?.trim() ?? ''
+  if (lessonId) {
+    redirect(`/tutor/content-sets/${set.id}/edit?lessonId=${lessonId}`)
+  }
+  redirect(`/tutor/content-sets/${set.id}/edit?justCreated=1`)
 }
 
 // ── Update meta ──────────────────────────────────────────────────────────────

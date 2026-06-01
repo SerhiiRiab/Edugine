@@ -176,6 +176,38 @@ export async function deleteActivity(id: string, lessonId: string) {
   revalidatePath(`/tutor/lessons/${lessonId}/edit`)
 }
 
+// Shared-only mechanics always use shared mode; everything else defaults to individual.
+const SHARED_ONLY_MECHANICS = new Set(['story_builder', 'talk_time', 'speed_debate'])
+
+export async function addContentSetToLesson(contentSetId: string, lessonId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const [setResult, posResult] = await Promise.all([
+    supabase.from('content_sets').select('mechanic_id').eq('id', contentSetId).single(),
+    supabase.from('lesson_activities').select('id', { count: 'exact', head: true }).eq('lesson_id', lessonId),
+  ])
+
+  if (!setResult.data) throw new Error('Content set not found')
+  const mechanic_id = setResult.data.mechanic_id
+  const position = posResult.count ?? 0
+  const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
+
+  const { error } = await supabase.from('lesson_activities').insert({
+    lesson_id: lessonId,
+    content_set_id: contentSetId,
+    mechanic_id,
+    mode,
+    position,
+    config: {},
+  })
+
+  if (error) throw new Error(error.message)
+  revalidatePath(`/tutor/lessons/${lessonId}/edit`)
+  redirect(`/tutor/lessons/${lessonId}/edit`)
+}
+
 export async function reorderActivities(lessonId: string, orderedIds: string[]) {
   const supabase = await createClient()
   // Two-pass to avoid UNIQUE(lesson_id, position) violations during reorder

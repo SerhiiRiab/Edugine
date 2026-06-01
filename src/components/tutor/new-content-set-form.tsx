@@ -126,7 +126,7 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
 const TITLE_MAX = 100
 const DESC_MAX = 500
 
-export function NewContentSetForm({ defaultMechanic }: { defaultMechanic?: string }) {
+export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechanic?: string; lessonId?: string }) {
   const [state, action, isPending] = useActionState(createContentSet, { error: '' })
   const [language, setLanguage] = useState('en')
   const [selectedMechanic, setSelectedMechanic] = useState(defaultMechanic ?? 'swipe_battle')
@@ -137,6 +137,7 @@ export function NewContentSetForm({ defaultMechanic }: { defaultMechanic?: strin
     <form action={action}>
       <input type="hidden" name="language" value={language} />
       <input type="hidden" name="mechanic_id" value={selectedMechanic} />
+      {lessonId && <input type="hidden" name="lessonId" value={lessonId} />}
 
       <div className="bg-white rounded-2xl border-2 border-slate-100 p-6 shadow-sm space-y-6">
         {/* Title */}
