@@ -64,7 +64,11 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
 
   const visible = category === 'all'
     ? mechanics
-    : mechanics.filter(m => m.skill_categories.includes(category))
+    : mechanics.filter(m =>
+        m.skill_categories.length > 0
+          ? m.skill_categories.includes(category)
+          : m.skill_category === category
+      )
 
   return (
     <div className="space-y-4">
