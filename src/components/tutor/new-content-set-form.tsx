@@ -126,10 +126,10 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
 const TITLE_MAX = 100
 const DESC_MAX = 500
 
-export function NewContentSetForm() {
+export function NewContentSetForm({ defaultMechanic }: { defaultMechanic?: string }) {
   const [state, action, isPending] = useActionState(createContentSet, { error: '' })
   const [language, setLanguage] = useState('en')
-  const [selectedMechanic, setSelectedMechanic] = useState('swipe_battle')
+  const [selectedMechanic, setSelectedMechanic] = useState(defaultMechanic ?? 'swipe_battle')
   const [titleLen, setTitleLen] = useState(0)
   const [descLen, setDescLen] = useState(0)
 
