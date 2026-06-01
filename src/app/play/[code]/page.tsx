@@ -149,7 +149,7 @@ export default async function PlayPage({ params }: Props) {
         activities: [{
           id: '',
           mechanic_id: session.mechanic_id ?? 'swipe_battle',
-          mode: ((session.config as Record<string, unknown> | null)?.voteMode === true ? 'vote' : 'individual') as 'individual' | 'shared' | 'vote',
+          mode: ((session.config as Record<string, unknown> | null)?.voteMode === true ? 'vote' : (session.config as Record<string, unknown> | null)?.sharedMode === true ? 'shared' : 'individual') as 'individual' | 'shared' | 'vote',
           items: mappedItems,
         }],
       }}

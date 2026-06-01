@@ -81,7 +81,7 @@ export async function advanceActivity(sessionId: string, nextIndex: number) {
 export async function createSession(
   contentSetId: string,
   instructions?: string,
-  mode?: 'individual' | 'vote',
+  mode?: 'individual' | 'vote' | 'shared',
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -101,6 +101,7 @@ export async function createSession(
   const config: Record<string, unknown> = {}
   if (instructions) config.instructions = instructions
   if (mode === 'vote') config.voteMode = true
+  if (mode === 'shared') config.sharedMode = true
 
   const { data: session, error } = await supabase
     .from('sessions')

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2,
-  ClipboardList, Library, Rocket, X, Upload, Scissors,
+  ClipboardList, Library, Rocket, X, Upload, Scissors, User, Users,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -116,6 +116,7 @@ export function WordBankContentEditor({ set, initialItems }: Props) {
   const [bulkImporting, setBulkImporting] = useState(false)
   const [bulkSelection, setBulkSelection] = useState<WBSelection | null>(null)
   const bulkTextareaRef = useRef<HTMLTextAreaElement>(null)
+  const [sharedMode, setSharedMode] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -315,7 +316,7 @@ export function WordBankContentEditor({ set, initialItems }: Props) {
 
   function handleStartSession() {
     startSessionTransition(async () => {
-      try { await createSession(set.id) } catch { /* redirect expected */ }
+      try { await createSession(set.id, undefined, sharedMode ? 'shared' : 'individual') } catch { /* redirect expected */ }
     })
   }
 
@@ -376,6 +377,27 @@ export function WordBankContentEditor({ set, initialItems }: Props) {
           </div>
           <div className="flex items-center gap-3 shrink-0">
             <SaveIndicator />
+            {/* Mode toggle */}
+            <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setSharedMode(false)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 transition-colors ${
+                  !sharedMode ? 'bg-emerald-50 text-emerald-700' : 'text-slate-400 hover:bg-slate-50'
+                }`}
+              >
+                <User className="w-3 h-3" />Individual
+              </button>
+              <button
+                type="button"
+                onClick={() => setSharedMode(true)}
+                className={`flex items-center gap-1 px-2.5 py-1.5 border-l border-slate-200 transition-colors ${
+                  sharedMode ? 'bg-sky-50 text-sky-700' : 'text-slate-400 hover:bg-slate-50'
+                }`}
+              >
+                <Users className="w-3 h-3" />Collaborative
+              </button>
+            </div>
             <button
               onClick={() => router.push('/tutor/content-sets')}
               className="flex items-center gap-2 border border-slate-300 bg-white text-slate-700
