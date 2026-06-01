@@ -317,7 +317,7 @@ export function ProgramDetail({ program, programLessons, allLessons }: Props) {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto">
+    <div className="p-4 md:p-8 max-w-3xl mx-auto">
       {/* Inline title / description */}
       <div className="mb-8">
         <input

@@ -73,9 +73,9 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Select value={category} onValueChange={setCategory}>
-          <SelectTrigger className="w-48 h-9 text-sm">
+          <SelectTrigger className="w-44 h-9 text-sm">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
@@ -101,7 +101,7 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
           No activity types in this category yet.
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {visible.map((m) => {
             const Icon = MECHANIC_ICONS[m.id] ?? Gamepad2
             const colors = CATEGORY_COLORS[m.skill_category ?? ''] ?? DEFAULT_COLORS

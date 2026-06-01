@@ -84,7 +84,7 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
       )}
 
       {/* Panel */}
-      <div className="fixed bottom-0 left-60 right-0 z-[95] shadow-2xl">
+      <div className="fixed bottom-0 left-0 md:left-60 right-0 z-[95] shadow-2xl">
         {/* Expanded body */}
         {expanded && (
           <div className="bg-white border-t border-slate-200 px-6 py-5 max-h-72 overflow-y-auto">

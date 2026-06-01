@@ -19,7 +19,7 @@ export default async function LessonsPage() {
   }))
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="flex items-center gap-2 text-3xl font-extrabold text-slate-800"><GraduationCap className="w-7 h-7 text-violet-600" />My Lessons</h1>
