@@ -19,7 +19,7 @@ export function AddToLessonPrompt({
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(true)
-  const [selectedId, setSelectedId] = useState(lessons[0]?.id ?? '')
+  const [selectedId, setSelectedId] = useState('')
   const [isPending, startTransition] = useTransition()
 
   if (!open) return null
@@ -65,6 +65,7 @@ export function AddToLessonPrompt({
               className="w-full appearance-none rounded-xl border-2 border-slate-200 focus:border-violet-400
                 outline-none px-3 py-2.5 pr-8 text-sm font-medium text-slate-700 bg-white transition-colors"
             >
+              <option value="" disabled>Select a lesson…</option>
               {lessons.map(l => (
                 <option key={l.id} value={l.id}>{l.title}</option>
               ))}
