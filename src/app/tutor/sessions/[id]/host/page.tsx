@@ -72,6 +72,8 @@ export default async function HostPage({
             correctIndex: i.data.correctIndex as number | undefined,
             sentence: i.data.sentence as string | undefined,
             blanks: i.data.blanks as Array<{ answer: string; options?: string[] }> | undefined,
+            text: i.data.text as string | undefined,
+            wordBank: i.data.wordBank as string[] | undefined,
           })),
       }))
 
