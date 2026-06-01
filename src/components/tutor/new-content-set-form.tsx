@@ -117,10 +117,11 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
   const [titleLen, setTitleLen] = useState(0)
   const [descLen, setDescLen] = useState(0)
   const [mechanicSearch, setMechanicSearch] = useState('')
-  // All categories expanded by default so all mechanics are visible immediately
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(
-    () => new Set(SKILL_CATEGORIES.map(c => c.id))
-  )
+  // Start with the selected mechanic's primary category expanded
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => {
+    const primary = MECHANIC_TO_CATEGORY[defaultMechanic ?? 'swipe_battle'] ?? 'vocabulary'
+    return new Set([primary])
+  })
 
   function handleSelectMechanic(mid: string) {
     setSelectedMechanic(mid)
@@ -149,9 +150,9 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
       })
     : null
 
-  // Grouped by primary category (each mechanic shown exactly once)
-  const mechanicsByPrimaryCategory = SKILL_CATEGORIES.reduce((acc, cat) => {
-    const ids = Object.keys(FORM_MECHANICS).filter(mid => MECHANIC_TO_CATEGORY[mid] === cat.id)
+  // Grouped by ALL categories — mechanics appear in every category they belong to
+  const mechanicsByCategory = SKILL_CATEGORIES.reduce((acc, cat) => {
+    const ids = Object.keys(FORM_MECHANICS).filter(mid => MECHANIC_TO_CATEGORIES[mid]?.includes(cat.id))
     if (ids.length) acc[cat.id] = ids
     return acc
   }, {} as Record<string, string[]>)
@@ -276,7 +277,7 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
             // ── Collapsible category groups ────────────────────────────────────
             <div className="space-y-2">
               {SKILL_CATEGORIES.map(category => {
-                const catMechanics = mechanicsByPrimaryCategory[category.id]
+                const catMechanics = mechanicsByCategory[category.id]
                 if (!catMechanics?.length) return null
                 const CategoryIcon = category.Icon
                 const isExpanded = expandedCats.has(category.id)
