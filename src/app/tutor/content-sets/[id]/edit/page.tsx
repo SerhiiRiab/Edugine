@@ -12,6 +12,7 @@ import { WordBankContentEditor } from '@/lib/mechanics/word-bank/ContentEditor'
 import { SpeedDebateContentEditor } from '@/lib/mechanics/speed-debate/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { AddToLessonPrompt } from '@/components/tutor/add-to-lesson-prompt'
+import { ActivityLessonsPanel } from '@/components/tutor/activity-lessons-panel'
 
 export default async function EditContentSetPage({
   params,
@@ -40,18 +41,34 @@ export default async function EditContentSetPage({
     .eq('set_id', id)
     .order('position', { ascending: true })
 
-  // Conditionally fetch lesson info or lessons list
-  const [lessonResult, lessonsResult] = await Promise.all([
+  // Always fetch: linked lessons + all tutor lessons (for Lessons panel)
+  const [lessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw] = await Promise.all([
     lessonId
       ? supabase.from('lessons').select('id, title').eq('id', lessonId).single()
       : Promise.resolve({ data: null }),
     justCreated === '1'
       ? supabase.from('lessons').select('id, title').eq('owner_id', user!.id).order('updated_at', { ascending: false }).limit(20)
       : Promise.resolve({ data: null }),
+    supabase
+      .from('lesson_activities')
+      .select('id, lesson_id, lessons(id, title)')
+      .eq('content_set_id', id),
+    supabase
+      .from('lessons')
+      .select('id, title')
+      .eq('owner_id', user!.id)
+      .order('title'),
   ])
 
   const lessonInfo = lessonResult.data as { id: string; title: string } | null
-  const tutorLessons = (lessonsResult.data ?? []) as { id: string; title: string }[]
+  const tutorLessons = (justCreatedLessonsResult.data ?? []) as { id: string; title: string }[]
+
+  const linked = (linkedRaw.data ?? []).map(la => ({
+    activityId: la.id,
+    lessonId: la.lesson_id,
+    lessonTitle: (la.lessons as unknown as { id: string; title: string } | null)?.title ?? '',
+  }))
+  const allLessons = (allLessonsRaw.data ?? []) as { id: string; title: string }[]
 
   function Editor() {
     if (set.mechanic_id === 'story_builder') return <StoryBuilderContentEditor set={set} initialItems={items ?? []} />
@@ -75,6 +92,11 @@ export default async function EditContentSetPage({
       {justCreated === '1' && (
         <AddToLessonPrompt contentSetId={id} lessons={tutorLessons} />
       )}
+      <ActivityLessonsPanel
+        contentSetId={id}
+        initialLinked={linked}
+        allLessons={allLessons}
+      />
     </>
   )
 }

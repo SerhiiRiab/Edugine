@@ -208,6 +208,58 @@ export async function addContentSetToLesson(contentSetId: string, lessonId: stri
   redirect(`/tutor/lessons/${lessonId}/edit`)
 }
 
+// Link content set to lesson without redirecting (stays on edit page).
+export async function linkContentSetToLesson(contentSetId: string, lessonId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const [setResult, posResult] = await Promise.all([
+    supabase.from('content_sets').select('mechanic_id').eq('id', contentSetId).single(),
+    supabase.from('lesson_activities').select('id', { count: 'exact', head: true }).eq('lesson_id', lessonId),
+  ])
+
+  if (!setResult.data) throw new Error('Content set not found')
+  const mechanic_id = setResult.data.mechanic_id
+  const position = posResult.count ?? 0
+  const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
+
+  const { error } = await supabase.from('lesson_activities').insert({
+    lesson_id: lessonId,
+    content_set_id: contentSetId,
+    mechanic_id,
+    mode,
+    position,
+    config: {},
+  })
+
+  if (error) throw new Error(error.message)
+  revalidatePath(`/tutor/content-sets/${contentSetId}/edit`)
+  revalidatePath(`/tutor/lessons/${lessonId}/edit`)
+}
+
+// Remove a lesson_activity row without deleting the content set.
+export async function unlinkContentSetFromLesson(lessonActivityId: string, contentSetId: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // Verify ownership via lesson
+  const { data: row } = await supabase
+    .from('lesson_activities')
+    .select('lesson_id, lessons(owner_id)')
+    .eq('id', lessonActivityId)
+    .single()
+
+  const owner = (row?.lessons as unknown as { owner_id: string } | null)?.owner_id
+  if (!row || owner !== user.id) throw new Error('Not found')
+
+  const { error } = await supabase.from('lesson_activities').delete().eq('id', lessonActivityId)
+  if (error) throw new Error(error.message)
+  revalidatePath(`/tutor/content-sets/${contentSetId}/edit`)
+  revalidatePath(`/tutor/lessons/${row.lesson_id}/edit`)
+}
+
 export async function reorderActivities(lessonId: string, orderedIds: string[]) {
   const supabase = await createClient()
   // Two-pass to avoid UNIQUE(lesson_id, position) violations during reorder
