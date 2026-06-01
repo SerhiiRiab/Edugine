@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LessonEditor } from '@/components/tutor/lesson-editor'
+import { LessonProgramsPanel } from '@/components/tutor/lesson-programs-panel'
 
 type RawActivity = {
   id: string
@@ -21,26 +22,40 @@ export default async function LessonEditPage({
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const { data: lesson, error } = await supabase
-    .from('lessons')
-    .select(`
-      id, title, description,
-      lesson_activities(
-        id, content_set_id, mechanic_id, mode, position, config,
-        content_sets(id, title, content_items(id))
-      )
-    `)
-    .eq('id', id)
-    .eq('owner_id', user!.id)
-    .single()
+  const [lessonResult, rawSetsResult, linkedProgramsResult, allProgramsResult] = await Promise.all([
+    supabase
+      .from('lessons')
+      .select(`
+        id, title, description,
+        lesson_activities(
+          id, content_set_id, mechanic_id, mode, position, config,
+          content_sets(id, title, content_items(id))
+        )
+      `)
+      .eq('id', id)
+      .eq('owner_id', user!.id)
+      .single(),
 
-  if (error || !lesson) notFound()
+    supabase
+      .from('content_sets')
+      .select('id, title, mechanic_id, content_items(id)')
+      .eq('owner_id', user!.id)
+      .order('updated_at', { ascending: false }),
 
-  const { data: rawSets } = await supabase
-    .from('content_sets')
-    .select('id, title, mechanic_id, content_items(id)')
-    .eq('owner_id', user!.id)
-    .order('updated_at', { ascending: false })
+    supabase
+      .from('program_lessons')
+      .select('program_id, programs(id, title)')
+      .eq('lesson_id', id),
+
+    supabase
+      .from('programs')
+      .select('id, title')
+      .eq('tutor_id', user!.id)
+      .order('title'),
+  ])
+
+  if (lessonResult.error || !lessonResult.data) notFound()
+  const lesson = lessonResult.data
 
   const activities = ((lesson.lesson_activities ?? []) as unknown as RawActivity[])
     .sort((a, b) => a.position - b.position)
@@ -55,18 +70,32 @@ export default async function LessonEditPage({
       content_set_item_count: a.content_sets?.content_items?.length ?? 0,
     }))
 
-  const contentSets = (rawSets ?? []).map((cs) => ({
+  const contentSets = (rawSetsResult.data ?? []).map((cs) => ({
     id: cs.id,
     title: cs.title,
     mechanic_id: cs.mechanic_id,
     item_count: (cs.content_items as { id: string }[] | null)?.length ?? 0,
   }))
 
+  const linkedPrograms = (linkedProgramsResult.data ?? []).map(pl => ({
+    programId: pl.program_id,
+    programTitle: (pl.programs as unknown as { id: string; title: string } | null)?.title ?? '',
+  }))
+
+  const allPrograms = (allProgramsResult.data ?? []) as { id: string; title: string }[]
+
   return (
-    <LessonEditor
-      lesson={{ id: lesson.id, title: lesson.title, description: lesson.description }}
-      initialActivities={activities}
-      contentSets={contentSets}
-    />
+    <>
+      <LessonEditor
+        lesson={{ id: lesson.id, title: lesson.title, description: lesson.description }}
+        initialActivities={activities}
+        contentSets={contentSets}
+      />
+      <LessonProgramsPanel
+        lessonId={id}
+        initialLinked={linkedPrograms}
+        allPrograms={allPrograms}
+      />
+    </>
   )
 }

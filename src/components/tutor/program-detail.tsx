@@ -124,10 +124,10 @@ function AddLessonModal({
   const [search, setSearch] = useState('')
   const [isPending, startTransition] = useTransition()
 
-  const available = allLessons.filter(
-    l => !existingIds.has(l.id) &&
-      (search === '' || l.title.toLowerCase().includes(search.toLowerCase()))
-  )
+  const q = search.toLowerCase()
+  const filtered = q
+    ? allLessons.filter(l => l.title.toLowerCase().includes(q))
+    : allLessons
 
   function toggle(id: string) {
     setSelected(prev => {
@@ -173,35 +173,42 @@ function AddLessonModal({
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-5 py-3 space-y-1.5">
-          {available.length === 0 ? (
-            <p className="text-center text-slate-400 text-sm py-8">
-              {allLessons.length === 0
-                ? 'No lessons yet — create one first'
-                : 'All lessons already added'}
-            </p>
+          {allLessons.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-8">No lessons yet — create one first</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-slate-400 text-sm py-8">No lessons match &ldquo;{search}&rdquo;</p>
           ) : (
-            available.map(l => {
+            filtered.map(l => {
+              const alreadyAdded = existingIds.has(l.id)
               const isSelected = selected.has(l.id)
               return (
                 <button
                   key={l.id}
                   type="button"
-                  onClick={() => toggle(l.id)}
+                  disabled={alreadyAdded}
+                  onClick={() => !alreadyAdded && toggle(l.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
-                    isSelected
-                      ? 'border-violet-400 bg-violet-50'
-                      : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
+                    alreadyAdded
+                      ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed'
+                      : isSelected
+                        ? 'border-violet-400 bg-violet-50'
+                        : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
                   }`}
                 >
                   <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                    isSelected ? 'border-violet-500 bg-violet-500' : 'border-slate-200'
+                    alreadyAdded
+                      ? 'border-emerald-400 bg-emerald-400'
+                      : isSelected
+                        ? 'border-violet-500 bg-violet-500'
+                        : 'border-slate-200'
                   }`}>
-                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                    {(alreadyAdded || isSelected) && <Check className="w-3 h-3 text-white" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-slate-800 truncate">{l.title}</p>
                     <p className="text-xs text-slate-400">
                       {l.activity_count} {l.activity_count === 1 ? 'activity' : 'activities'}
+                      {alreadyAdded && <span className="ml-1 text-emerald-500">· already added</span>}
                     </p>
                   </div>
                 </button>
