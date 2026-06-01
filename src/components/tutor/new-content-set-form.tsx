@@ -60,6 +60,7 @@ const DESC_MAX = 500
 
 function MechanicTile({
   mid,
+  categoryId,
   isSelected,
   onSelect,
   categoryColors,
