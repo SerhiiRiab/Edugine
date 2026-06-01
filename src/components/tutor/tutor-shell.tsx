@@ -9,12 +9,14 @@ import {
   GraduationCap,
   Settings,
   LogOut,
+  Library,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/tutor/dashboard',     label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/tutor/content-sets',  label: 'Activities', icon: BookOpen },
+  { href: '/tutor/programs',      label: 'Programs',     icon: BookOpen },
   { href: '/tutor/lessons',       label: 'Lessons',      icon: GraduationCap },
+  { href: '/tutor/content-sets',  label: 'Activities',   icon: Library },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
 ]
 
