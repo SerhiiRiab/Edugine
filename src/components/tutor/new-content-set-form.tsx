@@ -115,7 +115,7 @@ function MechanicTile({
 export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechanic?: string; lessonId?: string }) {
   const [state, action, isPending] = useActionState(createContentSet, { error: '' })
   const [language, setLanguage] = useState('en')
-  const [selectedMechanic, setSelectedMechanic] = useState(defaultMechanic ?? 'swipe_battle')
+  const [selectedMechanic, setSelectedMechanic] = useState(defaultMechanic ?? '')
   const [titleLen, setTitleLen] = useState(0)
   const [descLen, setDescLen] = useState(0)
   const [mechanicSearch, setMechanicSearch] = useState('')
@@ -344,7 +344,7 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
         </Link>
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || !selectedMechanic}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-60
             text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm"
         >
