@@ -117,11 +117,10 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
   const [titleLen, setTitleLen] = useState(0)
   const [descLen, setDescLen] = useState(0)
   const [mechanicSearch, setMechanicSearch] = useState('')
-  // Start with the primary category of the selected mechanic expanded
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => {
-    const primary = MECHANIC_TO_CATEGORY[defaultMechanic ?? 'swipe_battle'] ?? 'vocabulary'
-    return new Set([primary])
-  })
+  // All categories expanded by default so all mechanics are visible immediately
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(
+    () => new Set(SKILL_CATEGORIES.map(c => c.id))
+  )
 
   function handleSelectMechanic(mid: string) {
     setSelectedMechanic(mid)
