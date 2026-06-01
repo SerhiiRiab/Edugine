@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useTransition } from 'react'
+import { useState, useEffect, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -212,6 +212,11 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
   const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
   const voteCap = selectedSet ? VOTE_CAPABLE.has(selectedSet.mechanic_id) : false
+
+  // Default word_bank to 'shared'; reset to 'individual' for everything else
+  useEffect(() => {
+    setMode(selectedSet?.mechanic_id === 'word_bank' ? 'shared' : 'individual')
+  }, [selectedSet?.mechanic_id])
 
   // Auto-select mode when mechanic restricts it; guard against stale 'vote' for non-voteCap mechanics
   const effectiveMode: 'individual' | 'shared' | 'vote' =

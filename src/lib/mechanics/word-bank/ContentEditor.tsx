@@ -116,7 +116,7 @@ export function WordBankContentEditor({ set, initialItems }: Props) {
   const [bulkImporting, setBulkImporting] = useState(false)
   const [bulkSelection, setBulkSelection] = useState<WBSelection | null>(null)
   const bulkTextareaRef = useRef<HTMLTextAreaElement>(null)
-  const [sharedMode, setSharedMode] = useState(false)
+  const [sharedMode, setSharedMode] = useState(true)
   const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
