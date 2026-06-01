@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-10">
         <StatCard
           icon={<BookOpen className="w-5 h-5" />}
-          label="Content Sets"
+          label="Activities"
           value="0"
           accent="bg-violet-100 text-violet-600"
         />
@@ -51,14 +51,14 @@ export default async function DashboardPage() {
           <p className="text-violet-200 text-sm font-medium mb-1">Get started</p>
           <h2 className="text-2xl font-extrabold mb-2">Create your first lesson!</h2>
           <p className="text-violet-100 text-sm mb-6 max-w-md">
-            Build a content set and launch a live Swipe Battle session in minutes.
+            Build an activity and launch a live session in minutes.
             Students join with a code — no sign-up needed.
           </p>
           <Link
             href="/tutor/content-sets/new"
             className="inline-flex items-center gap-2 bg-white text-violet-700 font-bold px-5 py-2.5 rounded-xl hover:bg-violet-50 transition-colors text-sm"
           >
-            Create content set
+            Create activity
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

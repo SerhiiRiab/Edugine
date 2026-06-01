@@ -39,7 +39,7 @@ export default async function LessonsPage() {
           <div className="mb-6 text-slate-200"><GraduationCap className="w-20 h-20" /></div>
           <h2 className="text-2xl font-bold text-slate-800 mb-2">No lessons yet</h2>
           <p className="text-slate-400 mb-8 max-w-sm">
-            Build your first interactive lesson by combining content sets into a sequence
+            Build your first interactive lesson by combining activities into a sequence
           </p>
           <Link
             href="/tutor/lessons/new"

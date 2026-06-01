@@ -178,7 +178,7 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
               font-medium transition-all duration-150 shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to sets
+            Back to activities
           </Link>
 
           <div className="w-px h-5 bg-slate-200 shrink-0" />

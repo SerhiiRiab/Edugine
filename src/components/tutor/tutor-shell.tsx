@@ -13,7 +13,7 @@ import {
 
 const NAV_ITEMS = [
   { href: '/tutor/dashboard',     label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/tutor/content-sets',  label: 'Content Sets', icon: BookOpen },
+  { href: '/tutor/content-sets',  label: 'Activities', icon: BookOpen },
   { href: '/tutor/lessons',       label: 'Lessons',      icon: GraduationCap },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
 ]

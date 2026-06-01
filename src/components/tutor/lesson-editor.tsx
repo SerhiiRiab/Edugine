@@ -288,18 +288,18 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
           {/* Step 1 — Content Set */}
           {step === 1 && (
             <div className="space-y-3">
-              <p className="text-sm text-slate-500">Choose a content set for this activity:</p>
+              <p className="text-sm text-slate-500">Choose an activity:</p>
               {contentSets.length === 0 ? (
                 <div className="py-12 text-center">
                   <div className="text-5xl mb-3">📭</div>
-                  <p className="text-slate-600 font-semibold text-sm">No content sets yet</p>
-                  <p className="text-slate-400 text-xs mt-1 mb-4">Create a content set first, then come back</p>
+                  <p className="text-slate-600 font-semibold text-sm">No activities yet</p>
+                  <p className="text-slate-400 text-xs mt-1 mb-4">Create an activity first, then come back</p>
                   <Link
                     href="/tutor/content-sets/new"
                     onClick={onClose}
                     className="inline-flex items-center gap-1.5 text-sm text-violet-600 font-semibold hover:underline"
                   >
-                    Create content set →
+                    Create activity →
                   </Link>
                 </div>
               ) : (
@@ -391,7 +391,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                 </div>
               </div>
               <p className="text-xs text-slate-400">
-                Mechanic is determined by the content set. More coming soon.
+                Mechanic is determined by the activity. More coming soon.
               </p>
             </div>
           )}
@@ -550,7 +550,7 @@ function AddActivityModal({ contentSets, onAdd, onClose }: AddModalProps) {
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Summary</p>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500 shrink-0">Content Set</span>
+                    <span className="text-slate-500 shrink-0">Activity</span>
                     <span className="font-semibold text-slate-800 truncate">{selectedSet.title}</span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -677,7 +677,7 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
         <div className="px-6 py-5 space-y-5">
           {/* Content set — read-only */}
           <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-xs text-slate-400 font-medium mb-0.5">Content Set</p>
+            <p className="text-xs text-slate-400 font-medium mb-0.5">Activity</p>
             <p className="text-sm font-semibold text-slate-800">{activity.content_set_title}</p>
           </div>
 
@@ -1165,7 +1165,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             <div className="mb-4 text-slate-300"><ClipboardList className="w-16 h-16" /></div>
             <h3 className="text-lg font-bold text-slate-700 mb-1">No activities yet</h3>
             <p className="text-slate-400 text-sm mb-1">
-              Add content sets as activities to build your lesson sequence
+              Add activities to build your lesson sequence
             </p>
           </div>
         )}

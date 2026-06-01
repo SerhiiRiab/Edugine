@@ -1372,7 +1372,7 @@ export function SessionHostView({ session, lesson }: Props) {
               font-medium transition-colors shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
-            {isLesson ? 'Back to lesson' : 'Back to set'}
+            {isLesson ? 'Back to lesson' : 'Back to activity'}
           </Link>
           <div className="w-px h-5 bg-slate-200 shrink-0" />
           <div className="flex-1 min-w-0">

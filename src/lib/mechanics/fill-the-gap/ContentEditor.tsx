@@ -365,7 +365,7 @@ export function FillTheGapContentEditor({ set, initialItems }: Props) {
             href="/tutor/content-sets"
             className="flex items-center gap-1.5 text-sm text-slate-400 hover:text-slate-700 font-medium transition-colors shrink-0"
           >
-            <ArrowLeft className="w-4 h-4" />My Sets
+            <ArrowLeft className="w-4 h-4" />My Activities
           </Link>
           <div className="w-px h-5 bg-slate-200 shrink-0" />
 

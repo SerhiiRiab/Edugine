@@ -92,7 +92,7 @@ export function ContentSetCard({ set }: ContentSetProps) {
       if (result?.error) {
         toast.error(result.error)
       } else {
-        toast.success('Set deleted')
+        toast.success('Activity deleted')
         router.refresh()
       }
     } catch {
@@ -108,7 +108,7 @@ export function ContentSetCard({ set }: ContentSetProps) {
     const tid = toast.loading('Duplicating...')
     try {
       await duplicateContentSet(set.id)
-      toast.success('Set duplicated!', { id: tid })
+      toast.success('Activity duplicated!', { id: tid })
       router.refresh()
     } catch {
       toast.error('Failed to duplicate', { id: tid })
