@@ -65,8 +65,9 @@ function MechanicTile({
   categoryColors,
 }: {
   mid: string
+  categoryId: string
   isSelected: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, catId: string) => void
   categoryColors: { text: string }
 }) {
   const m = FORM_MECHANICS[mid]
@@ -89,7 +90,7 @@ function MechanicTile({
   return (
     <button
       type="button"
-      onClick={() => onSelect(mid)}
+      onClick={() => onSelect(mid, categoryId)}
       className={`w-full text-left flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
         isSelected ? m.badge : 'border-slate-100 bg-white hover:border-slate-200'
       }`}
@@ -117,16 +118,12 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
   const [titleLen, setTitleLen] = useState(0)
   const [descLen, setDescLen] = useState(0)
   const [mechanicSearch, setMechanicSearch] = useState('')
-  // Start with the selected mechanic's primary category expanded
-  const [expandedCats, setExpandedCats] = useState<Set<string>>(() => {
-    const primary = MECHANIC_TO_CATEGORY[defaultMechanic ?? 'swipe_battle'] ?? 'vocabulary'
-    return new Set([primary])
-  })
+  // All categories collapsed until user clicks a mechanic or header
+  const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set())
 
-  function handleSelectMechanic(mid: string) {
+  function handleSelectMechanic(mid: string, catId: string) {
     setSelectedMechanic(mid)
-    const primary = MECHANIC_TO_CATEGORY[mid]
-    if (primary) setExpandedCats(prev => new Set([...prev, primary]))
+    setExpandedCats(prev => new Set([...prev, catId]))
   }
 
   function toggleCat(catId: string) {
@@ -265,6 +262,7 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
                     <MechanicTile
                       key={mid}
                       mid={mid}
+                      categoryId={primary}
                       isSelected={selectedMechanic === mid}
                       onSelect={handleSelectMechanic}
                       categoryColors={cat?.colors ?? { text: 'text-violet-600' }}
@@ -313,6 +311,7 @@ export function NewContentSetForm({ defaultMechanic, lessonId }: { defaultMechan
                           <MechanicTile
                             key={mid}
                             mid={mid}
+                            categoryId={category.id}
                             isSelected={selectedMechanic === mid}
                             onSelect={handleSelectMechanic}
                             categoryColors={category.colors}
