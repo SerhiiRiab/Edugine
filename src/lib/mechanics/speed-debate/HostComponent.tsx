@@ -57,6 +57,7 @@ export interface SpeedDebateHostPanelProps {
   onTimerReset: () => Promise<void>
   onNextTurn: () => Promise<void>
   onPrevTurn: () => Promise<void>
+  onAssignTurn: (participantId: string) => Promise<void>
   onSetPosition: (participantId: string, position: DebatePosition) => Promise<void>
   onSetTimerDuration: (seconds: number) => Promise<void>
   onStartDebate: () => Promise<void>
@@ -68,7 +69,7 @@ export function SpeedDebateHostPanel({
   state, participants, isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson,
   onTimerStart, onTimerPause, onTimerReset,
-  onNextTurn, onPrevTurn,
+  onNextTurn, onPrevTurn, onAssignTurn,
   onSetPosition, onSetTimerDuration, onStartDebate,
   onNextStatement, onFinish,
 }: SpeedDebateHostPanelProps) {
@@ -355,7 +356,7 @@ export function SpeedDebateHostPanel({
             </button>
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2 group">
           {state.turnOrder.map((pid, i) => {
             const p = participants.find(x => x.id === pid)
             const pIdx = participants.findIndex(x => x.id === pid)
@@ -363,12 +364,16 @@ export function SpeedDebateHostPanel({
             const pos = state.positions[pid]
             const posStyle = pos ? POSITION_STYLES[pos] : null
             return (
-              <div
+              <button
                 key={pid}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all ${
+                type="button"
+                disabled={isCurrent || isBusy}
+                onClick={() => busy(() => onAssignTurn(pid))}
+                title={isCurrent ? undefined : `Make ${p?.nickname ?? '???'} the active speaker`}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl border-2 transition-all text-left ${
                   isCurrent
-                    ? 'border-violet-400 bg-violet-50 shadow-sm'
-                    : 'border-slate-100 bg-white'
+                    ? 'border-violet-400 bg-violet-50 shadow-sm cursor-default'
+                    : 'border-slate-100 bg-white hover:border-violet-300 hover:bg-violet-50/60 cursor-pointer active:scale-[0.99] disabled:opacity-50'
                 }`}
               >
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center
@@ -383,12 +388,16 @@ export function SpeedDebateHostPanel({
                     {posStyle.label}
                   </span>
                 )}
-                {isCurrent && (
+                {isCurrent ? (
                   <span className="text-xs bg-violet-500 text-white px-2 py-0.5 rounded-full font-medium shrink-0">
                     speaking
                   </span>
+                ) : (
+                  <span className="text-[10px] text-slate-300 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                    tap to activate
+                  </span>
                 )}
-              </div>
+              </button>
             )
           })}
           {state.turnOrder.length === 0 && (

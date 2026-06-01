@@ -1248,6 +1248,19 @@ export function SessionHostView({ session, lesson }: Props) {
     })
   }
 
+  async function handleSpeedDebateAssignTurn(participantId: string) {
+    if (!speedDebateState) return
+    const idx = speedDebateState.turnOrder.indexOf(participantId)
+    if (idx === -1 || idx === speedDebateState.currentTurnIndex) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      currentTurnIndex: idx,
+      timerRunning: speedDebateState.timerRunning,
+      timerStartedAt: speedDebateState.timerRunning ? new Date().toISOString() : null,
+      timeLeftAtStart: speedDebateState.timerDuration,
+    })
+  }
+
   async function handleSpeedDebatePrevTurn() {
     if (!speedDebateState) return
     const len = Math.max(speedDebateState.turnOrder.length, 1)
@@ -1767,6 +1780,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onTimerReset={handleSpeedDebateTimerReset}
                 onNextTurn={handleSpeedDebateNextTurn}
                 onPrevTurn={handleSpeedDebatePrevTurn}
+                onAssignTurn={handleSpeedDebateAssignTurn}
                 onSetPosition={handleSpeedDebateSetPosition}
                 onSetTimerDuration={handleSpeedDebateSetTimerDuration}
                 onStartDebate={handleSpeedDebateStart}
