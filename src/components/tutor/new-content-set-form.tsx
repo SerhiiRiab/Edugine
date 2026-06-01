@@ -109,9 +109,11 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
   },
   speed_debate: {
     name: 'Speed Debate',
-    desc: 'Debate topics in real-time',
+    desc: 'Debate statements in turns — assign For / Against / Neutral positions',
     Icon: MessageCircle,
-    available: false,
+    available: true,
+    badge: 'border-emerald-300 bg-emerald-50',
+    dot: 'border-emerald-500 bg-emerald-500',
   },
   roleplay_quest: {
     name: 'Roleplay Quest',

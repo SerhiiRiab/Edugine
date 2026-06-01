@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -30,6 +30,9 @@ import { FillTheGapHostPanel } from '@/lib/mechanics/fill-the-gap/HostComponent'
 import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
 import { WordBankIndividualHostPanel, WordBankSharedHostPanel } from '@/lib/mechanics/word-bank/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
+import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
+import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
+import { computeTimeLeft as computeSpeedDebateTimeLeft } from '@/lib/mechanics/speed-debate/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -172,6 +175,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Word Bank shared state (word_bank in shared mode)
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
 
+  // Speed Debate shared state
+  const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -197,6 +203,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const talkTimeStateRef = useRef<TalkTimeState | null>(null)
   const voteStateRef = useRef<VoteState | null>(null)
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
+  const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
@@ -205,6 +212,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { talkTimeStateRef.current = talkTimeState }, [talkTimeState])
   useEffect(() => { voteStateRef.current = voteState }, [voteState])
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
+  useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
@@ -318,6 +326,17 @@ export function SessionHostView({ session, lesson }: Props) {
           }
         }
 
+        // Restore speed_debate state from DB on tab restore / reconnect
+        if (currentMechanic === 'speed_debate' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state) setSpeedDebateState(stateRow.state as unknown as SpeedDebateState)
+        }
+
         // Restore word_bank shared state from DB on tab restore / reconnect
         if (currentMechanic === 'word_bank' && currentActivityMode === 'shared' && session.status === 'active') {
           const { data: stateRow } = await supabase
@@ -365,8 +384,9 @@ export function SessionHostView({ session, lesson }: Props) {
           const isActive = phaseRef.current === 'active'
           const activeStory = storyStateRef.current?.status === 'active' ? storyStateRef.current : null
           const activeTalkTime = talkTimeStateRef.current?.status === 'active' ? talkTimeStateRef.current : null
+          const activeSpeedDebate = speedDebateStateRef.current?.status !== 'finished' ? speedDebateStateRef.current : null
 
-          if (isActive && (activeStory || activeTalkTime)) {
+          if (isActive && (activeStory || activeTalkTime || activeSpeedDebate)) {
             const pid = p.participantId
             const actIdx = currentActivityIndexRef.current
             addLateJoinerToTurnOrder(session.id, pid, actIdx).then(newState => {
@@ -379,11 +399,18 @@ export function SessionHostView({ session, lesson }: Props) {
                     event: 'story_state_update',
                     payload: { state: newState },
                   })
-                } else {
+                } else if (activeTalkTime) {
                   setTalkTimeState(newState as unknown as TalkTimeState)
                   channelRef.current?.send({
                     type: 'broadcast',
                     event: 'talk_time_state_update',
+                    payload: { state: newState },
+                  })
+                } else {
+                  setSpeedDebateState(newState as unknown as SpeedDebateState)
+                  channelRef.current?.send({
+                    type: 'broadcast',
+                    event: 'speed_debate_state_update',
                     payload: { state: newState },
                   })
                 }
@@ -545,6 +572,10 @@ export function SessionHostView({ session, lesson }: Props) {
           return newState
         })
       })
+      .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
+        const p = payload as { state: SpeedDebateState }
+        if (p.state) setSpeedDebateState(p.state)
+      })
       .on('broadcast', { event: 'content_block_viewed' }, ({ payload }) => {
         const p = payload as { participantId: string }
         if (!p.participantId) return
@@ -698,6 +729,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newContentBlockState: ContentBlockState | undefined
         let newVoteState: VoteState | undefined
         let newWordBankSharedState: WordBankSharedState | undefined
+        let newSpeedDebateState: SpeedDebateState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
@@ -740,13 +772,18 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setWordBankSharedState(newWordBankSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null)
+        } else if (firstActivity?.mechanic_id === 'speed_debate') {
+          newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
+          setSpeedDebateState(newSpeedDebateState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
           setContentBlockState(null)
           setVoteState(null)
           setWordBankSharedState(null)
+          setSpeedDebateState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -762,6 +799,7 @@ export function SessionHostView({ session, lesson }: Props) {
             contentBlockState: newContentBlockState,
             voteState: newVoteState,
             wordBankSharedState: newWordBankSharedState,
+            speedDebateState: newSpeedDebateState,
             instructions: startInstructions ?? null,
           },
         })
@@ -805,6 +843,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newContentBlockState: ContentBlockState | undefined
       let newVoteState: VoteState | undefined
       let newWordBankSharedState: WordBankSharedState | undefined
+      let newSpeedDebateState: SpeedDebateState | undefined
       const nextActivityItems = lesson.activities[nextIndex]?.items ?? []
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
@@ -850,13 +889,18 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordBankSharedState(newWordBankSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null)
+      } else if (nextActivity?.mechanic_id === 'speed_debate') {
+        newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
+        setSpeedDebateState(newSpeedDebateState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
         setVoteState(null)
         setWordBankSharedState(null)
+        setSpeedDebateState(null)
       }
 
       await channelRef.current?.send({
@@ -870,6 +914,7 @@ export function SessionHostView({ session, lesson }: Props) {
           contentBlockState: newContentBlockState,
           voteState: newVoteState,
           wordBankSharedState: newWordBankSharedState,
+          speedDebateState: newSpeedDebateState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
         },
       })
@@ -1141,6 +1186,131 @@ export function SessionHostView({ session, lesson }: Props) {
     setWordBankSharedState(newState)
     channelRef.current?.send({
       type: 'broadcast', event: 'word_bank_state_update', payload: { state: newState },
+    })
+  }
+
+  // ── Speed Debate handlers ─────────────────────────────────────────────────────
+  async function speedDebateStateUpdate(newState: SpeedDebateState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setSpeedDebateState(newState)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'speed_debate_state_update',
+      payload: { state: newState },
+    })
+  }
+
+  async function handleSpeedDebateTimerStart() {
+    if (!speedDebateState) return
+    const timeLeft = computeSpeedDebateTimeLeft(speedDebateState)
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      timerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      timeLeftAtStart: timeLeft,
+    })
+  }
+
+  async function handleSpeedDebateTimerPause() {
+    if (!speedDebateState) return
+    const timeLeft = computeSpeedDebateTimeLeft(speedDebateState)
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: Math.max(0, timeLeft),
+    })
+  }
+
+  async function handleSpeedDebateTimerReset() {
+    if (!speedDebateState) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: speedDebateState.timerDuration,
+    })
+  }
+
+  async function handleSpeedDebateNextTurn() {
+    if (!speedDebateState) return
+    const next = (speedDebateState.currentTurnIndex + 1) % Math.max(speedDebateState.turnOrder.length, 1)
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      currentTurnIndex: next,
+      timerRunning: speedDebateState.timerRunning,
+      timerStartedAt: speedDebateState.timerRunning ? new Date().toISOString() : null,
+      timeLeftAtStart: speedDebateState.timerDuration,
+    })
+  }
+
+  async function handleSpeedDebatePrevTurn() {
+    if (!speedDebateState) return
+    const len = Math.max(speedDebateState.turnOrder.length, 1)
+    const prev = (speedDebateState.currentTurnIndex - 1 + len) % len
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      currentTurnIndex: prev,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: speedDebateState.timerDuration,
+    })
+  }
+
+  async function handleSpeedDebateSetPosition(participantId: string, position: DebatePosition) {
+    if (!speedDebateState) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      positions: { ...speedDebateState.positions, [participantId]: position },
+    })
+  }
+
+  async function handleSpeedDebateSetTimerDuration(seconds: number) {
+    if (!speedDebateState) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      timerDuration: seconds,
+      timeLeftAtStart: seconds,
+      timerRunning: false,
+      timerStartedAt: null,
+    })
+  }
+
+  async function handleSpeedDebateStart() {
+    if (!speedDebateState) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      status: 'active',
+      timerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      timeLeftAtStart: speedDebateState.timerDuration,
+      currentTurnIndex: 0,
+    })
+  }
+
+  async function handleSpeedDebateNextStatement() {
+    if (!speedDebateState) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      currentStatementIndex: speedDebateState.currentStatementIndex + 1,
+      currentTurnIndex: 0,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: speedDebateState.timerDuration,
+    })
+  }
+
+  async function handleSpeedDebateFinish() {
+    if (!speedDebateState) return
+    await speedDebateStateUpdate({
+      ...speedDebateState,
+      status: 'finished',
+      timerRunning: false,
+      timerStartedAt: null,
     })
   }
 
@@ -1582,6 +1752,29 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
+            {currentMechanicId === 'speed_debate' && speedDebateState && (
+              <SpeedDebateHostPanel
+                state={speedDebateState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onTimerStart={handleSpeedDebateTimerStart}
+                onTimerPause={handleSpeedDebateTimerPause}
+                onTimerReset={handleSpeedDebateTimerReset}
+                onNextTurn={handleSpeedDebateNextTurn}
+                onPrevTurn={handleSpeedDebatePrevTurn}
+                onSetPosition={handleSpeedDebateSetPosition}
+                onSetTimerDuration={handleSpeedDebateSetTimerDuration}
+                onStartDebate={handleSpeedDebateStart}
+                onNextStatement={handleSpeedDebateNextStatement}
+                onFinish={handleSpeedDebateFinish}
+              />
+            )}
+
             {/* ── MULTIPLE CHOICE — vote mode ─────────────────────────── */}
             {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
               <MultipleChoiceVoteHostPanel
@@ -1600,7 +1793,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'speed_debate'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

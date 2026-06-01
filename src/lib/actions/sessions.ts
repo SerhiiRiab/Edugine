@@ -7,6 +7,7 @@ import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/content-block/types'
 import type { VoteState } from '@/lib/mechanics/vote/types'
+import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -397,6 +398,102 @@ export async function initVoteState(
     revealed: false,
     status: 'active',
     totalQuestions,
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initSpeedDebateState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<SpeedDebateState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) throw new Error('Session not found')
+
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const turnOrder = (participantRows ?? []).map(p => p.id)
+
+  let contentSetId: string
+  let timerDuration = 60
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position, config')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+
+    contentSetId = activity.content_set_id
+    timerDuration =
+      typeof (activity.config as Record<string, unknown>)?.timerSeconds === 'number'
+        ? ((activity.config as Record<string, unknown>).timerSeconds as number)
+        : 60
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description, content_items(data, position)')
+    .eq('id', contentSetId)
+    .single()
+
+  const rawItems = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+    .sort((a, b) => a.position - b.position)
+
+  const statements = rawItems
+    .map(item => (item.data.statement as string) ?? '')
+    .filter(s => s)
+
+  const itemPhrases = rawItems.map(item => {
+    const phrases = item.data.usefulPhrases
+    return Array.isArray(phrases) ? (phrases as string[]) : []
+  })
+
+  const usefulPhrases = (contentSet?.description ?? '')
+    .split('\n')
+    .map((l: string) => l.trim())
+    .filter(Boolean)
+
+  const initialState: SpeedDebateState = {
+    statements,
+    usefulPhrases,
+    itemPhrases,
+    currentStatementIndex: 0,
+    turnOrder,
+    currentTurnIndex: 0,
+    positions: {},
+    timerDuration,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: timerDuration,
+    status: 'setup',
   }
 
   await supabase.from('shared_activity_state').upsert(

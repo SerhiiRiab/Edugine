@@ -148,9 +148,9 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
 }
 
 // Mechanics that only support individual mode
-const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'speed_debate', 'roleplay_quest', 'fill_the_gap'])
+const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'roleplay_quest', 'fill_the_gap'])
 // Mechanics that only support shared mode
-const SHARED_ONLY = new Set(['story_builder', 'talk_time'])
+const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate'])
 // Mechanics that support individual OR vote mode
 const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
 
