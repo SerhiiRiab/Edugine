@@ -130,14 +130,14 @@ export function RoleplayQuestContentEditor({ set, initialItems }: Props) {
     setAddingRow(true)
     try {
       const created = await createContentItem(set.id, {
-        roleName: 'New Role',
+        roleName: '',
         roleDescription: '',
         secretGoal: '',
         usefulPhrases: [],
       })
       setRows(prev => [...prev, {
         id: created.id,
-        roleName: 'New Role',
+        roleName: '',
         roleDescription: '',
         secretGoal: '',
         usefulPhrases: [],

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Lock, PartyPopper, Users } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import { createClient } from '@/lib/supabase/client'
 import type { RoleplayQuestState } from './types'
 import { computeTimeLeft } from './types'
 
@@ -53,6 +52,18 @@ export function RoleplayQuestPlayerPanel({
   const [claiming, setClaiming] = useState<number | null>(null)
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
 
+  const myClaimedIndex = Object.entries(state.claims).find(([, pid]) => pid === participantId)?.[0]
+  const myRole = myClaimedIndex !== undefined ? state.roles[Number(myClaimedIndex)] : null
+
+  // Clear spinner once host broadcasts back the confirmed claim
+  useEffect(() => {
+    if (claiming === null) return
+    if (state.claims[String(claiming)] || myClaimedIndex !== undefined) {
+      setClaiming(null)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.claims])
+
   useEffect(() => {
     setDisplayTime(computeTimeLeft(state))
     if (!state.timerRunning) return
@@ -61,54 +72,28 @@ export function RoleplayQuestPlayerPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
 
-  const myClaimedIndex = Object.entries(state.claims).find(([, pid]) => pid === participantId)?.[0]
-  const myRole = myClaimedIndex !== undefined ? state.roles[Number(myClaimedIndex)] : null
-
   // Collect all useful phrases for the player's role (or all roles if not yet claimed)
   const visiblePhrases = myRole?.usefulPhrases?.length
     ? myRole.usefulPhrases
     : state.roles.flatMap(r => r.usefulPhrases)
 
-  async function handleClaim(itemIndex: number) {
+  function handleClaim(itemIndex: number) {
     if (claiming !== null) return
-    if (myClaimedIndex !== undefined) return  // already claimed one
-    if (state.claims[String(itemIndex)]) return  // already taken
+    if (myClaimedIndex !== undefined) return  // already have a role
+    if (state.claims[String(itemIndex)]) return  // card already taken
     if (state.status !== 'claiming') return
 
     setClaiming(itemIndex)
-    try {
-      const supabase = createClient()
-      const { data: row } = await supabase
-        .from('shared_activity_state')
-        .select('state')
-        .eq('session_id', sessionId)
-        .eq('activity_index', activityIndex)
-        .single()
-
-      if (!row?.state) return
-
-      const current = row.state as unknown as RoleplayQuestState
-      if (current.claims[String(itemIndex)]) return  // race: already claimed
-
-      const newState: RoleplayQuestState = {
-        ...current,
-        claims: { ...current.claims, [String(itemIndex)]: participantId },
-      }
-
-      await supabase
-        .from('shared_activity_state')
-        .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
-        .eq('session_id', sessionId)
-        .eq('activity_index', activityIndex)
-
-      channelRef.current?.send({
-        type: 'broadcast',
-        event: 'roleplay_quest_state_update',
-        payload: { state: newState },
-      })
-    } finally {
-      setClaiming(null)
-    }
+    // Host validates both guards (card free + participant has no other claim),
+    // writes to DB as authenticated user, then rebroadcasts the updated state.
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'roleplay_quest_claim',
+      payload: { itemIndex, participantId, activityIndex },
+    })
+    // Spinner cleared by useEffect when host broadcasts confirmed state.
+    // Safety timeout in case host is disconnected.
+    setTimeout(() => setClaiming(null), 5000)
   }
 
   // ── Finished ──────────────────────────────────────────────────────────────────

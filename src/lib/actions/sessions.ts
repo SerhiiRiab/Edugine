@@ -552,12 +552,12 @@ export async function initRoleplayQuestState(
   const rawItems = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
     .sort((a, b) => a.position - b.position)
 
-  const roles = rawItems.map(item => ({
-    roleName: (item.data.roleName as string) ?? '',
+  const roles = rawItems.map((item, idx) => ({
+    roleName: (item.data.roleName as string)?.trim() || `Role ${idx + 1}`,
     roleDescription: (item.data.roleDescription as string) ?? '',
     secretGoal: (item.data.secretGoal as string) ?? '',
     usefulPhrases: Array.isArray(item.data.usefulPhrases) ? (item.data.usefulPhrases as string[]) : [],
-  })).filter(r => r.roleName)
+  }))
 
   const initialState: RoleplayQuestState = {
     scenario,

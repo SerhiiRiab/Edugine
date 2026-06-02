@@ -599,6 +599,30 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: RoleplayQuestState }
         if (p.state) setRoleplayQuestState(p.state)
       })
+      .on('broadcast', { event: 'roleplay_quest_claim' }, ({ payload }) => {
+        const p = payload as { itemIndex: number; participantId: string; activityIndex: number }
+        if (p.activityIndex !== currentActivityIndexRef.current) return
+        setRoleplayQuestState(prev => {
+          if (!prev) return prev
+          if (prev.claims[String(p.itemIndex)]) return prev  // card already claimed
+          if (Object.values(prev.claims).includes(p.participantId)) return prev  // participant already has a role
+          const newState: RoleplayQuestState = {
+            ...prev,
+            claims: { ...prev.claims, [String(p.itemIndex)]: p.participantId },
+          }
+          roleplayQuestStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({
+            type: 'broadcast', event: 'roleplay_quest_state_update', payload: { state: newState },
+          })
+          return newState
+        })
+      })
       .on('broadcast', { event: 'content_block_viewed' }, ({ payload }) => {
         const p = payload as { participantId: string }
         if (!p.participantId) return
