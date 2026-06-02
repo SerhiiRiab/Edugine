@@ -50,7 +50,7 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
   fill_the_gap:    { name: 'Fill the Gap',          desc: 'Complete sentences by filling in the missing words — grammar practice',                  Icon: PencilRuler,  available: true,  badge: 'border-sky-300 bg-sky-50',        dot: 'border-sky-500 bg-sky-500' },
   word_bank:       { name: 'Word Bank',             desc: 'Fill blanks in a passage by choosing words from a shared pool — individual or collaborative', Icon: Library, available: true,  badge: 'border-violet-300 bg-violet-50',  dot: 'border-violet-500 bg-violet-500' },
   speed_debate:    { name: 'Speed Debate',          desc: 'Debate statements in turns — assign For / Against / Neutral positions',                  Icon: MessageCircle,available: true,  badge: 'border-emerald-300 bg-emerald-50',dot: 'border-emerald-500 bg-emerald-500' },
-  roleplay_quest:  { name: 'Roleplay Quest',        desc: 'Interactive conversation scenarios',                                                     Icon: Theater,      available: false },
+  roleplay_quest:  { name: 'Roleplay Quest',        desc: 'Secret roles, hidden goals, live conversation scenarios for small groups',             Icon: Theater,      available: true,  badge: 'border-emerald-300 bg-emerald-50',dot: 'border-emerald-500 bg-emerald-500' },
 }
 
 const TITLE_MAX = 100
