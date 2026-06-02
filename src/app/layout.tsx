@@ -14,8 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Edugine',
-  description: 'Interactive online lesson platform for tutors and students',
+  title: 'Edugine — Interactive Lessons for Online Tutors',
+  description: 'Create interactive multiplayer lessons for small groups. Activity library, lesson builder and live sessions for ESL tutors and educators.',
+  keywords: 'interactive lessons, collaborative learning, online tutoring tools, speaking activities, lesson builder, small group learning',
 };
 
 export default function RootLayout({
