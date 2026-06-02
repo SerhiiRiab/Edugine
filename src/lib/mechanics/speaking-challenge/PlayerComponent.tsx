@@ -89,41 +89,47 @@ export function SpeakingChallengePlayerPanel({
   // ── Active ────────────────────────────────────────────────────────────────────
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
-      {/* Top bar: turn indicator + timers */}
-      <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-3">
-        <AnimatePresence mode="wait">
-          {isMyTurn ? (
-            <motion.div
-              key="my-turn"
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-              className="flex items-center gap-1.5"
-            >
-              <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-              <span className="text-violet-300 font-bold text-sm">Your turn — speak!</span>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="their-turn"
-              initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }}
-              className="flex items-center gap-1.5"
-            >
-              <div className="w-2 h-2 rounded-full bg-slate-500" />
-              <span className="text-slate-400 text-sm">
-                {currentSpeaker ? `${currentSpeaker.nickname} is speaking` : 'Listening…'}
-              </span>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
-        {/* Timer pills */}
-        <div className="flex items-center gap-2 shrink-0">
+      {/* Turn banner — prominent green when my turn, subtle gray otherwise */}
+      <AnimatePresence mode="wait">
+        {isMyTurn ? (
+          <motion.div
+            key="my-turn"
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="px-5 py-3.5 bg-emerald-900/60 border-b border-emerald-700/40"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <span className="text-emerald-300 font-black text-lg leading-tight">Your turn!</span>
+            </div>
+            <p className="text-emerald-500 text-sm mt-0.5 ml-5">Use the word in your speech</p>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="their-turn"
+            initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="px-5 py-2.5 border-b border-slate-800 flex items-center gap-2"
+          >
+            <div className="w-2 h-2 rounded-full bg-slate-600 shrink-0" />
+            <span className="text-slate-500 text-sm">
+              {currentSpeaker ? `${currentSpeaker.nickname}'s turn — listen` : 'Listening…'}
+            </span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Timer pills — compact row, only shown when timed */}
+      {(state.turnDuration > 0 || state.wordInterval > 0) && (
+        <div className="px-4 py-1.5 flex items-center gap-2 border-b border-slate-800/50">
           {state.turnDuration > 0 && (
             <span className={`text-xs font-bold tabular-nums px-2 py-0.5 rounded-full border ${
               turnLow
                 ? 'bg-red-900/40 border-red-600/50 text-red-300'
                 : isMyTurn
-                  ? 'bg-violet-900/40 border-violet-600/50 text-violet-300'
-                  : 'bg-slate-800 border-slate-700 text-slate-400'
+                  ? 'bg-emerald-900/40 border-emerald-700/50 text-emerald-400'
+                  : 'bg-slate-800 border-slate-700 text-slate-500'
             }`}>
               {turnTime}s
             </span>
@@ -132,13 +138,13 @@ export function SpeakingChallengePlayerPanel({
             <span className={`text-xs tabular-nums px-2 py-0.5 rounded-full border ${
               wordLow
                 ? 'bg-amber-900/40 border-amber-600/50 text-amber-300'
-                : 'bg-slate-800/60 border-slate-700 text-slate-500'
+                : 'bg-slate-800/60 border-slate-700 text-slate-600'
             }`}>
               ⟳{wordTime}s
             </span>
           )}
         </div>
-      </div>
+      )}
 
       {/* Main word */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 overflow-hidden">
@@ -151,9 +157,10 @@ export function SpeakingChallengePlayerPanel({
             transition={{ duration: 0.3, ease: 'easeOut' }}
             className="text-center"
           >
-            <p className={`font-black tracking-tight leading-none ${
-              isMyTurn ? 'text-white' : 'text-slate-300'
-            }`}
+            <p
+              className={`font-black tracking-tight leading-none ${
+                isMyTurn ? 'text-white' : 'text-slate-400'
+              }`}
               style={{ fontSize: 'clamp(2.5rem, 12vw, 5rem)' }}
             >
               {state.currentWord || '—'}
@@ -183,19 +190,23 @@ export function SpeakingChallengePlayerPanel({
               const isCurrent = i === state.currentSpeakerIndex
               const isDone = i < state.currentSpeakerIndex
               const isMe = pid === participantId
+              const isCurrentMe = isCurrent && isMe
               return (
-                <div key={pid} className={`flex items-center gap-1 text-xs px-2 py-1 rounded-xl border transition-colors ${
-                  isCurrent
-                    ? 'border-violet-600/60 bg-violet-900/30 text-violet-300 font-bold'
-                    : isDone
-                      ? 'border-slate-800 bg-transparent text-slate-600'
-                      : 'border-slate-700 bg-slate-800/50 text-slate-400'
+                <div key={pid} className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-xl border transition-colors ${
+                  isCurrentMe
+                    ? 'border-emerald-600/70 bg-emerald-900/40 text-emerald-300 font-bold'
+                    : isCurrent
+                      ? 'border-violet-600/60 bg-violet-900/30 text-violet-300 font-bold'
+                      : isDone
+                        ? 'border-slate-800 bg-transparent text-slate-600'
+                        : 'border-slate-700 bg-slate-800/50 text-slate-500'
                 }`}>
                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center text-[8px] font-bold text-white ${avatarBg(pIdx)}`}>
                     {(p?.nickname ?? '?')[0].toUpperCase()}
                   </div>
                   <span>{isMe ? 'You' : (p?.nickname ?? '???')}</span>
-                  {isCurrent && <span className="text-[8px] text-violet-400 ml-0.5">●</span>}
+                  {isCurrentMe && <span className="text-[8px] text-emerald-400 ml-0.5">●</span>}
+                  {isCurrent && !isMe && <span className="text-[8px] text-violet-400 ml-0.5">●</span>}
                   {isDone && <span className="text-[8px] text-slate-600 ml-0.5">✓</span>}
                 </div>
               )
