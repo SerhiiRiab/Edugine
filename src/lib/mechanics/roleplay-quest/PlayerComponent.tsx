@@ -72,10 +72,7 @@ export function RoleplayQuestPlayerPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
 
-  // Collect all useful phrases for the player's role (or all roles if not yet claimed)
-  const visiblePhrases = myRole?.usefulPhrases?.length
-    ? myRole.usefulPhrases
-    : state.roles.flatMap(r => r.usefulPhrases)
+  const myPhrases = myRole?.usefulPhrases ?? []
 
   function handleClaim(itemIndex: number) {
     if (claiming !== null) return
@@ -156,6 +153,19 @@ export function RoleplayQuestPlayerPanel({
                   <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Your Secret Goal</p>
                   <p className="text-violet-200 text-sm font-medium">{myRole.secretGoal}</p>
                 </div>
+                {myPhrases.length > 0 && (
+                  <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-2.5 space-y-1.5">
+                    <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-1">
+                      <MessageSquare className="w-3 h-3" />Useful phrases
+                    </p>
+                    {myPhrases.map((phrase, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                        <span className="text-slate-600 shrink-0 mt-0.5">•</span>
+                        <span>{phrase}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             </AnimatePresence>
           )}
@@ -218,20 +228,6 @@ export function RoleplayQuestPlayerPanel({
             </div>
           </div>
 
-          {/* Useful phrases */}
-          {visiblePhrases.length > 0 && (
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3 space-y-2">
-              <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide flex items-center gap-1">
-                <MessageSquare className="w-3 h-3" />Useful phrases
-              </p>
-              {visiblePhrases.map((phrase, i) => (
-                <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                  <span className="text-slate-600 shrink-0 mt-0.5">•</span>
-                  <span>{phrase}</span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
     )
@@ -287,6 +283,19 @@ export function RoleplayQuestPlayerPanel({
                 <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Secret Goal</p>
                 <p className="text-violet-200 text-sm font-medium">{myRole.secretGoal}</p>
               </div>
+              {myPhrases.length > 0 && (
+                <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-2.5 space-y-1.5">
+                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-1">
+                    <MessageSquare className="w-3 h-3" />Useful phrases
+                  </p>
+                  {myPhrases.map((phrase, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
+                      <span className="text-slate-600 shrink-0 mt-0.5">•</span>
+                      <span>{phrase}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </motion.div>
           </AnimatePresence>
         ) : (
@@ -328,20 +337,6 @@ export function RoleplayQuestPlayerPanel({
           </div>
         )}
 
-        {/* Useful phrases */}
-        {visiblePhrases.length > 0 && (
-          <div className="w-full max-w-sm bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3 space-y-2">
-            <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide flex items-center gap-1">
-              <MessageSquare className="w-3 h-3" />Useful phrases
-            </p>
-            {visiblePhrases.map((phrase, i) => (
-              <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                <span className="text-slate-600 shrink-0 mt-0.5">•</span>
-                <span>{phrase}</span>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   )
