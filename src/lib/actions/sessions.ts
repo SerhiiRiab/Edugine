@@ -9,6 +9,8 @@ import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/conten
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
+import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
+import { makeInitialShuffleQueue } from '@/lib/mechanics/speaking-challenge/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -568,6 +570,85 @@ export async function initRoleplayQuestState(
     timerStartedAt: null,
     timeLeftAtStart: 0,
     status: 'claiming',
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initSpeakingChallengeState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<SpeakingChallengeState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) throw new Error('Session not found')
+
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const turnOrder = (participantRows ?? []).map(p => p.id)
+
+  let contentSetId: string
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('content_items(data, position)')
+    .eq('id', contentSetId)
+    .single()
+
+  const rawItems = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+    .sort((a, b) => a.position - b.position)
+
+  const words = rawItems
+    .map(item => (item.data.word as string)?.trim() ?? '')
+    .filter(Boolean)
+
+  const initialState: SpeakingChallengeState = {
+    words,
+    shuffleQueue: makeInitialShuffleQueue(words.length),
+    currentWord: '',
+    wordHistory: [],
+    turnOrder,
+    currentSpeakerIndex: 0,
+    turnStartedAt: null,
+    turnDuration: 60,
+    wordChangedAt: null,
+    wordInterval: 10,
+    status: 'setup',
   }
 
   await supabase.from('shared_activity_state').upsert(

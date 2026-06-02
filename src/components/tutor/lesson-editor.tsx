@@ -19,7 +19,7 @@ import {
   Target,
   Zap,
   BookText,
-  Mic,
+  Mic, Mic2,
   MessageCircle,
   Theater,
   Gamepad2,
@@ -127,6 +127,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: Theater,
     classes: 'bg-orange-100 text-orange-700 border-orange-200',
   },
+  speaking_challenge: {
+    label: 'Speaking Challenge',
+    Icon: Mic2,
+    classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
   true_false: {
     label: 'True or False',
     Icon: CheckSquare,
@@ -152,7 +157,7 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
 // Mechanics that only support individual mode
 const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap'])
 // Mechanics that only support shared mode
-const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest'])
+const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge'])
 // Mechanics that support individual OR vote mode
 const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
 

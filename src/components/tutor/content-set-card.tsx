@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, Mic, MessageCircle, Theater } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, Mic, Mic2, MessageCircle, Theater } from 'lucide-react'
 import { toast } from 'sonner'
 import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORY } from '@/lib/mechanics/skill-categories'
 import {
@@ -56,6 +56,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Roleplay Quest',
     Icon: Theater,
     classes: 'bg-orange-100 text-orange-700 border-orange-200',
+  },
+  speaking_challenge: {
+    label: 'Speaking Challenge',
+    Icon: Mic2,
+    classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
 }
 

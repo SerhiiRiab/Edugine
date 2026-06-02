@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowRight, Gamepad2, Plus } from 'lucide-react'
 import type { ComponentType } from 'react'
 import {
-  Target, Zap, PenLine, Mic, Clapperboard, CheckSquare,
+  Target, Zap, PenLine, Mic, Mic2, Clapperboard, CheckSquare,
   ListChecks, PencilRuler, Library, MessageCircle, Theater,
 } from 'lucide-react'
 import {
@@ -27,7 +27,8 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   fill_the_gap:    PencilRuler,
   word_bank:       Library,
   speed_debate:    MessageCircle,
-  roleplay_quest:  Theater,
+  roleplay_quest:     Theater,
+  speaking_challenge: Mic2,
 }
 
 const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -36,6 +36,9 @@ import { computeTimeLeft as computeSpeedDebateTimeLeft } from '@/lib/mechanics/s
 import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
 import { RoleplayQuestHostPanel } from '@/lib/mechanics/roleplay-quest/HostComponent'
 import { computeTimeLeft as computeRoleplayTimeLeft } from '@/lib/mechanics/roleplay-quest/types'
+import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
+import { SpeakingChallengeHostPanel } from '@/lib/mechanics/speaking-challenge/HostComponent'
+import { pickNextWord as pickSpeakingWord } from '@/lib/mechanics/speaking-challenge/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -184,6 +187,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Roleplay Quest shared state
   const [roleplayQuestState, setRoleplayQuestState] = useState<RoleplayQuestState | null>(null)
 
+  // Speaking Challenge shared state
+  const [speakingChallengeState, setSpeakingChallengeState] = useState<SpeakingChallengeState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -211,6 +217,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
+  const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
@@ -221,6 +228,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
+  useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
@@ -343,6 +351,17 @@ export function SessionHostView({ session, lesson }: Props) {
             .eq('activity_index', actIdx)
             .single()
           if (stateRow?.state) setSpeedDebateState(stateRow.state as unknown as SpeedDebateState)
+        }
+
+        // Restore speaking_challenge state from DB on tab restore / reconnect
+        if (currentMechanic === 'speaking_challenge' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state) setSpeakingChallengeState(stateRow.state as unknown as SpeakingChallengeState)
         }
 
         // Restore roleplay_quest state from DB on tab restore / reconnect
@@ -595,6 +614,10 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
       })
+      .on('broadcast', { event: 'speaking_challenge_state_update' }, ({ payload }) => {
+        const p = payload as { state: SpeakingChallengeState }
+        if (p.state) setSpeakingChallengeState(p.state)
+      })
       .on('broadcast', { event: 'roleplay_quest_state_update' }, ({ payload }) => {
         const p = payload as { state: RoleplayQuestState }
         if (p.state) setRoleplayQuestState(p.state)
@@ -778,6 +801,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newWordBankSharedState: WordBankSharedState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
+        let newSpeakingChallengeState: SpeakingChallengeState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
@@ -828,7 +852,11 @@ export function SessionHostView({ session, lesson }: Props) {
         } else if (firstActivity?.mechanic_id === 'roleplay_quest') {
           newRoleplayQuestState = await initRoleplayQuestState(session.id, currentActivityIndex)
           setRoleplayQuestState(newRoleplayQuestState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+        } else if (firstActivity?.mechanic_id === 'speaking_challenge') {
+          newSpeakingChallengeState = await initSpeakingChallengeState(session.id, currentActivityIndex)
+          setSpeakingChallengeState(newSpeakingChallengeState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
@@ -837,6 +865,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setWordBankSharedState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
+          setSpeakingChallengeState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -854,6 +883,7 @@ export function SessionHostView({ session, lesson }: Props) {
             wordBankSharedState: newWordBankSharedState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
+            speakingChallengeState: newSpeakingChallengeState,
             instructions: startInstructions ?? null,
           },
         })
@@ -899,6 +929,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newWordBankSharedState: WordBankSharedState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
+      let newSpeakingChallengeState: SpeakingChallengeState | undefined
       const nextActivityItems = lesson.activities[nextIndex]?.items ?? []
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
@@ -952,7 +983,11 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
         newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
         setRoleplayQuestState(newRoleplayQuestState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+      } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
+        newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
+        setSpeakingChallengeState(newSpeakingChallengeState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -961,6 +996,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setWordBankSharedState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
+        setSpeakingChallengeState(null)
       }
 
       await channelRef.current?.send({
@@ -976,6 +1012,7 @@ export function SessionHostView({ session, lesson }: Props) {
           wordBankSharedState: newWordBankSharedState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
+          speakingChallengeState: newSpeakingChallengeState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
         },
       })
@@ -1454,6 +1491,96 @@ export function SessionHostView({ session, lesson }: Props) {
       timerRunning: roleplayQuestState.timerDuration > 0,
       timerStartedAt: roleplayQuestState.timerDuration > 0 ? new Date().toISOString() : null,
       timeLeftAtStart: roleplayQuestState.timerDuration,
+    })
+  }
+
+  // ── Speaking Challenge handlers ───────────────────────────────────────────────
+  async function speakingChallengeStateUpdate(newState: SpeakingChallengeState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setSpeakingChallengeState(newState)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'speaking_challenge_state_update',
+      payload: { state: newState },
+    })
+  }
+
+  async function handleSpeakingChallengeSetWordInterval(seconds: number) {
+    if (!speakingChallengeState) return
+    await speakingChallengeStateUpdate({ ...speakingChallengeState, wordInterval: seconds })
+  }
+
+  async function handleSpeakingChallengeSetTurnDuration(seconds: number) {
+    if (!speakingChallengeState) return
+    await speakingChallengeStateUpdate({ ...speakingChallengeState, turnDuration: seconds })
+  }
+
+  async function handleSpeakingChallengeStart() {
+    if (!speakingChallengeState) return
+    const { word, shuffleQueue } = pickSpeakingWord(speakingChallengeState)
+    await speakingChallengeStateUpdate({
+      ...speakingChallengeState,
+      status: 'active',
+      currentSpeakerIndex: 0,
+      currentWord: word,
+      shuffleQueue,
+      wordHistory: [],
+      wordChangedAt: new Date().toISOString(),
+      turnStartedAt: new Date().toISOString(),
+    })
+  }
+
+  async function handleSpeakingChallengeNextWord() {
+    if (!speakingChallengeState) return
+    const { word, shuffleQueue } = pickSpeakingWord(speakingChallengeState)
+    const wordHistory = [speakingChallengeState.currentWord, ...speakingChallengeState.wordHistory]
+      .filter(Boolean).slice(0, 4)
+    await speakingChallengeStateUpdate({
+      ...speakingChallengeState,
+      currentWord: word,
+      shuffleQueue,
+      wordHistory,
+      wordChangedAt: new Date().toISOString(),
+    })
+  }
+
+  async function handleSpeakingChallengeNextSpeaker() {
+    if (!speakingChallengeState) return
+    const nextIdx = speakingChallengeState.currentSpeakerIndex + 1
+    if (nextIdx >= speakingChallengeState.turnOrder.length) {
+      await speakingChallengeStateUpdate({
+        ...speakingChallengeState,
+        status: 'finished',
+        turnStartedAt: null,
+        wordChangedAt: null,
+      })
+      return
+    }
+    const { word, shuffleQueue } = pickSpeakingWord(speakingChallengeState)
+    const wordHistory = [speakingChallengeState.currentWord, ...speakingChallengeState.wordHistory]
+      .filter(Boolean).slice(0, 4)
+    await speakingChallengeStateUpdate({
+      ...speakingChallengeState,
+      currentSpeakerIndex: nextIdx,
+      currentWord: word,
+      shuffleQueue,
+      wordHistory,
+      wordChangedAt: new Date().toISOString(),
+      turnStartedAt: new Date().toISOString(),
+    })
+  }
+
+  async function handleSpeakingChallengeFinish() {
+    if (!speakingChallengeState) return
+    await speakingChallengeStateUpdate({
+      ...speakingChallengeState,
+      status: 'finished',
+      turnStartedAt: null,
+      wordChangedAt: null,
     })
   }
 
@@ -1948,6 +2075,25 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── SPEAKING CHALLENGE ──────────────────────────────────── */}
+            {currentMechanicId === 'speaking_challenge' && speakingChallengeState && (
+              <SpeakingChallengeHostPanel
+                state={speakingChallengeState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onSetWordInterval={handleSpeakingChallengeSetWordInterval}
+                onSetTurnDuration={handleSpeakingChallengeSetTurnDuration}
+                onStart={handleSpeakingChallengeStart}
+                onNextWord={handleSpeakingChallengeNextWord}
+                onNextSpeaker={handleSpeakingChallengeNextSpeaker}
+                onFinish={handleSpeakingChallengeFinish}
+              />
+            )}
+
             {/* ── MULTIPLE CHOICE — vote mode ─────────────────────────── */}
             {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
               <MultipleChoiceVoteHostPanel
@@ -1966,7 +2112,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'speed_debate', 'roleplay_quest'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

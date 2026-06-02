@@ -10,6 +10,7 @@ import { fillTheGapDefinition } from './fill-the-gap'
 import { wordBankDefinition } from './word-bank'
 import { speedDebateDefinition } from './speed-debate'
 import { roleplayQuestDefinition } from './roleplay-quest'
+import { speakingChallengeDefinition } from './speaking-challenge'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -24,6 +25,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   word_bank: wordBankDefinition as MechanicDefinition,
   speed_debate: speedDebateDefinition as MechanicDefinition,
   roleplay_quest: roleplayQuestDefinition as MechanicDefinition,
+  speaking_challenge: speakingChallengeDefinition as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {

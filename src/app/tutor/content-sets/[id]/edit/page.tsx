@@ -11,6 +11,7 @@ import { FillTheGapContentEditor } from '@/lib/mechanics/fill-the-gap/ContentEdi
 import { WordBankContentEditor } from '@/lib/mechanics/word-bank/ContentEditor'
 import { SpeedDebateContentEditor } from '@/lib/mechanics/speed-debate/ContentEditor'
 import { RoleplayQuestContentEditor } from '@/lib/mechanics/roleplay-quest/ContentEditor'
+import { SpeakingChallengeContentEditor } from '@/lib/mechanics/speaking-challenge/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { AddToLessonPrompt } from '@/components/tutor/add-to-lesson-prompt'
@@ -88,7 +89,8 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'fill_the_gap')  return <FillTheGapContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'word_bank')     return <WordBankContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'speed_debate')   return <SpeedDebateContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'roleplay_quest') return <RoleplayQuestContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'roleplay_quest')     return <RoleplayQuestContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'speaking_challenge') return <SpeakingChallengeContentEditor set={set} initialItems={items ?? []} />
     return <ContentSetEditor set={set} initialItems={items ?? []} />
   }
 

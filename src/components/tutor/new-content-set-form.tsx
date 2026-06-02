@@ -4,7 +4,7 @@ import { useActionState, useState } from 'react'
 import Link from 'next/link'
 import {
   ArrowLeft, ArrowRight, Loader2, Search,
-  Target, Zap, PenLine, Mic, MessageCircle, Theater,
+  Target, Zap, PenLine, Mic, Mic2, MessageCircle, Theater,
   Clapperboard, CheckSquare, ListChecks, ChevronDown, ChevronUp,
   PencilRuler, Library,
 } from 'lucide-react'
@@ -51,6 +51,7 @@ const FORM_MECHANICS: Record<string, FormMechanic> = {
   word_bank:       { name: 'Word Bank',             desc: 'Fill blanks in a passage by choosing words from a shared pool — individual or collaborative', Icon: Library, available: true,  badge: 'border-violet-300 bg-violet-50',  dot: 'border-violet-500 bg-violet-500' },
   speed_debate:    { name: 'Speed Debate',          desc: 'Debate statements in turns — assign For / Against / Neutral positions',                  Icon: MessageCircle,available: true,  badge: 'border-emerald-300 bg-emerald-50',dot: 'border-emerald-500 bg-emerald-500' },
   roleplay_quest:  { name: 'Roleplay Quest',        desc: 'Secret roles, hidden goals, live conversation scenarios for small groups',             Icon: Theater,      available: true,  badge: 'border-emerald-300 bg-emerald-50',dot: 'border-emerald-500 bg-emerald-500' },
+  speaking_challenge: { name: 'Speaking Challenge', desc: 'Random words flash on screen — students improvise sentences while the clock ticks',    Icon: Mic2,         available: true,  badge: 'border-emerald-300 bg-emerald-50',dot: 'border-emerald-500 bg-emerald-500' },
 }
 
 const TITLE_MAX = 100

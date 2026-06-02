@@ -14,6 +14,7 @@ export type MechanicId =
   | 'multiple_choice'
   | 'speed_debate'
   | 'roleplay_quest'
+  | 'speaking_challenge'
   | 'fill_the_gap'
   | 'word_bank'
 
