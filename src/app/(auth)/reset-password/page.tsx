@@ -61,7 +61,7 @@ export default function ResetPasswordPage() {
             <Zap className="w-8 h-8 text-yellow-300" />
           </div>
           <h1 className="text-4xl font-extrabold text-white tracking-tight">Edugine</h1>
-          <p className="text-violet-200 mt-1 text-sm">The lesson engine that goes brrrr 🚀</p>
+          <p className="text-violet-200 mt-1 text-sm">Interactive lessons for online tutors</p>
         </div>
 
         {/* Card */}

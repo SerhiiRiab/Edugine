@@ -71,7 +71,7 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-extrabold text-white tracking-tight">Edugine</h1>
-          <p className="text-violet-200 mt-1 text-sm">The lesson engine that goes brrrr 🚀</p>
+          <p className="text-violet-200 mt-1 text-sm">Interactive lessons for online tutors</p>
         </div>
 
         {/* Card */}
