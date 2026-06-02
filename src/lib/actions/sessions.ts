@@ -8,6 +8,7 @@ import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/content-block/types'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
+import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -494,6 +495,79 @@ export async function initSpeedDebateState(
     timerStartedAt: null,
     timeLeftAtStart: timerDuration,
     status: 'setup',
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initRoleplayQuestState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<RoleplayQuestState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) throw new Error('Session not found')
+
+  let contentSetId: string
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description, content_items(data, position)')
+    .eq('id', contentSetId)
+    .single()
+
+  const scenario = (contentSet?.description as string | null) ?? ''
+
+  const rawItems = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+    .sort((a, b) => a.position - b.position)
+
+  const roles = rawItems.map(item => ({
+    roleName: (item.data.roleName as string) ?? '',
+    roleDescription: (item.data.roleDescription as string) ?? '',
+    secretGoal: (item.data.secretGoal as string) ?? '',
+    usefulPhrases: Array.isArray(item.data.usefulPhrases) ? (item.data.usefulPhrases as string[]) : [],
+  })).filter(r => r.roleName)
+
+  const initialState: RoleplayQuestState = {
+    scenario,
+    roles,
+    claims: {},
+    timerDuration: 0,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: 0,
+    status: 'claiming',
   }
 
   await supabase.from('shared_activity_state').upsert(

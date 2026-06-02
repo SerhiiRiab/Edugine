@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -33,6 +33,9 @@ import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
 import { computeTimeLeft as computeSpeedDebateTimeLeft } from '@/lib/mechanics/speed-debate/types'
+import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
+import { RoleplayQuestHostPanel } from '@/lib/mechanics/roleplay-quest/HostComponent'
+import { computeTimeLeft as computeRoleplayTimeLeft } from '@/lib/mechanics/roleplay-quest/types'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -178,6 +181,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
 
+  // Roleplay Quest shared state
+  const [roleplayQuestState, setRoleplayQuestState] = useState<RoleplayQuestState | null>(null)
+
   // Speed Match per-participant progress
   const [speedMatchProgress, setSpeedMatchProgress] = useState<Record<string, SpeedMatchProgress>>({})
 
@@ -204,6 +210,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const voteStateRef = useRef<VoteState | null>(null)
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
+  const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
 
   useEffect(() => { currentActivityIndexRef.current = currentActivityIndex }, [currentActivityIndex])
   useEffect(() => { participantCountRef.current = participants.length }, [participants])
@@ -213,6 +220,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { voteStateRef.current = voteState }, [voteState])
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
+  useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
@@ -335,6 +343,17 @@ export function SessionHostView({ session, lesson }: Props) {
             .eq('activity_index', actIdx)
             .single()
           if (stateRow?.state) setSpeedDebateState(stateRow.state as unknown as SpeedDebateState)
+        }
+
+        // Restore roleplay_quest state from DB on tab restore / reconnect
+        if (currentMechanic === 'roleplay_quest' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state) setRoleplayQuestState(stateRow.state as unknown as RoleplayQuestState)
         }
 
         // Restore word_bank shared state from DB on tab restore / reconnect
@@ -576,6 +595,10 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
       })
+      .on('broadcast', { event: 'roleplay_quest_state_update' }, ({ payload }) => {
+        const p = payload as { state: RoleplayQuestState }
+        if (p.state) setRoleplayQuestState(p.state)
+      })
       .on('broadcast', { event: 'content_block_viewed' }, ({ payload }) => {
         const p = payload as { participantId: string }
         if (!p.participantId) return
@@ -730,6 +753,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newVoteState: VoteState | undefined
         let newWordBankSharedState: WordBankSharedState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
+        let newRoleplayQuestState: RoleplayQuestState | undefined
         const firstActivity = lesson?.activities[currentActivityIndex]
         if (firstActivity?.mechanic_id === 'story_builder') {
           newStoryState = await initStoryState(session.id, currentActivityIndex)
@@ -772,11 +796,15 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setWordBankSharedState(newWordBankSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null)
+        } else if (firstActivity?.mechanic_id === 'roleplay_quest') {
+          newRoleplayQuestState = await initRoleplayQuestState(session.id, currentActivityIndex)
+          setRoleplayQuestState(newRoleplayQuestState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
@@ -784,6 +812,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setVoteState(null)
           setWordBankSharedState(null)
           setSpeedDebateState(null)
+          setRoleplayQuestState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -800,6 +829,7 @@ export function SessionHostView({ session, lesson }: Props) {
             voteState: newVoteState,
             wordBankSharedState: newWordBankSharedState,
             speedDebateState: newSpeedDebateState,
+            roleplayQuestState: newRoleplayQuestState,
             instructions: startInstructions ?? null,
           },
         })
@@ -844,6 +874,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newVoteState: VoteState | undefined
       let newWordBankSharedState: WordBankSharedState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
+      let newRoleplayQuestState: RoleplayQuestState | undefined
       const nextActivityItems = lesson.activities[nextIndex]?.items ?? []
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
@@ -889,11 +920,15 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordBankSharedState(newWordBankSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null)
+      } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
+        newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
+        setRoleplayQuestState(newRoleplayQuestState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -901,6 +936,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setVoteState(null)
         setWordBankSharedState(null)
         setSpeedDebateState(null)
+        setRoleplayQuestState(null)
       }
 
       await channelRef.current?.send({
@@ -915,6 +951,7 @@ export function SessionHostView({ session, lesson }: Props) {
           voteState: newVoteState,
           wordBankSharedState: newWordBankSharedState,
           speedDebateState: newSpeedDebateState,
+          roleplayQuestState: newRoleplayQuestState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
         },
       })
@@ -1321,6 +1358,85 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!speedDebateState) return
     await speedDebateStateUpdate({
       ...speedDebateState,
+      status: 'finished',
+      timerRunning: false,
+      timerStartedAt: null,
+    })
+  }
+
+  // ── Roleplay Quest handlers ───────────────────────────────────────────────────
+  async function roleplayQuestStateUpdate(newState: RoleplayQuestState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setRoleplayQuestState(newState)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'roleplay_quest_state_update',
+      payload: { state: newState },
+    })
+  }
+
+  async function handleRoleplayQuestTimerStart() {
+    if (!roleplayQuestState) return
+    const timeLeft = computeRoleplayTimeLeft(roleplayQuestState)
+    await roleplayQuestStateUpdate({
+      ...roleplayQuestState,
+      timerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      timeLeftAtStart: timeLeft,
+    })
+  }
+
+  async function handleRoleplayQuestTimerPause() {
+    if (!roleplayQuestState) return
+    const timeLeft = computeRoleplayTimeLeft(roleplayQuestState)
+    await roleplayQuestStateUpdate({
+      ...roleplayQuestState,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: Math.max(0, timeLeft),
+    })
+  }
+
+  async function handleRoleplayQuestTimerReset() {
+    if (!roleplayQuestState) return
+    await roleplayQuestStateUpdate({
+      ...roleplayQuestState,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: roleplayQuestState.timerDuration,
+    })
+  }
+
+  async function handleRoleplayQuestSetTimerDuration(seconds: number) {
+    if (!roleplayQuestState) return
+    await roleplayQuestStateUpdate({
+      ...roleplayQuestState,
+      timerDuration: seconds,
+      timeLeftAtStart: seconds,
+      timerRunning: false,
+      timerStartedAt: null,
+    })
+  }
+
+  async function handleRoleplayQuestStartRoleplay() {
+    if (!roleplayQuestState) return
+    await roleplayQuestStateUpdate({
+      ...roleplayQuestState,
+      status: 'active',
+      timerRunning: roleplayQuestState.timerDuration > 0,
+      timerStartedAt: roleplayQuestState.timerDuration > 0 ? new Date().toISOString() : null,
+      timeLeftAtStart: roleplayQuestState.timerDuration,
+    })
+  }
+
+  async function handleRoleplayQuestFinish() {
+    if (!roleplayQuestState) return
+    await roleplayQuestStateUpdate({
+      ...roleplayQuestState,
       status: 'finished',
       timerRunning: false,
       timerStartedAt: null,
@@ -1789,6 +1905,25 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── ROLEPLAY QUEST ───────────────────────────────────────── */}
+            {currentMechanicId === 'roleplay_quest' && roleplayQuestState && (
+              <RoleplayQuestHostPanel
+                state={roleplayQuestState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onTimerStart={handleRoleplayQuestTimerStart}
+                onTimerPause={handleRoleplayQuestTimerPause}
+                onTimerReset={handleRoleplayQuestTimerReset}
+                onSetTimerDuration={handleRoleplayQuestSetTimerDuration}
+                onStartRoleplay={handleRoleplayQuestStartRoleplay}
+                onFinish={handleRoleplayQuestFinish}
+              />
+            )}
+
             {/* ── MULTIPLE CHOICE — vote mode ─────────────────────────── */}
             {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
               <MultipleChoiceVoteHostPanel
@@ -1807,7 +1942,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'speed_debate'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'speed_debate', 'roleplay_quest'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

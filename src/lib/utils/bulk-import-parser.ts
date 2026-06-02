@@ -5,13 +5,14 @@
  * Mechanics declare *what* to parse; this function handles the line-splitting loop.
  */
 
-export type BulkSeparator = 'comma' | 'tab' | 'dash' | 'semicolon'
+export type BulkSeparator = 'comma' | 'tab' | 'dash' | 'semicolon' | 'pipe'
 
 export const SEPARATOR_OPTIONS: { value: BulkSeparator; label: string; char: string }[] = [
   { value: 'comma',     label: 'Comma  ,',     char: ',' },
   { value: 'tab',       label: 'Tab  ⇥',       char: '\t' },
   { value: 'dash',      label: 'Dash  -',      char: '-' },
   { value: 'semicolon', label: 'Semicolon  ;', char: ';' },
+  { value: 'pipe',      label: 'Pipe  |',      char: '|' },
 ]
 
 export function separatorChar(sep: BulkSeparator): string {

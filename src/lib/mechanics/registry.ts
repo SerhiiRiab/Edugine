@@ -9,6 +9,7 @@ import { multipleChoiceDefinition } from './multiple-choice'
 import { fillTheGapDefinition } from './fill-the-gap'
 import { wordBankDefinition } from './word-bank'
 import { speedDebateDefinition } from './speed-debate'
+import { roleplayQuestDefinition } from './roleplay-quest'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -22,8 +23,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   fill_the_gap: fillTheGapDefinition as MechanicDefinition,
   word_bank: wordBankDefinition as MechanicDefinition,
   speed_debate: speedDebateDefinition as MechanicDefinition,
-  // Placeholder — replace with real definition when implemented
-  roleplay_quest: null as unknown as MechanicDefinition,
+  roleplay_quest: roleplayQuestDefinition as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {
