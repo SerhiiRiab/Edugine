@@ -14,6 +14,7 @@ import { RoleplayQuestContentEditor } from '@/lib/mechanics/roleplay-quest/Conte
 import { SpeakingChallengeContentEditor } from '@/lib/mechanics/speaking-challenge/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
+import { ErrorBoundary } from '@/components/error-boundary'
 import { AddToLessonPrompt } from '@/components/tutor/add-to-lesson-prompt'
 import { ActivityLessonsPanel } from '@/components/tutor/activity-lessons-panel'
 
@@ -102,7 +103,9 @@ export default async function EditContentSetPage({
       {lessonId && lessonInfo && (
         <LessonReturnBanner contentSetId={id} lessonId={lessonId} lessonTitle={lessonInfo.title} />
       )}
-      <Editor />
+      <ErrorBoundary fallback="Editor failed to load. Please refresh the page.">
+        <Editor />
+      </ErrorBoundary>
       {justCreated === '1' && (
         <AddToLessonPrompt contentSetId={id} lessons={tutorLessons} />
       )}

@@ -28,6 +28,7 @@ import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
 import { RoleplayQuestPlayerPanel } from '@/lib/mechanics/roleplay-quest/PlayerComponent'
 import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
 import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -796,6 +797,7 @@ export function PlayerView({ session, lesson }: Props) {
 
       {/* ── PLAYING — dispatched to the active mechanic's panel ──────────────── */}
       {phase === 'playing' && (
+        <ErrorBoundary fallback="This activity encountered an error. Please wait for the tutor to continue.">
         <>
           {currentInstructions && (
             <div className="sticky top-0 z-10 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/60 px-4 py-2.5">
@@ -1125,6 +1127,7 @@ export function PlayerView({ session, lesson }: Props) {
             />
           )}
         </>
+        </ErrorBoundary>
       )}
 
       {/* ── ACTIVITY TRANSITION (lesson only) ────────────────────────────────── */}

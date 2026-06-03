@@ -39,6 +39,7 @@ import { computeTimeLeft as computeRoleplayTimeLeft } from '@/lib/mechanics/role
 import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
 import { SpeakingChallengeHostPanel } from '@/lib/mechanics/speaking-challenge/HostComponent'
 import { pickNextWord as pickSpeakingWord } from '@/lib/mechanics/speaking-challenge/types'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -1838,6 +1839,7 @@ export function SessionHostView({ session, lesson }: Props) {
 
         {/* ── ACTIVE PHASE ───────────────────────────────────────────────────── */}
         {phase === 'active' && !lessonBetween && (
+          <ErrorBoundary fallback="This activity encountered an error. Please wait for the tutor to continue.">
           <div className="space-y-4">
 
             {/* Lesson progress bar */}
@@ -2128,6 +2130,7 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
           </div>
+          </ErrorBoundary>
         )}
 
         {/* ── BETWEEN ACTIVITIES (lesson only) ──────────────────────────────── */}
