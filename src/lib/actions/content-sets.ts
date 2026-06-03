@@ -238,3 +238,28 @@ export async function reorderContentItems(orderedIds: string[]) {
     ),
   )
 }
+
+// ── Search ───────────────────────────────────────────────────────────────────
+
+export async function searchContentSets(
+  query: string,
+): Promise<{ id: string; title: string; mechanic_id: string; item_count: number }[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('content_sets')
+    .select('id, title, mechanic_id, content_items(id)')
+    .eq('owner_id', user.id)
+    .ilike('title', `%${query}%`)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  return (data ?? []).map((cs) => ({
+    id: cs.id,
+    title: cs.title,
+    mechanic_id: cs.mechanic_id,
+    item_count: (cs.content_items as { id: string }[] | null)?.length ?? 0,
+  }))
+}

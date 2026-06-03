@@ -40,7 +40,8 @@ export default async function LessonEditPage({
       .from('content_sets')
       .select('id, title, mechanic_id, content_items(id)')
       .eq('owner_id', user!.id)
-      .order('updated_at', { ascending: false }),
+      .order('created_at', { ascending: false })
+      .limit(20),
 
     supabase
       .from('program_lessons')

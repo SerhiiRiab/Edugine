@@ -69,6 +69,7 @@ import {
   reorderActivities,
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
+import { searchContentSets } from '@/lib/actions/content-sets'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -224,19 +225,23 @@ function SaveIndicator({ status, savedAt }: { status: SaveStatus; savedAt: Date 
 
 interface AddModalProps {
   lessonId: string
-  contentSets: ContentSetOption[]
+  initialSets: ContentSetOption[]
   onAdd: (data: {
     content_set_id: string
     mechanic_id: string
     mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
+    content_set_title: string
+    content_set_item_count: number
   }) => Promise<void>
   onClose: () => void
 }
 
-function AddActivityModal({ lessonId, contentSets, onAdd, onClose }: AddModalProps) {
+function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [search, setSearch] = useState('')
+  const [displayedSets, setDisplayedSets] = useState<ContentSetOption[]>(initialSets)
+  const [searching, setSearching] = useState(false)
   const [selectedSet, setSelectedSet] = useState<ContentSetOption | null>(null)
   const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>('individual')
   const [timerSeconds, setTimerSeconds] = useState('')
@@ -247,6 +252,25 @@ function AddActivityModal({ lessonId, contentSets, onAdd, onClose }: AddModalPro
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
   const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
   const voteCap = selectedSet ? VOTE_CAPABLE.has(selectedSet.mechanic_id) : false
+
+  // Debounced server search
+  useEffect(() => {
+    const q = search.trim()
+    if (!q) {
+      setDisplayedSets(initialSets)
+      return
+    }
+    setSearching(true)
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchContentSets(q)
+        setDisplayedSets(results)
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search, initialSets])
 
   // Default word_bank to 'shared'; reset to 'individual' for everything else
   useEffect(() => {
@@ -275,6 +299,8 @@ function AddActivityModal({ lessonId, contentSets, onAdd, onClose }: AddModalPro
         mechanic_id: selectedSet.mechanic_id,
         mode: effectiveMode,
         config: cfg,
+        content_set_title: selectedSet.title,
+        content_set_item_count: selectedSet.item_count,
       })
       onClose()
     } catch (err) {
@@ -341,21 +367,23 @@ function AddActivityModal({ lessonId, contentSets, onAdd, onClose }: AddModalPro
                 )}
               </div>
 
-              {contentSets.length === 0 ? (
+              {searching ? (
+                <div className="py-8 flex items-center justify-center gap-2 text-slate-400 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Searching…
+                </div>
+              ) : displayedSets.length === 0 && !search.trim() ? (
                 <div className="py-12 text-center">
                   <div className="text-5xl mb-3">📭</div>
                   <p className="text-slate-600 font-semibold text-sm">No activities yet</p>
                   <p className="text-slate-400 text-xs mt-1 mb-4">Create an activity first to add it here</p>
                 </div>
+              ) : displayedSets.length === 0 ? (
+                <p className="text-center text-slate-400 text-sm py-8">No activities match &ldquo;{search}&rdquo;</p>
               ) : (() => {
-                const q = search.toLowerCase()
-                const list = q ? contentSets.filter(cs => cs.title.toLowerCase().includes(q)) : contentSets
-                if (list.length === 0) return (
-                  <p className="text-center text-slate-400 text-sm py-8">No activities match &ldquo;{search}&rdquo;</p>
-                )
                 return (
                   <div className="space-y-1.5">
-                    {list.map((cs) => {
+                    {displayedSets.map((cs) => {
                       const meta = MECHANIC_META[cs.mechanic_id]
                       const Icon = meta?.Icon ?? Gamepad2
                       const isSelected = selectedSet?.id === cs.id
@@ -1092,10 +1120,11 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
     mechanic_id: string
     mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
+    content_set_title: string
+    content_set_item_count: number
   }) {
     const position = activities.length
     const created = await addActivity(lesson.id, { ...data, position })
-    const cs = contentSets.find((c) => c.id === data.content_set_id)
     setActivities((prev) => [
       ...prev,
       {
@@ -1105,8 +1134,8 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         mode: data.mode,
         position,
         config: data.config,
-        content_set_title: cs?.title ?? '(unknown)',
-        content_set_item_count: cs?.item_count ?? 0,
+        content_set_title: data.content_set_title,
+        content_set_item_count: data.content_set_item_count,
       },
     ])
     toast.success('Activity added!')
@@ -1407,7 +1436,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
       {showAddModal && (
         <AddActivityModal
           lessonId={lesson.id}
-          contentSets={contentSets}
+          initialSets={contentSets}
           onAdd={handleAddActivity}
           onClose={() => setShowAddModal(false)}
         />
