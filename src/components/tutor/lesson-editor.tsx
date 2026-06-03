@@ -36,6 +36,7 @@ import {
   BarChart2,
   PenLine,
   Library,
+  ToggleLeft,
   Search,
   ExternalLink,
   Lock,
@@ -173,6 +174,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
   word_bank: {
     label: 'Word Bank',
     Icon: Library,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  word_choice: {
+    label: 'Word Choice',
+    Icon: ToggleLeft,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
 }

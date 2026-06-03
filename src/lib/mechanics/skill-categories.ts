@@ -64,6 +64,7 @@ export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
   speed_debate:       ['speaking'],
   roleplay_quest:     ['speaking'],
   speaking_challenge: ['speaking'],
+  word_choice:        ['grammar', 'vocabulary', 'reading'],
 }
 
 // Derived single-category map (first/primary) — kept for badge display and legacy compat.

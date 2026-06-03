@@ -29,6 +29,8 @@ import { MultipleChoiceHostPanel, MultipleChoiceVoteHostPanel } from '@/lib/mech
 import { FillTheGapHostPanel } from '@/lib/mechanics/fill-the-gap/HostComponent'
 import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
 import { WordBankIndividualHostPanel, WordBankSharedHostPanel } from '@/lib/mechanics/word-bank/HostComponent'
+import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
+import { WordChoiceIndividualHostPanel, WordChoiceSharedHostPanel } from '@/lib/mechanics/word-choice/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -181,6 +183,8 @@ export function SessionHostView({ session, lesson }: Props) {
 
   // Word Bank shared state (word_bank in shared mode)
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
+  // Word Choice shared state (word_choice in shared mode)
+  const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -216,6 +220,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const talkTimeStateRef = useRef<TalkTimeState | null>(null)
   const voteStateRef = useRef<VoteState | null>(null)
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
+  const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -386,6 +391,19 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'fills' in (stateRow.state as Record<string, unknown>)) {
             setWordBankSharedState(stateRow.state as unknown as WordBankSharedState)
+          }
+        }
+
+        // Restore word_choice shared state from DB on tab restore / reconnect
+        if (currentMechanic === 'word_choice' && currentActivityMode === 'shared' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'fills' in (stateRow.state as Record<string, unknown>)) {
+            setWordChoiceSharedState(stateRow.state as unknown as WordChoiceSharedState)
           }
         }
       } catch { /* participants will be populated via presence on reconnect */ }
@@ -611,6 +629,30 @@ export function SessionHostView({ session, lesson }: Props) {
           return newState
         })
       })
+      .on('broadcast', { event: 'word_choice_fill' }, ({ payload }) => {
+        const p = payload as { blankGlobalIndex: number; optionIndex: number; activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setWordChoiceSharedState(prev => {
+          if (!prev) return prev
+          const newFills = { ...prev.fills, [p.blankGlobalIndex]: p.optionIndex }
+          const newState: WordChoiceSharedState = { ...prev, fills: newFills }
+          wordChoiceSharedStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({
+            type: 'broadcast', event: 'word_choice_state_update', payload: { state: newState },
+          })
+          return newState
+        })
+      })
+      .on('broadcast', { event: 'word_choice_state_update' }, ({ payload }) => {
+        const p = payload as { state: WordChoiceSharedState }
+        if (p.state) setWordChoiceSharedState(p.state)
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -800,6 +842,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newContentBlockState: ContentBlockState | undefined
         let newVoteState: VoteState | undefined
         let newWordBankSharedState: WordBankSharedState | undefined
+        let newWordChoiceSharedState: WordChoiceSharedState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -845,7 +888,17 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setWordBankSharedState(newWordBankSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setWordChoiceSharedState(null)
+        } else if (firstActivity?.mechanic_id === 'word_choice' && firstActivity?.mode === 'shared') {
+          newWordChoiceSharedState = { fills: {}, revealed: false, phase: 'playing' }
+          const supabase = createClient()
+          await supabase.from('shared_activity_state').upsert({
+            session_id: session.id, activity_index: currentActivityIndex,
+            state: newWordChoiceSharedState as unknown as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          setWordChoiceSharedState(newWordChoiceSharedState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
@@ -864,6 +917,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setContentBlockState(null)
           setVoteState(null)
           setWordBankSharedState(null)
+          setWordChoiceSharedState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -882,6 +936,7 @@ export function SessionHostView({ session, lesson }: Props) {
             contentBlockState: newContentBlockState,
             voteState: newVoteState,
             wordBankSharedState: newWordBankSharedState,
+            wordChoiceSharedState: newWordChoiceSharedState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -928,6 +983,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newContentBlockState: ContentBlockState | undefined
       let newVoteState: VoteState | undefined
       let newWordBankSharedState: WordBankSharedState | undefined
+      let newWordChoiceSharedState: WordChoiceSharedState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -976,7 +1032,17 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordBankSharedState(newWordBankSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setWordChoiceSharedState(null)
+      } else if (nextActivity?.mechanic_id === 'word_choice' && nextActivity?.mode === 'shared') {
+        newWordChoiceSharedState = { fills: {}, revealed: false, phase: 'playing' }
+        const supabase = createClient()
+        await supabase.from('shared_activity_state').upsert({
+          session_id: session.id, activity_index: nextIndex,
+          state: newWordChoiceSharedState as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        })
+        setWordChoiceSharedState(newWordChoiceSharedState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
@@ -984,17 +1050,18 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
         newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
         setRoleplayQuestState(newRoleplayQuestState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
         setVoteState(null)
         setWordBankSharedState(null)
+        setWordChoiceSharedState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1011,6 +1078,7 @@ export function SessionHostView({ session, lesson }: Props) {
           contentBlockState: newContentBlockState,
           voteState: newVoteState,
           wordBankSharedState: newWordBankSharedState,
+          wordChoiceSharedState: newWordChoiceSharedState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -1285,6 +1353,20 @@ export function SessionHostView({ session, lesson }: Props) {
     setWordBankSharedState(newState)
     channelRef.current?.send({
       type: 'broadcast', event: 'word_bank_state_update', payload: { state: newState },
+    })
+  }
+
+  async function handleWordChoiceReveal() {
+    if (!wordChoiceSharedState) return
+    const newState: WordChoiceSharedState = { ...wordChoiceSharedState, revealed: true }
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setWordChoiceSharedState(newState)
+    channelRef.current?.send({
+      type: 'broadcast', event: 'word_choice_state_update', payload: { state: newState },
     })
   }
 
@@ -2034,6 +2116,43 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── WORD CHOICE — individual mode ────────────────────────── */}
+            {currentMechanicId === 'word_choice' && currentActivityMode !== 'shared' && (
+              <WordChoiceIndividualHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── WORD CHOICE — shared mode ─────────────────────────────── */}
+            {currentMechanicId === 'word_choice' && currentActivityMode === 'shared' && wordChoiceSharedState && (
+              <WordChoiceSharedHostPanel
+                state={wordChoiceSharedState}
+                items={currentActivityItems.map(i => ({
+                  id: i.id,
+                  sentence: i.sentence ?? '',
+                  blanks: (i.blanks ?? []).map((b: { options?: string[]; correctIndex?: number }) => ({
+                    options: b.options ?? [],
+                    correctIndex: b.correctIndex ?? 0,
+                  })),
+                }))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onReveal={handleWordChoiceReveal}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -2114,7 +2233,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

@@ -11,6 +11,7 @@ import { wordBankDefinition } from './word-bank'
 import { speedDebateDefinition } from './speed-debate'
 import { roleplayQuestDefinition } from './roleplay-quest'
 import { speakingChallengeDefinition } from './speaking-challenge'
+import { wordChoiceDefinition } from './word-choice'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -26,6 +27,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   speed_debate: speedDebateDefinition as MechanicDefinition,
   roleplay_quest: roleplayQuestDefinition as MechanicDefinition,
   speaking_challenge: speakingChallengeDefinition as MechanicDefinition,
+  word_choice: wordChoiceDefinition as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {

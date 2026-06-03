@@ -17,6 +17,7 @@ export type MechanicId =
   | 'speaking_challenge'
   | 'fill_the_gap'
   | 'word_bank'
+  | 'word_choice'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 
