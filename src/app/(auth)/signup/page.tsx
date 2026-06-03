@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Mail } from 'lucide-react'
 
 function passwordStrength(pwd: string): number {
   let score = 0
@@ -20,7 +19,7 @@ const STRENGTH_COLORS = ['', 'bg-red-400', 'bg-yellow-400', 'bg-blue-400', 'bg-g
 const STRENGTH_TEXT = ['', 'text-red-500', 'text-yellow-600', 'text-blue-500', 'text-green-600']
 
 export default function SignupPage() {
-  const router = useRouter()
+  const [confirmed, setConfirmed] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -59,9 +58,36 @@ export default function SignupPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push('/tutor/dashboard')
-      router.refresh()
+      setConfirmed(true)
     }
+  }
+
+  if (confirmed) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700 flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-extrabold text-white tracking-tight">Edugine</h1>
+            <p className="text-violet-200 mt-1 text-sm">Interactive lessons for online tutors</p>
+          </div>
+          <div className="bg-white rounded-3xl shadow-2xl shadow-violet-900/30 p-8">
+            <div className="w-14 h-14 rounded-2xl bg-violet-100 flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-7 h-7 text-violet-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 mb-2">Check your email</h2>
+            <p className="text-slate-500 text-sm leading-relaxed">
+              We sent a confirmation link to <span className="font-semibold text-slate-700">{email}</span>. Open it to activate your account.
+            </p>
+            <p className="text-xs text-slate-400 mt-4">
+              Already confirmed?{' '}
+              <Link href="/login" className="text-violet-600 hover:text-violet-800 font-semibold transition-colors">
+                Sign in →
+              </Link>
+            </p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
