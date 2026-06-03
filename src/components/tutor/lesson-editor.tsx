@@ -81,6 +81,22 @@ interface Lesson {
   description: string | null
   visibility: Visibility
   share_token: string | null
+  slug: string | null
+  level: string | null
+}
+
+function generateSlug(text: string): string {
+  return text.toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    .slice(0, 60)
+}
+
+function cleanSlugInput(input: string): string {
+  return input.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-')
 }
 
 export interface ActivityRow {
@@ -1011,6 +1027,11 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const [title, setTitle] = useState(lesson.title)
   const [description, setDescription] = useState(lesson.description ?? '')
   const [visibility, setVisibility] = useState<Visibility>(lesson.visibility)
+  const [pubSlug, setPubSlug] = useState(lesson.slug ?? '')
+  const [pubLevel, setPubLevel] = useState(lesson.level ?? '')
+  const [pubSlugError, setPubSlugError] = useState<string | null>(null)
+  const [savingPub, setSavingPub] = useState(false)
+  const [savedAsPublic, setSavedAsPublic] = useState(lesson.visibility === 'public')
   const [activities, setActivities] = useState(initialActivities)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
@@ -1024,13 +1045,55 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
     ? `${window.location.origin}/lessons/share/${lesson.share_token}`
     : `https://edugine.vercel.app/lessons/share/${lesson.share_token}`
 
-  async function handleVisibilityChange(v: Visibility) {
+  const publicUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/lessons/${pubSlug}`
+    : `https://edugine.vercel.app/lessons/${pubSlug}`
+
+  function handleVisibilityClick(v: Visibility) {
+    if (v === 'public') {
+      setVisibility('public')
+      if (!pubSlug) setPubSlug(generateSlug(title))
+      return
+    }
+    const prev = visibility
     setVisibility(v)
+    setPubSlugError(null)
+    updateLessonVisibility(lesson.id, v)
+      .then((res) => { if (res?.error) { toast.error(res.error); setVisibility(prev) } })
+      .catch(() => { toast.error('Failed to update visibility'); setVisibility(prev) })
+  }
+
+  async function handlePublish() {
+    if (!description.trim()) {
+      setPubSlugError('A description is required before publishing')
+      return
+    }
+    if (!pubLevel) {
+      setPubSlugError('Please select a level')
+      return
+    }
+    if (!pubSlug.trim()) {
+      setPubSlugError('A URL slug is required')
+      return
+    }
+    setSavingPub(true)
+    setPubSlugError(null)
     try {
-      await updateLessonVisibility(lesson.id, v)
+      const result = await updateLessonVisibility(lesson.id, 'public', {
+        slug: pubSlug,
+        level: pubLevel,
+        description: description.trim(),
+      })
+      if (result.error) {
+        setPubSlugError(result.error)
+      } else {
+        setSavedAsPublic(true)
+        toast.success(savedAsPublic ? 'Public lesson updated!' : 'Lesson published!')
+      }
     } catch {
-      toast.error('Failed to update visibility')
-      setVisibility(visibility)
+      toast.error('Failed to publish lesson')
+    } finally {
+      setSavingPub(false)
     }
   }
 
@@ -1252,19 +1315,17 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
           <div className="flex gap-2 flex-wrap">
             {(
               [
-                { value: 'private', icon: Lock, label: 'Private', desc: 'Only you can see', colors: 'border-slate-300 bg-slate-50 text-slate-700' },
-                { value: 'unlisted', icon: Link2, label: 'Unlisted', desc: 'Anyone with the link', colors: 'border-violet-400 bg-violet-50 text-violet-700' },
-                { value: 'public', icon: Globe, label: 'Public', desc: 'Coming soon', colors: 'border-sky-400 bg-sky-50 text-sky-700' },
+                { value: 'private',  icon: Lock,  label: 'Private',  desc: 'Only you can see',      colors: 'border-slate-300 bg-slate-50 text-slate-700' },
+                { value: 'unlisted', icon: Link2, label: 'Unlisted', desc: 'Anyone with the link',   colors: 'border-violet-400 bg-violet-50 text-violet-700' },
+                { value: 'public',   icon: Globe, label: 'Public',   desc: 'Listed publicly',        colors: 'border-sky-400 bg-sky-50 text-sky-700' },
               ] as const
             ).map(({ value, icon: Icon, label, desc, colors }) => (
               <button
                 key={value}
                 type="button"
-                disabled={value === 'public'}
-                onClick={() => handleVisibilityChange(value)}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
-                  ${visibility === value ? colors : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}
-                  ${value === 'public' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                onClick={() => handleVisibilityClick(value)}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer
+                  ${visibility === value ? colors : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{label}</span>
@@ -1273,6 +1334,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             ))}
           </div>
 
+          {/* Unlisted: share link */}
           {visibility === 'unlisted' && lesson.share_token && (
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500 truncate font-mono">
@@ -1289,10 +1351,98 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             </div>
           )}
 
+          {/* Public: meta form */}
           {visibility === 'public' && (
-            <p className="text-xs text-slate-400 mt-1">
-              Coming soon — public lesson library.
-            </p>
+            <div className="mt-1 pt-3 border-t border-slate-100 space-y-4">
+
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-600 block">
+                  Description <span className="text-red-400">*</span>
+                  <span className="text-slate-400 font-normal ml-1">shown on the public page</span>
+                </label>
+                <textarea
+                  value={description}
+                  onChange={(e) => handleDescriptionChange(e.target.value)}
+                  placeholder="What will students practise in this lesson?"
+                  maxLength={300}
+                  rows={2}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400
+                    resize-none transition-colors placeholder:text-slate-300"
+                />
+              </div>
+
+              {/* Level */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-600 block">
+                  Level <span className="text-red-400">*</span>
+                </label>
+                <select
+                  value={pubLevel}
+                  onChange={(e) => setPubLevel(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400 transition-colors
+                    text-slate-700"
+                >
+                  <option value="">Select level…</option>
+                  {['A1', 'A2', 'B1', 'B2', 'C1', 'C2'].map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Slug */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-600 block">
+                  URL Slug <span className="text-red-400">*</span>
+                </label>
+                <div className="flex items-center gap-0 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-sky-300 focus-within:border-sky-400 transition-all">
+                  <span className="px-3 py-2 text-xs text-slate-400 font-mono whitespace-nowrap shrink-0 bg-slate-100 border-r border-slate-200">
+                    edugine.vercel.app/lessons/
+                  </span>
+                  <input
+                    type="text"
+                    value={pubSlug}
+                    onChange={(e) => { setPubSlug(cleanSlugInput(e.target.value)); setPubSlugError(null) }}
+                    placeholder="my-lesson-slug"
+                    maxLength={60}
+                    className="flex-1 min-w-0 px-3 py-2 text-sm bg-transparent text-slate-700 font-mono outline-none"
+                  />
+                </div>
+                {pubSlugError && (
+                  <p className="text-xs text-red-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 shrink-0" />{pubSlugError}
+                  </p>
+                )}
+              </div>
+
+              {/* Publish / Update button */}
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={handlePublish}
+                  disabled={savingPub || !pubLevel || !pubSlug.trim() || !description.trim()}
+                  className="flex items-center gap-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-40
+                    disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+                >
+                  {savingPub ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                  {savedAsPublic ? 'Update public lesson' : 'Publish lesson'}
+                </button>
+
+                {savedAsPublic && pubSlug && (
+                  <a
+                    href={publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-700 font-medium transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    View public page
+                  </a>
+                )}
+              </div>
+            </div>
           )}
         </div>
 

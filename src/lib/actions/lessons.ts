@@ -35,20 +35,53 @@ export async function createLesson(
 export async function updateLessonVisibility(
   id: string,
   visibility: 'private' | 'unlisted' | 'public',
-) {
+  meta?: { slug?: string; level?: string; description?: string },
+): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  const { error } = await supabase
-    .from('lessons')
-    .update({ visibility })
-    .eq('id', id)
-    .eq('owner_id', user.id)
+  if (visibility === 'public') {
+    const { slug = '', level = '', description = '' } = meta ?? {}
 
-  if (error) throw new Error(error.message)
+    if (!slug || !level) return { error: 'Slug and level are required for public lessons' }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
+      return { error: 'Slug may only contain lowercase letters, numbers, and hyphens' }
+    }
+    if (slug === 'share') return { error: '"share" is a reserved word — choose another slug' }
+
+    const { data: existing } = await supabase
+      .from('lessons')
+      .select('id')
+      .eq('slug', slug)
+      .neq('id', id)
+      .maybeSingle()
+
+    if (existing) return { error: 'This slug is already taken — please choose another' }
+
+    const { error } = await supabase
+      .from('lessons')
+      .update({ visibility, slug, level, description: description.trim() || null })
+      .eq('id', id)
+      .eq('owner_id', user.id)
+
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase
+      .from('lessons')
+      .update({ visibility })
+      .eq('id', id)
+      .eq('owner_id', user.id)
+
+    if (error) throw new Error(error.message)
+  }
+
   revalidatePath('/tutor/lessons')
   revalidatePath(`/tutor/lessons/${id}/edit`)
+  if (visibility === 'public' && meta?.slug) {
+    revalidatePath(`/lessons/${meta.slug}`)
+  }
+  return {}
 }
 
 export async function updateLesson(

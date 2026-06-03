@@ -14,6 +14,15 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { deleteLesson, duplicateLesson } from '@/lib/actions/lessons'
 
+const LEVEL_COLORS: Record<string, string> = {
+  A1: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  A2: 'bg-teal-50 text-teal-700 border-teal-200',
+  B1: 'bg-sky-50 text-sky-700 border-sky-200',
+  B2: 'bg-blue-50 text-blue-700 border-blue-200',
+  C1: 'bg-violet-50 text-violet-700 border-violet-200',
+  C2: 'bg-purple-50 text-purple-700 border-purple-200',
+}
+
 interface LessonCardProps {
   lesson: {
     id: string
@@ -23,6 +32,7 @@ interface LessonCardProps {
     activity_count: number
     updated_at: string
     visibility?: string | null
+    level?: string | null
   }
 }
 
@@ -131,6 +141,11 @@ export function LessonCard({ lesson }: LessonCardProps) {
             </span>
           )
         })()}
+        {lesson.level && (
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold border ${LEVEL_COLORS[lesson.level] ?? 'bg-slate-50 text-slate-500 border-slate-200'}`}>
+            {lesson.level}
+          </span>
+        )}
       </div>
 
       {/* Title */}
