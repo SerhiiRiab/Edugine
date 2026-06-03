@@ -13,6 +13,7 @@ import {
   Library,
   Menu,
   X,
+  Globe,
 } from 'lucide-react'
 
 const NAV_ITEMS = [
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { href: '/tutor/programs',      label: 'Programs',     icon: BookOpen },
   { href: '/tutor/lessons',       label: 'Lessons',      icon: GraduationCap },
   { href: '/tutor/content-sets',  label: 'Activities',   icon: Library },
+  { href: '/library',             label: 'Library',      icon: Globe },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
 ]
 

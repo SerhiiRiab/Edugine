@@ -16,6 +16,12 @@ export default async function Home() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/library"
+            className="px-4 py-2 text-white/80 font-medium hover:text-white transition-colors text-sm"
+          >
+            Library
+          </Link>
           {user ? (
             <Link
               href="/tutor/dashboard"
