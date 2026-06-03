@@ -1,19 +1,14 @@
-import type React from 'react'
 import type { MechanicDefinition } from '@/lib/mechanics/types'
 import type { RoleplayQuestConfig, RoleplayQuestItem, RoleplayQuestState } from './types'
+import { RoleplayQuestHostPanel } from './HostComponent'
+import { RoleplayQuestPlayerPanel } from './PlayerComponent'
+import { RoleplayQuestContentEditor } from './ContentEditor'
 
 function validateRoleplayQuestItem(data: unknown): data is RoleplayQuestItem {
   if (typeof data !== 'object' || data === null) return false
   const d = data as Record<string, unknown>
   return typeof d.roleName === 'string' && typeof d.roleDescription === 'string' && typeof d.secretGoal === 'string'
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const HostStub: React.ComponentType<any> = () => null
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const PlayerStub: React.ComponentType<any> = () => null
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const EditorStub: React.ComponentType<any> = () => null
 
 export const roleplayQuestDefinition: MechanicDefinition<RoleplayQuestConfig, RoleplayQuestItem, RoleplayQuestState> = {
   id: 'roleplay_quest',
@@ -22,9 +17,12 @@ export const roleplayQuestDefinition: MechanicDefinition<RoleplayQuestConfig, Ro
   skill_category: 'speaking',
   skill_categories: ['speaking'],
 
-  HostComponent: HostStub,
-  PlayerComponent: PlayerStub,
-  ContentEditor: EditorStub,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  HostComponent: RoleplayQuestHostPanel as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  PlayerComponent: RoleplayQuestPlayerPanel as any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ContentEditor: RoleplayQuestContentEditor as any,
 
   defaultConfig: {},
   validateItem: validateRoleplayQuestItem,
