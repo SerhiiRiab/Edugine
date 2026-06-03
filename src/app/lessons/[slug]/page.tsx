@@ -71,13 +71,25 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!lesson) return { title: 'Lesson not found — Edugine' }
 
   const title = `${lesson.title} — Edugine`
-  const description = lesson.description ?? undefined
+  const description = lesson.description ?? 'A public lesson on Edugine — interactive lessons for online tutors.'
+  const url = `https://edugine.app/lessons/${slug}`
 
   return {
     title,
     description,
-    openGraph: { title, description },
-    twitter: { card: 'summary', title, description },
+    openGraph: {
+      type: 'website',
+      url,
+      title,
+      description,
+      images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['https://edugine.app/og-image.png'],
+    },
   }
 }
 
