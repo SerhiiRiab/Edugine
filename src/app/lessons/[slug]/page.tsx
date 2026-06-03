@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { PublicLessonActions } from './lesson-actions'
 import {
   GraduationCap,
   LayoutList,
@@ -95,7 +96,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PublicLessonPage({ params }: Props) {
   const { slug } = await params
-  const lesson = await fetchLesson(slug)
+
+  const supabase = await createClient()
+  const [{ data: { user } }, lesson] = await Promise.all([
+    supabase.auth.getUser(),
+    fetchLesson(slug),
+  ])
 
   if (!lesson) notFound()
 
@@ -120,13 +126,22 @@ export default async function PublicLessonPage({ params }: Props) {
           <GraduationCap className="w-5 h-5 text-violet-600" />
           <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
         </div>
-        <Link
-          href="/signup"
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-        >
-          Open in Edugine
-          <ExternalLink className="w-3.5 h-3.5" />
-        </Link>
+        {user ? (
+          <Link
+            href="/tutor/dashboard"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            Dashboard →
+          </Link>
+        ) : (
+          <Link
+            href={`/signup?redirect=/lessons/${slug}`}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            Open in Edugine
+            <ExternalLink className="w-3.5 h-3.5" />
+          </Link>
+        )}
       </header>
 
       {/* Main */}
@@ -201,14 +216,31 @@ export default async function PublicLessonPage({ params }: Props) {
 
           {/* CTA */}
           <div className="mt-6 text-center">
-            <p className="text-slate-400 text-sm mb-3">Want to use this lesson with your students?</p>
-            <Link
-              href="/signup"
-              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
-            >
-              Get started with Edugine — it&apos;s free
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
+            {user ? (
+              <>
+                <p className="text-slate-400 text-sm mb-3">Use this lesson with your students</p>
+                <PublicLessonActions lessonId={lesson.id} />
+              </>
+            ) : (
+              <>
+                <p className="text-slate-400 text-sm mb-3">Want to use this lesson with your students?</p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href={`/signup?redirect=/lessons/${slug}`}
+                    className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
+                  >
+                    Get started free
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                  <Link
+                    href={`/login?redirect=/lessons/${slug}`}
+                    className="inline-flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
+                  >
+                    Sign in
+                  </Link>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </main>

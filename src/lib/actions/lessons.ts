@@ -117,16 +117,17 @@ export async function deleteLesson(id: string) {
   revalidatePath('/tutor/lessons')
 }
 
-export async function duplicateLesson(id: string) {
+export async function duplicateLesson(id: string): Promise<{ lessonId: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
+  // Accept lessons the user owns OR that are publicly visible
   const { data: original, error: fetchErr } = await supabase
     .from('lessons')
-    .select('*, lesson_activities(*)')
+    .select('title, description, language, level, lesson_activities(content_set_id, mechanic_id, position, mode, config)')
     .eq('id', id)
-    .eq('owner_id', user.id)
+    .or(`owner_id.eq.${user.id},visibility.eq.public`)
     .single()
 
   if (fetchErr || !original) throw new Error('Not found')
@@ -138,6 +139,8 @@ export async function duplicateLesson(id: string) {
       title: `${original.title} (copy)`,
       description: original.description,
       language: original.language,
+      level: original.level,
+      visibility: 'private',
     })
     .select('id')
     .single()
@@ -166,6 +169,7 @@ export async function duplicateLesson(id: string) {
   }
 
   revalidatePath('/tutor/lessons')
+  return { lessonId: newLesson.id }
 }
 
 export async function addActivity(
@@ -331,3 +335,4 @@ export async function reorderActivities(lessonId: string, orderedIds: string[]) 
       .eq('lesson_id', lessonId)
   }
 }
+

@@ -20,6 +20,7 @@ const STRENGTH_TEXT = ['', 'text-red-500', 'text-yellow-600', 'text-blue-500', '
 
 export default function SignupPage() {
   const [confirmed, setConfirmed] = useState(false)
+  const [redirectAfterConfirm, setRedirectAfterConfirm] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -45,12 +46,13 @@ export default function SignupPage() {
 
     setLoading(true)
 
+    const redirectTo = new URLSearchParams(window.location.search).get('redirect') || ''
     const supabase = createClient()
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo || '/tutor/dashboard')}`,
       },
     })
 
@@ -58,6 +60,7 @@ export default function SignupPage() {
       setError(error.message)
       setLoading(false)
     } else {
+      setRedirectAfterConfirm(redirectTo)
       setConfirmed(true)
     }
   }
@@ -80,7 +83,10 @@ export default function SignupPage() {
             </p>
             <p className="text-xs text-slate-400 mt-4">
               Already confirmed?{' '}
-              <Link href="/login" className="text-violet-600 hover:text-violet-800 font-semibold transition-colors">
+              <Link
+                href={redirectAfterConfirm ? `/login?redirect=${encodeURIComponent(redirectAfterConfirm)}` : '/login'}
+                className="text-violet-600 hover:text-violet-800 font-semibold transition-colors"
+              >
                 Sign in →
               </Link>
             </p>

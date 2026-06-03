@@ -31,7 +31,8 @@ export default function LoginPage() {
       setError('Invalid credentials. Please check your email and password.')
       setLoading(false)
     } else {
-      router.push('/tutor/dashboard')
+      const redirectTo = new URLSearchParams(window.location.search).get('redirect')
+      router.push(redirectTo || '/tutor/dashboard')
       router.refresh()
     }
   }
@@ -41,11 +42,12 @@ export default function LoginPage() {
     setMagicLoading(true)
     setError('')
 
+    const redirectTo = new URLSearchParams(window.location.search).get('redirect')
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
       email: magicEmail,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo || '/tutor/dashboard')}`,
       },
     })
 
