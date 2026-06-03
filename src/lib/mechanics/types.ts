@@ -58,7 +58,7 @@ export interface BulkImportCorrectToggle {
 export interface BulkImportConfig {
   enabled: boolean
   fields: BulkImportField[]
-  placeholder: string
+  placeholder: string | ((separator: BulkSeparator) => string)
   description: string
   defaultSeparator: BulkSeparator
   parseLine: (line: string, separator: string) => Record<string, unknown> | null

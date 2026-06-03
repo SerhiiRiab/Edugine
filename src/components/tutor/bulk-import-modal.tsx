@@ -115,7 +115,7 @@ export function BulkImportModal({ config, onImport, onClose }: Props) {
               rows={8}
               autoFocus
               spellCheck={false}
-              placeholder={config.placeholder}
+              placeholder={typeof config.placeholder === 'function' ? config.placeholder(separator) : config.placeholder}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3
                 text-sm font-mono text-slate-800 placeholder:text-slate-300 resize-none
                 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100
