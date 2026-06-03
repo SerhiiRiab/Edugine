@@ -1,12 +1,26 @@
 import Link from 'next/link'
+import { Crown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+}
 
 export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('plan, pro_expires_at')
+    .eq('id', user!.id)
+    .single()
+
+  const plan = (profile?.plan as 'free' | 'pro') ?? 'free'
+  const proExpiresAt = profile?.pro_expires_at ?? null
+
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-8 max-w-2xl space-y-6">
 
       <div className="mb-10">
         <h1 className="text-3xl font-extrabold text-slate-800 tracking-tight">Settings</h1>
@@ -31,6 +45,48 @@ export default async function SettingsPage() {
           >
             Change password →
           </Link>
+        </div>
+      </div>
+
+      {/* Plan & Billing */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-5">Plan &amp; Billing</h2>
+
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-slate-400 mb-1.5">Current plan</p>
+            {plan === 'pro' ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-bold bg-gradient-to-r from-violet-500 to-purple-500 text-white">
+                <Crown className="w-3.5 h-3.5" /> Pro
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+                Free
+              </span>
+            )}
+          </div>
+
+          {plan === 'pro' && (
+            <div>
+              <p className="text-xs font-medium text-slate-400 mb-0.5">Subscription</p>
+              <p className="text-slate-700 font-medium text-sm">
+                {proExpiresAt ? `Pro until ${formatDate(proExpiresAt)}` : 'Lifetime Pro'}
+              </p>
+            </div>
+          )}
+
+          {plan === 'free' && (
+            <div className="pt-1">
+              <button
+                disabled
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-violet-100 text-violet-400 cursor-not-allowed select-none"
+              >
+                <Crown className="w-4 h-4" />
+                Upgrade to Pro
+                <span className="text-xs font-normal text-violet-300 ml-1">— Coming soon</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

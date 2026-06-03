@@ -27,10 +27,12 @@ const NAV_ITEMS = [
 
 interface Props {
   email: string
+  plan: 'free' | 'pro'
+  proExpiresAt: string | null
   children: React.ReactNode
 }
 
-export function TutorShell({ email, children }: Props) {
+export function TutorShell({ email, plan, proExpiresAt, children }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -84,6 +86,15 @@ export function TutorShell({ email, children }: Props) {
       <div className="px-3 py-4 border-t border-violet-800/60 space-y-1">
         <div className="px-3 py-2">
           <p className="text-xs text-violet-400 truncate">{email}</p>
+          {plan === 'pro' ? (
+            <span className="inline-block mt-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 text-white tracking-wide">
+              Pro
+            </span>
+          ) : (
+            <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-900 border border-violet-700 text-violet-400 tracking-wide">
+              Free
+            </span>
+          )}
         </div>
         <button
           onClick={handleLogout}
