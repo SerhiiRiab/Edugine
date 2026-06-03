@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap, Lock, Link2, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -22,8 +22,15 @@ interface LessonCardProps {
     language: string | null
     activity_count: number
     updated_at: string
+    visibility?: string | null
   }
 }
+
+const VISIBILITY_META = {
+  private:  { Icon: Lock,  label: 'Private',  classes: 'bg-slate-50 text-slate-500 border-slate-200' },
+  unlisted: { Icon: Link2, label: 'Unlisted', classes: 'bg-violet-50 text-violet-600 border-violet-200' },
+  public:   { Icon: Globe, label: 'Public',   classes: 'bg-sky-50 text-sky-600 border-sky-200' },
+} as const
 
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -109,10 +116,22 @@ export function LessonCard({ lesson }: LessonCardProps) {
         </DropdownMenu>
       </div>
 
-      {/* Badge */}
-      <span className="self-start mb-3 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
-        <GraduationCap className="w-3 h-3" />Lesson
-      </span>
+      {/* Badges */}
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200">
+          <GraduationCap className="w-3 h-3" />Lesson
+        </span>
+        {(() => {
+          const vis = (lesson.visibility ?? 'private') as keyof typeof VISIBILITY_META
+          const meta = VISIBILITY_META[vis] ?? VISIBILITY_META.private
+          const { Icon, label, classes } = meta
+          return (
+            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${classes}`}>
+              <Icon className="w-3 h-3" />{label}
+            </span>
+          )
+        })()}
+      </div>
 
       {/* Title */}
       <h3 className="font-bold text-slate-800 text-base leading-snug mb-1.5 pr-6 group-hover:text-violet-700 transition-colors truncate">

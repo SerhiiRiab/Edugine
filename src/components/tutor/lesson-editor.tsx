@@ -37,6 +37,10 @@ import {
   Library,
   Search,
   ExternalLink,
+  Lock,
+  Link2,
+  Globe,
+  Copy,
 } from 'lucide-react'
 import {
   DndContext,
@@ -57,6 +61,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import {
   updateLesson,
+  updateLessonVisibility,
   addActivity,
   updateActivity,
   deleteActivity,
@@ -68,10 +73,14 @@ import { SKILL_CATEGORIES, MECHANIC_TO_CATEGORIES } from '@/lib/mechanics/skill-
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+type Visibility = 'private' | 'unlisted' | 'public'
+
 interface Lesson {
   id: string
   title: string
   description: string | null
+  visibility: Visibility
+  share_token: string | null
 }
 
 export interface ActivityRow {
@@ -1001,6 +1010,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const router = useRouter()
   const [title, setTitle] = useState(lesson.title)
   const [description, setDescription] = useState(lesson.description ?? '')
+  const [visibility, setVisibility] = useState<Visibility>(lesson.visibility)
   const [activities, setActivities] = useState(initialActivities)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
@@ -1008,6 +1018,28 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const [showAddModal, setShowAddModal] = useState(false)
   const [editingActivity, setEditingActivity] = useState<ActivityRow | null>(null)
   const [isLaunching, launchTransition] = useTransition()
+  const [copyDone, setCopyDone] = useState(false)
+
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/lessons/share/${lesson.share_token}`
+    : `https://edugine.vercel.app/lessons/share/${lesson.share_token}`
+
+  async function handleVisibilityChange(v: Visibility) {
+    setVisibility(v)
+    try {
+      await updateLessonVisibility(lesson.id, v)
+    } catch {
+      toast.error('Failed to update visibility')
+      setVisibility(visibility)
+    }
+  }
+
+  function handleCopyLink() {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      setCopyDone(true)
+      setTimeout(() => setCopyDone(false), 2000)
+    })
+  }
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1213,6 +1245,56 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             focus:border-violet-400 outline-none resize-none py-1 text-sm transition-colors
             placeholder:text-slate-300"
         />
+
+        {/* Visibility selector */}
+        <div className="mb-8 p-4 rounded-2xl border border-slate-100 bg-white space-y-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Visibility</p>
+          <div className="flex gap-2 flex-wrap">
+            {(
+              [
+                { value: 'private', icon: Lock, label: 'Private', desc: 'Only you can see', colors: 'border-slate-300 bg-slate-50 text-slate-700' },
+                { value: 'unlisted', icon: Link2, label: 'Unlisted', desc: 'Anyone with the link', colors: 'border-violet-400 bg-violet-50 text-violet-700' },
+                { value: 'public', icon: Globe, label: 'Public', desc: 'Coming soon', colors: 'border-sky-400 bg-sky-50 text-sky-700' },
+              ] as const
+            ).map(({ value, icon: Icon, label, desc, colors }) => (
+              <button
+                key={value}
+                type="button"
+                disabled={value === 'public'}
+                onClick={() => handleVisibilityChange(value)}
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+                  ${visibility === value ? colors : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}
+                  ${value === 'public' ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              >
+                <Icon className="w-3.5 h-3.5 shrink-0" />
+                <span>{label}</span>
+                {visibility !== value && <span className="text-xs font-normal text-slate-400 hidden sm:inline">{desc}</span>}
+              </button>
+            ))}
+          </div>
+
+          {visibility === 'unlisted' && lesson.share_token && (
+            <div className="flex items-center gap-2 mt-1">
+              <div className="flex-1 min-w-0 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-500 truncate font-mono">
+                {shareUrl}
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-600 transition-all shrink-0"
+              >
+                {copyDone ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                {copyDone ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          )}
+
+          {visibility === 'public' && (
+            <p className="text-xs text-slate-400 mt-1">
+              Coming soon — public lesson library.
+            </p>
+          )}
+        </div>
 
         {/* Activity list */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

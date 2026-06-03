@@ -26,7 +26,7 @@ export default async function LessonEditPage({
     supabase
       .from('lessons')
       .select(`
-        id, title, description,
+        id, title, description, visibility, share_token,
         lesson_activities(
           id, content_set_id, mechanic_id, mode, position, config,
           content_sets(id, title, content_items(id))
@@ -87,7 +87,13 @@ export default async function LessonEditPage({
   return (
     <>
       <LessonEditor
-        lesson={{ id: lesson.id, title: lesson.title, description: lesson.description }}
+        lesson={{
+          id: lesson.id,
+          title: lesson.title,
+          description: lesson.description,
+          visibility: (lesson.visibility ?? 'private') as 'private' | 'unlisted' | 'public',
+          share_token: lesson.share_token ?? null,
+        }}
         initialActivities={activities}
         contentSets={contentSets}
       />
