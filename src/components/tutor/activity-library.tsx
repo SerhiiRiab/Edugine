@@ -6,7 +6,7 @@ import { ArrowRight, Gamepad2, Plus } from 'lucide-react'
 import type { ComponentType } from 'react'
 import {
   Target, Zap, PenLine, Mic, Mic2, Clapperboard, CheckSquare,
-  ListChecks, PencilRuler, Library, MessageCircle, Theater,
+  ListChecks, PencilRuler, Library, MessageCircle, Theater, ToggleLeft,
 } from 'lucide-react'
 import {
   Select,
@@ -29,6 +29,7 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   speed_debate:    MessageCircle,
   roleplay_quest:     Theater,
   speaking_challenge: Mic2,
+  word_choice:        ToggleLeft,
 }
 
 const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {
