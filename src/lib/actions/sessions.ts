@@ -697,23 +697,26 @@ export async function addLateJoinerToTurnOrder(
   return newState
 }
 
-export async function launchPublicLesson(lessonId: string) {
+export async function launchPublicLesson(lessonId: string): Promise<{ redirectTo: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   await purgeAbandonedSessions(supabase, user.id)
 
-  const { data: lesson } = await supabase
+  const { data: lesson, error: lessonErr } = await supabase
     .from('lessons')
     .select('id')
     .eq('id', lessonId)
     .eq('visibility', 'public')
     .single()
 
-  if (!lesson) throw new Error('Lesson not found or not public')
+  if (lessonErr || !lesson) {
+    console.error('[launchPublicLesson] lesson fetch failed:', lessonErr)
+    throw new Error('Lesson not found or not public')
+  }
 
-  const { data: firstActivity } = await supabase
+  const { data: firstActivity, error: actErr } = await supabase
     .from('lesson_activities')
     .select('mechanic_id')
     .eq('lesson_id', lessonId)
@@ -721,9 +724,12 @@ export async function launchPublicLesson(lessonId: string) {
     .limit(1)
     .single()
 
-  if (!firstActivity) throw new Error('Lesson has no activities')
+  if (actErr || !firstActivity) {
+    console.error('[launchPublicLesson] activity fetch failed:', actErr)
+    throw new Error('Lesson has no activities')
+  }
 
-  const { data: session, error } = await supabase
+  const { data: session, error: sessionErr } = await supabase
     .from('sessions')
     .insert({
       host_id: user.id,
@@ -735,8 +741,14 @@ export async function launchPublicLesson(lessonId: string) {
     .select('id')
     .single()
 
-  if (error || !session) throw new Error(error?.message ?? 'Failed to create session')
-  redirect(`/tutor/sessions/${session.id}/host`)
+  if (sessionErr || !session) {
+    console.error('[launchPublicLesson] session insert failed:', sessionErr)
+    throw new Error(sessionErr?.message ?? 'Failed to create session')
+  }
+
+  // Return the URL instead of calling redirect() — redirect() throws NEXT_REDIRECT
+  // which gets caught by the client try/catch and treated as a regular error.
+  return { redirectTo: `/tutor/sessions/${session.id}/host` }
 }
 
 export async function endSession(sessionId: string) {

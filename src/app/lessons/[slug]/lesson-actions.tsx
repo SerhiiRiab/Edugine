@@ -16,8 +16,10 @@ export function PublicLessonActions({ lessonId }: { lessonId: string }) {
     setError(null)
     startLaunch(async () => {
       try {
-        await launchPublicLesson(lessonId)
+        const { redirectTo } = await launchPublicLesson(lessonId)
+        router.push(redirectTo)
       } catch (e) {
+        console.error('[handleLaunch]', e)
         setError(e instanceof Error ? e.message : 'Failed to launch session')
       }
     })
