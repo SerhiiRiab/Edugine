@@ -50,5 +50,14 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Admin routes — only allow the designated admin email
+  if (pathname.startsWith('/admin')) {
+    if (!user || user.email !== 'malinkaliiina@gmail.com') {
+      const url = request.nextUrl.clone()
+      url.pathname = user ? '/tutor/dashboard' : '/login'
+      return NextResponse.redirect(url)
+    }
+  }
+
   return supabaseResponse
 }

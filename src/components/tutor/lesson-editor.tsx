@@ -1043,11 +1043,11 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
 
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/lessons/share/${lesson.share_token}`
-    : `https://edugine.vercel.app/lessons/share/${lesson.share_token}`
+    : `https://edugine.app/lessons/share/${lesson.share_token}`
 
   const publicUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/lessons/${pubSlug}`
-    : `https://edugine.vercel.app/lessons/${pubSlug}`
+    : `https://edugine.app/lessons/${pubSlug}`
 
   function handleVisibilityClick(v: Visibility) {
     if (v === 'public') {
@@ -1399,7 +1399,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                 </label>
                 <div className="flex items-center gap-0 rounded-lg border border-slate-200 bg-slate-50 overflow-hidden focus-within:ring-2 focus-within:ring-sky-300 focus-within:border-sky-400 transition-all">
                   <span className="px-3 py-2 text-xs text-slate-400 font-mono whitespace-nowrap shrink-0 bg-slate-100 border-r border-slate-200">
-                    edugine.vercel.app/lessons/
+                    edugine.app/lessons/
                   </span>
                   <input
                     type="text"
