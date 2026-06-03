@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Zap, Users, Play } from 'lucide-react'
+import { Fragment } from 'react'
+import { Zap, Users, Play, BookOpen, ArrowRight, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Home() {
@@ -77,6 +78,55 @@ export default async function Home() {
               Sign in
             </Link>
           )}
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="max-w-4xl mx-auto px-6 pb-20">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
+            How it works
+          </h2>
+          <p className="text-violet-200/80 text-sm mt-2">
+            From lesson idea to live session in minutes
+          </p>
+        </div>
+
+        <div className="flex flex-col md:flex-row items-center gap-2 md:gap-0">
+          {([
+            {
+              num: 1, Icon: BookOpen,
+              title: 'Create your lesson',
+              body: 'Build a lesson from interactive activities — vocabulary games, speaking challenges, debates and more.',
+            },
+            {
+              num: 2, Icon: Play,
+              title: 'Launch a live session',
+              body: 'Students join instantly with a session code. No accounts, no downloads.',
+            },
+            {
+              num: 3, Icon: Zap,
+              title: 'Students interact',
+              body: 'Everyone participates in real time — individually or as a group. No more passive watching.',
+            },
+          ] as const).map((step, i) => (
+            <Fragment key={step.num}>
+              <div className="relative w-full md:flex-1 bg-white/10 backdrop-blur border border-white/20 rounded-2xl p-6 pt-8">
+                <div className="absolute -top-3.5 left-6 w-7 h-7 rounded-full bg-white flex items-center justify-center text-violet-700 text-xs font-extrabold shadow-sm">
+                  {step.num}
+                </div>
+                <step.Icon className="w-7 h-7 text-white/75 mb-3" />
+                <h3 className="font-bold text-white text-lg mb-2">{step.title}</h3>
+                <p className="text-violet-200 text-sm leading-relaxed">{step.body}</p>
+              </div>
+              {i < 2 && (
+                <>
+                  <ArrowDown className="w-5 h-5 text-white/30 md:hidden shrink-0" />
+                  <ArrowRight className="w-5 h-5 text-white/30 hidden md:block shrink-0 mx-3" />
+                </>
+              )}
+            </Fragment>
+          ))}
         </div>
       </section>
 
