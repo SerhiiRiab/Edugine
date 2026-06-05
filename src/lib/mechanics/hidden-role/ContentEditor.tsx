@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2,
-  Theater, Rocket, Shield, Eye, EyeOff, ChevronDown,
+  Theater, Rocket, Eye, EyeOff, ChevronDown,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -52,13 +52,15 @@ function parseLine(line: string, separator: string): Record<string, unknown> | n
   const languageConstraints = constraintsStr
     ? constraintsStr.split(';').map(s => s.trim()).filter(Boolean)
     : []
-  return { roleName, roleDescription, secretGoal, isSpy: isSpyStr?.toLowerCase() === 'true', languageConstraints }
+  const isSpyLower = isSpyStr?.toLowerCase() ?? ''
+  const isSpy = isSpyLower === 'true' || isSpyLower === 'hidden'
+  return { roleName, roleDescription, secretGoal, isSpy, languageConstraints }
 }
 
 const SEP_CHARS: Record<BulkSeparator, string> = { pipe: ' | ', semicolon: '; ', tab: '\t', comma: ', ', dash: ' - ' }
 function formatExample(sep: BulkSeparator) {
   const s = SEP_CHARS[sep]
-  return `The Thief${s}You stole the painting. Hide your guilt.${s}Stay innocent.${s}true${s}Use: I swear...; Avoid direct answers\nSenior Detective${s}Lead investigator. Ask sharp questions.${s}Find the thief.${s}false`
+  return `The Thief${s}You stole the painting. Hide your guilt.${s}Stay innocent.${s}hidden${s}Use: I swear...; Avoid direct answers\nSenior Detective${s}Lead investigator. Ask sharp questions.${s}Find the thief.${s}investigator`
 }
 
 interface ScenarioTemplate {
@@ -325,14 +327,17 @@ export function HiddenRoleContentEditor({ set, initialItems }: Props) {
 
           {addMode === 'single' && (
             <div className="p-5 space-y-3">
-              <div className="flex items-center gap-3">
-                <input type="text" value={draft.roleName} onChange={e => setDraft(p => ({ ...p, roleName: e.target.value }))}
-                  placeholder="Role name (e.g. The Thief)"
-                  className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 placeholder:text-slate-300 transition-colors" />
-                <button type="button" onClick={() => setDraft(p => ({ ...p, isSpy: !p.isSpy }))}
-                  title={draft.isSpy ? 'Mark as non-spy' : 'Mark as spy'}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-colors shrink-0 ${draft.isSpy ? 'bg-rose-100 text-rose-700 border-rose-300' : 'bg-slate-100 text-slate-500 border-slate-200 hover:border-slate-300'}`}>
-                  <Shield className="w-3.5 h-3.5" />{draft.isSpy ? 'Spy' : 'Not spy'}
+              <input type="text" value={draft.roleName} onChange={e => setDraft(p => ({ ...p, roleName: e.target.value }))}
+                placeholder="Role name (e.g. The Thief)"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 placeholder:text-slate-300 transition-colors" />
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setDraft(p => ({ ...p, isSpy: true }))}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-colors ${draft.isSpy ? 'bg-rose-100 text-rose-700 border-rose-300' : 'bg-white text-slate-400 border-slate-200 hover:border-rose-200'}`}>
+                  🔴 Hidden (villain)
+                </button>
+                <button type="button" onClick={() => setDraft(p => ({ ...p, isSpy: false }))}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl border text-xs font-bold transition-colors ${!draft.isSpy ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-200'}`}>
+                  🟢 Investigator (good side)
                 </button>
               </div>
               <textarea value={draft.roleDescription} onChange={e => setDraft(p => ({ ...p, roleDescription: e.target.value }))}
@@ -451,12 +456,18 @@ function RoleCard({ row, index, onChange, onDelete }: {
         <input type="text" value={row.roleName} onChange={e => onChange({ roleName: e.target.value })}
           placeholder="Role name…"
           className="flex-1 text-sm font-bold text-slate-800 bg-transparent outline-none border-b border-transparent focus:border-slate-300 transition-colors placeholder:text-slate-300" />
-        <button type="button" onClick={() => onChange({ isSpy: !row.isSpy })}
-          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-bold transition-colors shrink-0 ${row.isSpy ? 'bg-rose-100 text-rose-700 border-rose-300' : 'bg-slate-100 text-slate-500 border-slate-200 hover:border-slate-300'}`}>
-          <Shield className="w-3 h-3" />{row.isSpy ? 'Spy' : 'Not spy'}
-        </button>
         <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0">
           <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => onChange({ isSpy: true })}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-xs font-bold transition-colors ${row.isSpy ? 'bg-rose-100 text-rose-700 border-rose-300' : 'bg-white text-slate-400 border-slate-200 hover:border-rose-200'}`}>
+          🔴 Hidden (villain)
+        </button>
+        <button type="button" onClick={() => onChange({ isSpy: false })}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border text-xs font-bold transition-colors ${!row.isSpy ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-white text-slate-400 border-slate-200 hover:border-emerald-200'}`}>
+          🟢 Investigator (good side)
         </button>
       </div>
 

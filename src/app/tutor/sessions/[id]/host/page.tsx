@@ -77,6 +77,11 @@ export default async function HostPage({
             incorrect: i.data.incorrect as string | undefined,
             correct: i.data.correct as string | undefined,
             topic: i.data.topic as string | undefined,
+            roleName: i.data.roleName as string | undefined,
+            roleDescription: i.data.roleDescription as string | undefined,
+            secretGoal: i.data.secretGoal as string | undefined,
+            isSpy: i.data.isSpy as boolean | undefined,
+            languageConstraints: i.data.languageConstraints as string[] | undefined,
           })),
       }))
 
@@ -123,6 +128,11 @@ export default async function HostPage({
     wordBank: (i.data as { wordBank?: string[] }).wordBank,
     incorrect: (i.data as { incorrect?: string }).incorrect,
     correct: (i.data as { correct?: string }).correct,
+    roleName: (i.data as { roleName?: string }).roleName,
+    roleDescription: (i.data as { roleDescription?: string }).roleDescription,
+    secretGoal: (i.data as { secretGoal?: string }).secretGoal,
+    isSpy: (i.data as { isSpy?: boolean }).isSpy,
+    languageConstraints: (i.data as { languageConstraints?: string[] }).languageConstraints,
   }))
 
   return (

@@ -90,6 +90,11 @@ export default async function PlayPage({ params }: Props) {
             incorrect: i.data.incorrect as string | undefined,
             correct: i.data.correct as string | undefined,
             topic: i.data.topic as string | undefined,
+            roleName: i.data.roleName as string | undefined,
+            roleDescription: i.data.roleDescription as string | undefined,
+            secretGoal: i.data.secretGoal as string | undefined,
+            isSpy: i.data.isSpy as boolean | undefined,
+            languageConstraints: i.data.languageConstraints as string[] | undefined,
           })),
       }))
 
@@ -138,6 +143,11 @@ export default async function PlayPage({ params }: Props) {
       incorrect: d.incorrect as string | undefined,
       correct: d.correct as string | undefined,
       topic: d.topic as string | undefined,
+      roleName: d.roleName as string | undefined,
+      roleDescription: d.roleDescription as string | undefined,
+      secretGoal: d.secretGoal as string | undefined,
+      isSpy: d.isSpy as boolean | undefined,
+      languageConstraints: d.languageConstraints as string[] | undefined,
     }
   })
 

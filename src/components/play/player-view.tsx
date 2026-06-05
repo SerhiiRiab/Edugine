@@ -65,6 +65,12 @@ interface CardItem {
   correct?: string
   // Debate Roulette
   topic?: string
+  // Hidden Role
+  roleName?: string
+  roleDescription?: string
+  secretGoal?: string
+  isSpy?: boolean
+  languageConstraints?: string[]
 }
 
 interface LessonActivity {

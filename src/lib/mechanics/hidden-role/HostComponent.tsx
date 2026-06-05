@@ -96,10 +96,11 @@ export function HiddenRoleHostPanel({
 
   if (state.status === 'finished') {
     const spyPlayer = participants.find(p => getItem(p.id)?.isSpy)
+    const spyRoleName = items.find(i => i.isSpy)?.roleName ?? 'The spy'
     return (
       <div className="space-y-4 text-center py-4">
         <div className="text-4xl">{state.spyWins ? '🕵️' : '🔍'}</div>
-        <p className="font-bold text-slate-800 text-lg">{state.spyWins ? 'The spy wins!' : 'Detectives win!'}</p>
+        <p className="font-bold text-slate-800 text-lg">{state.spyWins ? `${spyRoleName} wins!` : `Investigators win! ${spyRoleName} has been caught!`}</p>
         {spyPlayer && <p className="text-sm text-slate-500">The spy was <span className="font-bold text-rose-600">{spyPlayer.nickname}</span> ({getItem(spyPlayer.id)?.roleName})</p>}
         <div className="flex gap-3 justify-center flex-wrap">
           {isLesson ? (
@@ -258,7 +259,7 @@ export function HiddenRoleHostPanel({
         <div className="space-y-4">
           <div className={`rounded-2xl border-2 px-5 py-4 text-center ${state.spyWins ? 'bg-rose-50 border-rose-300' : 'bg-emerald-50 border-emerald-300'}`}>
             <div className="text-3xl mb-1">{state.spyWins ? '🕵️' : '🔍'}</div>
-            <p className={`font-extrabold text-lg ${state.spyWins ? 'text-rose-700' : 'text-emerald-700'}`}>{state.spyWins ? 'Spy wins!' : 'Detectives win!'}</p>
+            <p className={`font-extrabold text-lg ${state.spyWins ? 'text-rose-700' : 'text-emerald-700'}`}>{state.spyWins ? `${items.find(i => i.isSpy)?.roleName ?? 'Spy'} wins!` : `Investigators win!`}</p>
             {state.voteWinner && (() => {
               const winner = participants.find(p => p.id === state.voteWinner)
               const winnerItem = getItem(state.voteWinner)
