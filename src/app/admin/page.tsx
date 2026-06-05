@@ -24,6 +24,8 @@ export default async function AdminPage() {
     weekResult,
     monthResult,
     usersResult,
+    contentSetsResult,
+    lessonsResult,
   ] = await Promise.all([
     admin.from('profiles').select('*', { count: 'exact', head: true }),
     admin.from('profiles').select('*', { count: 'exact', head: true }).eq('plan', 'pro'),
@@ -33,10 +35,30 @@ export default async function AdminPage() {
       .from('profiles')
       .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note')
       .order('created_at', { ascending: false }),
+    // Single query — just owner_id column to count per user without N+1
+    admin.from('content_sets').select('owner_id'),
+    admin.from('lessons').select('owner_id'),
   ])
 
-  const users = usersResult.data ?? []
-  const totalSessions = users.reduce((s, p) => s + (p.sessions_completed ?? 0), 0)
+  // Build per-user count maps in JS (one pass each)
+  const activityCounts: Record<string, number> = {}
+  for (const row of contentSetsResult.data ?? []) {
+    activityCounts[row.owner_id] = (activityCounts[row.owner_id] ?? 0) + 1
+  }
+  const lessonCounts: Record<string, number> = {}
+  for (const row of lessonsResult.data ?? []) {
+    lessonCounts[row.owner_id] = (lessonCounts[row.owner_id] ?? 0) + 1
+  }
+
+  const users = (usersResult.data ?? []).map(u => ({
+    ...u,
+    activity_count: activityCounts[u.id] ?? 0,
+    lesson_count:   lessonCounts[u.id]   ?? 0,
+  }))
+
+  const totalSessions   = users.reduce((s, p) => s + (p.sessions_completed ?? 0), 0)
+  const totalActivities = (contentSetsResult.data ?? []).length
+  const totalLessons    = (lessonsResult.data ?? []).length
 
   return (
     <AdminClient
@@ -46,6 +68,8 @@ export default async function AdminPage() {
         activeWeek:    weekResult.count   ?? 0,
         activeMonth:   monthResult.count  ?? 0,
         totalSessions,
+        totalActivities,
+        totalLessons,
       }}
       users={users}
     />

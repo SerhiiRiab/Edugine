@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown } from 'lucide-react'
+import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid } from 'lucide-react'
 import { updateUserPlan } from './actions'
 
 type UserRow = {
@@ -15,6 +15,8 @@ type UserRow = {
   pro_expires_at: string | null
   sessions_completed: number
   admin_note: string | null
+  activity_count: number
+  lesson_count: number
 }
 
 type Stats = {
@@ -23,6 +25,8 @@ type Stats = {
   activeWeek: number
   activeMonth: number
   totalSessions: number
+  totalActivities: number
+  totalLessons: number
 }
 
 function timeAgo(iso: string) {
@@ -165,12 +169,14 @@ export default function AdminClient({ stats, users }: Props) {
       <div className="p-6 max-w-7xl mx-auto space-y-8">
 
         {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <StatCard icon={Users}    label="Total users"       value={stats.totalUsers}    color="bg-violet-600/40 text-violet-300" />
-          <StatCard icon={Crown}    label="Pro users"         value={stats.proUsers}      color="bg-amber-500/20 text-amber-300" />
-          <StatCard icon={Activity} label="Active (7 days)"   value={stats.activeWeek}    color="bg-emerald-500/20 text-emerald-300" />
-          <StatCard icon={Activity} label="Active (30 days)"  value={stats.activeMonth}   color="bg-sky-500/20 text-sky-300" />
-          <StatCard icon={Trophy}   label="Total sessions"    value={stats.totalSessions} color="bg-rose-500/20 text-rose-300" />
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+          <StatCard icon={Users}      label="Total users"       value={stats.totalUsers}       color="bg-violet-600/40 text-violet-300" />
+          <StatCard icon={Crown}      label="Pro users"         value={stats.proUsers}         color="bg-amber-500/20 text-amber-300" />
+          <StatCard icon={Activity}   label="Active (7 days)"   value={stats.activeWeek}       color="bg-emerald-500/20 text-emerald-300" />
+          <StatCard icon={Activity}   label="Active (30 days)"  value={stats.activeMonth}      color="bg-sky-500/20 text-sky-300" />
+          <StatCard icon={Trophy}     label="Total sessions"    value={stats.totalSessions}    color="bg-rose-500/20 text-rose-300" />
+          <StatCard icon={LayoutGrid} label="Total activities"  value={stats.totalActivities}  color="bg-teal-500/20 text-teal-300" />
+          <StatCard icon={BookOpen}   label="Total lessons"     value={stats.totalLessons}     color="bg-orange-500/20 text-orange-300" />
         </div>
 
         {/* Controls */}
@@ -215,6 +221,8 @@ export default function AdminClient({ stats, users }: Props) {
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Registered</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Plan</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Pro expires</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Activities</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Lessons</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Sessions</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Last active</th>
                   <th className="px-4 py-3" />
@@ -223,7 +231,7 @@ export default function AdminClient({ stats, users }: Props) {
               <tbody className="divide-y divide-violet-700/20">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="text-center py-12 text-violet-400">No users found</td>
+                    <td colSpan={10} className="text-center py-12 text-violet-400">No users found</td>
                   </tr>
                 ) : (
                   filtered.map(user => (
@@ -239,6 +247,12 @@ export default function AdminClient({ stats, users }: Props) {
                             : <span className="text-amber-400 text-xs font-semibold">Lifetime</span>
                           : <span className="text-violet-600">—</span>
                         }
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        <span className={user.activity_count > 0 ? 'text-teal-300' : 'text-violet-600'}>{user.activity_count}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono">
+                        <span className={user.lesson_count > 0 ? 'text-orange-300' : 'text-violet-600'}>{user.lesson_count}</span>
                       </td>
                       <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.sessions_completed}</td>
                       <td className="px-4 py-3 text-violet-300 whitespace-nowrap">{timeAgo(user.updated_at)}</td>
@@ -280,8 +294,15 @@ export default function AdminClient({ stats, users }: Props) {
                   <p className="text-xs text-violet-400 mt-0.5">{selectedUser.full_name}</p>
                 )}
                 <p className="text-xs text-violet-500 mt-1">
-                  Joined {formatDate(selectedUser.created_at)} · {selectedUser.sessions_completed} sessions
+                  Joined {formatDate(selectedUser.created_at)}
                 </p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-xs text-teal-400 font-semibold">{selectedUser.activity_count} activities</span>
+                  <span className="text-violet-700">·</span>
+                  <span className="text-xs text-orange-400 font-semibold">{selectedUser.lesson_count} lessons</span>
+                  <span className="text-violet-700">·</span>
+                  <span className="text-xs text-rose-400 font-semibold">{selectedUser.sessions_completed} sessions</span>
+                </div>
               </div>
               <button
                 onClick={closeModal}
