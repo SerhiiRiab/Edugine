@@ -36,6 +36,7 @@ import {
   PenLine,
   Library,
   ToggleLeft,
+  PencilRuler,
   Search,
   ExternalLink,
   Lock,
@@ -180,12 +181,22 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: ToggleLeft,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
+  correct_the_mistake: {
+    label: 'Correct the Mistake',
+    Icon: PencilRuler,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  debate_roulette: {
+    label: 'Debate Roulette',
+    Icon: Gamepad2,
+    classes: 'bg-purple-100 text-purple-700 border-purple-200',
+  },
 }
 
 // Mechanics that only support individual mode
 const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap'])
 // Mechanics that only support shared mode
-const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge'])
+const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette'])
 // Mechanics that support individual OR vote mode
 const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
 

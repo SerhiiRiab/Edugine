@@ -76,6 +76,7 @@ export default async function HostPage({
             wordBank: i.data.wordBank as string[] | undefined,
             incorrect: i.data.incorrect as string | undefined,
             correct: i.data.correct as string | undefined,
+            topic: i.data.topic as string | undefined,
           })),
       }))
 

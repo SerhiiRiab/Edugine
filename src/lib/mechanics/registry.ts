@@ -13,6 +13,7 @@ import { roleplayQuestDefinition } from './roleplay-quest'
 import { speakingChallengeDefinition } from './speaking-challenge'
 import { wordChoiceDefinition } from './word-choice'
 import { correctTheMistakeDefinition } from './correct-the-mistake'
+import { debateRouletteDefinition } from './debate-roulette'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -30,6 +31,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   speaking_challenge: speakingChallengeDefinition as MechanicDefinition,
   word_choice: wordChoiceDefinition as MechanicDefinition,
   correct_the_mistake: correctTheMistakeDefinition as MechanicDefinition,
+  debate_roulette: debateRouletteDefinition as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {

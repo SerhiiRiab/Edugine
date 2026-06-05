@@ -19,6 +19,7 @@ export type MechanicId =
   | 'word_bank'
   | 'word_choice'
   | 'correct_the_mistake'
+  | 'debate_roulette'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 

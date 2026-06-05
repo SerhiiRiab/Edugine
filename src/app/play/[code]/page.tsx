@@ -89,6 +89,7 @@ export default async function PlayPage({ params }: Props) {
             wordBank: i.data.wordBank as string[] | undefined,
             incorrect: i.data.incorrect as string | undefined,
             correct: i.data.correct as string | undefined,
+            topic: i.data.topic as string | undefined,
           })),
       }))
 
@@ -136,6 +137,7 @@ export default async function PlayPage({ params }: Props) {
       wordBank: d.wordBank as string[] | undefined,
       incorrect: d.incorrect as string | undefined,
       correct: d.correct as string | undefined,
+      topic: d.topic as string | undefined,
     }
   })
 

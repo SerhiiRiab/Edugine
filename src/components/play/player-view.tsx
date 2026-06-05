@@ -25,6 +25,8 @@ import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
 import { WordChoicePlayerPanel, WordChoiceSharedPlayerPanel } from '@/lib/mechanics/word-choice/PlayerComponent'
 import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
 import { CorrectTheMistakePlayerPanel, CorrectTheMistakeSharedPlayerPanel } from '@/lib/mechanics/correct-the-mistake/PlayerComponent'
+import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
+import { DebateRoulettePlayerPanel } from '@/lib/mechanics/debate-roulette/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
@@ -59,6 +61,8 @@ interface CardItem {
   // Correct the Mistake
   incorrect?: string
   correct?: string
+  // Debate Roulette
+  topic?: string
 }
 
 interface LessonActivity {
@@ -138,6 +142,7 @@ export function PlayerView({ session, lesson }: Props) {
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
   const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
+  const [debateRouletteState, setDebateRouletteState] = useState<DebateRouletteState | null>(null)
 
   // ── Speed Debate ──────────────────────────────────────────────────────────────
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -290,6 +295,24 @@ export function PlayerView({ session, lesson }: Props) {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, ctmSharedState])
+
+  // ── Debate Roulette: fetch from DB on reconnect ───────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'debate_roulette' || debateRouletteState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'topics' in (data.state as Record<string, unknown>)) {
+          setDebateRouletteState(data.state as unknown as DebateRouletteState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, debateRouletteState])
 
   // ── Speed Debate: fetch from DB on reconnect ──────────────────────────────────
   useEffect(() => {
@@ -475,7 +498,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -487,6 +510,7 @@ export function PlayerView({ session, lesson }: Props) {
         setWordBankSharedState(p.wordBankSharedState ?? null)
         setWordChoiceSharedState(p.wordChoiceSharedState ?? null)
         setCtmSharedState(p.ctmSharedState ?? null)
+        setDebateRouletteState(p.debateRouletteState ?? null)
         setSpeedDebateState(p.speedDebateState ?? null)
         setRoleplayQuestState(p.roleplayQuestState ?? null)
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
@@ -513,7 +537,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -523,6 +547,7 @@ export function PlayerView({ session, lesson }: Props) {
         setWordBankSharedState(p.wordBankSharedState ?? null)
         setWordChoiceSharedState(p.wordChoiceSharedState ?? null)
         setCtmSharedState(p.ctmSharedState ?? null)
+        setDebateRouletteState(p.debateRouletteState ?? null)
         setSpeedDebateState(p.speedDebateState ?? null)
         setRoleplayQuestState(p.roleplayQuestState ?? null)
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
@@ -540,6 +565,10 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'ctm_state_update' }, ({ payload }) => {
         const p = payload as { state: CorrectTheMistakeSharedState }
         if (p.state) setCtmSharedState(p.state)
+      })
+      .on('broadcast', { event: 'debate_roulette_state_update' }, ({ payload }) => {
+        const p = payload as { state: DebateRouletteState }
+        if (p.state) setDebateRouletteState(p.state)
       })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
@@ -1251,8 +1280,26 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* Debate Roulette */}
+          {currentMechanicId === 'debate_roulette' && participantId && (
+            debateRouletteState
+              ? (
+                <DebateRoulettePlayerPanel
+                  participantId={participantId}
+                  state={debateRouletteState}
+                  participants={waitingParticipants}
+                  channelRef={channelRef}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading roulette…</p>
+                </div>
+              )
+          )}
+
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -33,6 +33,8 @@ import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
 import { WordChoiceIndividualHostPanel, WordChoiceSharedHostPanel } from '@/lib/mechanics/word-choice/HostComponent'
 import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
 import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel } from '@/lib/mechanics/correct-the-mistake/HostComponent'
+import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
+import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -65,6 +67,8 @@ interface CardItem {
   // Correct the Mistake
   incorrect?: string
   correct?: string
+  // Debate Roulette
+  topic?: string
 }
 
 interface SwipeRecord {
@@ -194,6 +198,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
   // Correct the Mistake shared state (correct_the_mistake in shared mode)
   const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
+  // Debate Roulette state
+  const [debateRouletteState, setDebateRouletteState] = useState<DebateRouletteState | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -231,6 +237,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
   const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
   const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
+  const debateRouletteStateRef = useRef<DebateRouletteState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -244,6 +251,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
   useEffect(() => { wordChoiceSharedStateRef.current = wordChoiceSharedState }, [wordChoiceSharedState])
   useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
+  useEffect(() => { debateRouletteStateRef.current = debateRouletteState }, [debateRouletteState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -416,6 +424,19 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'fills' in (stateRow.state as Record<string, unknown>)) {
             setWordChoiceSharedState(stateRow.state as unknown as WordChoiceSharedState)
+          }
+        }
+
+        // Restore debate_roulette state from DB on tab restore / reconnect
+        if (currentMechanic === 'debate_roulette' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'topics' in (stateRow.state as Record<string, unknown>)) {
+            setDebateRouletteState(stateRow.state as unknown as DebateRouletteState)
           }
         }
 
@@ -705,6 +726,15 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: CorrectTheMistakeSharedState }
         if (p.state) setCtmSharedState(p.state)
       })
+      .on('broadcast', { event: 'debate_roulette_state_update' }, ({ payload }) => {
+        const p = payload as { state: DebateRouletteState }
+        if (p.state) setDebateRouletteState(p.state)
+      })
+      .on('broadcast', { event: 'debate_roulette_spin_request' }, () => {
+        const cur = debateRouletteStateRef.current
+        if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
+        handleDebateRouletteSpin()
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -896,6 +926,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newWordBankSharedState: WordBankSharedState | undefined
         let newWordChoiceSharedState: WordChoiceSharedState | undefined
         let newCtmSharedState: CorrectTheMistakeSharedState | undefined
+        let newDebateRouletteState: DebateRouletteState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -961,7 +992,11 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setCtmSharedState(newCtmSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null)
+        } else if (firstActivity?.mechanic_id === 'debate_roulette') {
+          newDebateRouletteState = await initDebateRouletteState(session.id, currentActivityIndex)
+          setDebateRouletteState(newDebateRouletteState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
@@ -982,6 +1017,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setWordBankSharedState(null)
           setWordChoiceSharedState(null)
           setCtmSharedState(null)
+          setDebateRouletteState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -1002,6 +1038,7 @@ export function SessionHostView({ session, lesson }: Props) {
             wordBankSharedState: newWordBankSharedState,
             wordChoiceSharedState: newWordChoiceSharedState,
             ctmSharedState: newCtmSharedState,
+            debateRouletteState: newDebateRouletteState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -1050,6 +1087,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newWordBankSharedState: WordBankSharedState | undefined
       let newWordChoiceSharedState: WordChoiceSharedState | undefined
       let newCtmSharedState: CorrectTheMistakeSharedState | undefined
+      let newDebateRouletteState: DebateRouletteState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1108,7 +1146,7 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordChoiceSharedState(newWordChoiceSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null); setDebateRouletteState(null)
       } else if (nextActivity?.mechanic_id === 'correct_the_mistake' && nextActivity?.mode === 'shared') {
         newCtmSharedState = { fixes: {}, revealed: false, phase: 'playing' }
         const supabase = createClient()
@@ -1118,7 +1156,11 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setCtmSharedState(newCtmSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null)
+      } else if (nextActivity?.mechanic_id === 'debate_roulette') {
+        newDebateRouletteState = await initDebateRouletteState(session.id, nextIndex)
+        setDebateRouletteState(newDebateRouletteState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
@@ -1139,6 +1181,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setWordBankSharedState(null)
         setWordChoiceSharedState(null)
         setCtmSharedState(null)
+        setDebateRouletteState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1157,6 +1200,7 @@ export function SessionHostView({ session, lesson }: Props) {
           wordBankSharedState: newWordBankSharedState,
           wordChoiceSharedState: newWordChoiceSharedState,
           ctmSharedState: newCtmSharedState,
+          debateRouletteState: newDebateRouletteState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -1460,6 +1504,108 @@ export function SessionHostView({ session, lesson }: Props) {
     channelRef.current?.send({
       type: 'broadcast', event: 'ctm_state_update', payload: { state: newState },
     })
+  }
+
+  // ── Debate Roulette handlers ──────────────────────────────────────────────────
+
+  async function drStateUpdate(newState: DebateRouletteState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setDebateRouletteState(newState)
+    debateRouletteStateRef.current = newState
+    channelRef.current?.send({ type: 'broadcast', event: 'debate_roulette_state_update', payload: { state: newState } })
+  }
+
+  async function handleDebateRouletteStart() {
+    const cur = debateRouletteStateRef.current
+    if (!cur) return
+    await drStateUpdate({ ...cur, status: 'active' })
+  }
+
+  async function handleDebateRouletteSpin() {
+    const cur = debateRouletteStateRef.current
+    if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
+    const N = cur.topics.length
+    if (N === 0) return
+    const targetIndex = Math.floor(Math.random() * N)
+    const position: 'for' | 'against' = Math.random() < 0.5 ? 'for' : 'against'
+    const spinning: DebateRouletteState = {
+      ...cur,
+      spinState: 'spinning',
+      spinTargetIndex: targetIndex,
+      currentPosition: position,
+      timerRunning: false,
+    }
+    await drStateUpdate(spinning)
+    // After animation completes, mark done and start timer
+    setTimeout(async () => {
+      const latest = debateRouletteStateRef.current
+      if (!latest || latest.spinState !== 'spinning') return
+      const done: DebateRouletteState = {
+        ...latest,
+        spinState: 'done',
+        currentTopic: latest.topics[targetIndex] ?? null,
+        timerRunning: latest.turnDuration > 0,
+        timerStartedAt: latest.turnDuration > 0 ? new Date().toISOString() : null,
+        timeLeftAtStart: latest.turnDuration,
+      }
+      await drStateUpdate(done)
+    }, 3600)
+  }
+
+  async function handleDebateRouletteTimerStart() {
+    const cur = debateRouletteStateRef.current
+    if (!cur || cur.timerRunning) return
+    await drStateUpdate({ ...cur, timerRunning: true, timerStartedAt: new Date().toISOString() })
+  }
+
+  async function handleDebateRouletteTimerPause() {
+    const cur = debateRouletteStateRef.current
+    if (!cur || !cur.timerRunning) return
+    const remaining = Math.max(0, cur.timeLeftAtStart - Math.floor((Date.now() - new Date(cur.timerStartedAt!).getTime()) / 1000))
+    await drStateUpdate({ ...cur, timerRunning: false, timeLeftAtStart: remaining, timerStartedAt: null })
+  }
+
+  async function handleDebateRouletteTimerReset() {
+    const cur = debateRouletteStateRef.current
+    if (!cur) return
+    await drStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null, timeLeftAtStart: cur.turnDuration })
+  }
+
+  async function handleDebateRouletteNextTurn() {
+    const cur = debateRouletteStateRef.current
+    if (!cur) return
+    const nextIndex = cur.currentSpeakerIndex + 1
+    if (nextIndex >= cur.turnOrder.length) {
+      await drStateUpdate({ ...cur, status: 'finished', timerRunning: false, spinState: 'idle' })
+    } else {
+      await drStateUpdate({
+        ...cur,
+        currentSpeakerIndex: nextIndex,
+        spinState: 'idle',
+        currentTopic: null,
+        currentPosition: null,
+        spinTargetIndex: null,
+        timerRunning: false,
+        timerStartedAt: null,
+        timeLeftAtStart: cur.turnDuration,
+      })
+    }
+  }
+
+  async function handleDebateRouletteSetDuration(seconds: number) {
+    const cur = debateRouletteStateRef.current
+    if (!cur) return
+    await drStateUpdate({ ...cur, turnDuration: seconds, timeLeftAtStart: seconds, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleDebateRouletteFinish() {
+    const cur = debateRouletteStateRef.current
+    if (!cur) return
+    await drStateUpdate({ ...cur, status: 'finished', timerRunning: false })
   }
 
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
@@ -2280,6 +2426,28 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── DEBATE ROULETTE ──────────────────────────────────────── */}
+            {currentMechanicId === 'debate_roulette' && debateRouletteState && (
+              <DebateRouletteHostPanel
+                state={debateRouletteState}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+                onSpin={handleDebateRouletteSpin}
+                onTimerStart={handleDebateRouletteTimerStart}
+                onTimerPause={handleDebateRouletteTimerPause}
+                onTimerReset={handleDebateRouletteTimerReset}
+                onNextTurn={handleDebateRouletteNextTurn}
+                onSetDuration={handleDebateRouletteSetDuration}
+                onStart={handleDebateRouletteStart}
+                onFinish={handleDebateRouletteFinish}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -2360,7 +2528,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

@@ -38,6 +38,7 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   speaking_challenge: Mic2,
   word_choice:        ToggleLeft,
   correct_the_mistake: PencilRuler,
+  debate_roulette: Gamepad2,
 }
 
 // ── Badge/dot colours keyed by skill_category — fully static for Tailwind ────
