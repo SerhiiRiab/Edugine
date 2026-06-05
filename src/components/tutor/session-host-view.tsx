@@ -124,6 +124,8 @@ interface ParticipantGameState {
   gameResult: GameResult | null
   wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
+  ctmLastQuestionIndex?: number // correct_the_mistake: last submitted sentence index
+  ctmFixes?: Record<string, string> // correct_the_mistake: wordIndex → typed fix
 }
 
 interface Props {
@@ -587,6 +589,7 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as {
           participantId: string; questionIndex: number; correct: boolean; score: number; activityIndex?: number
           wbFills?: (string | null)[]; wbResults?: boolean[]
+          ctmFixes?: Record<string, string>
         }
         if (!p.participantId) return
         setParticipants(prev => prev.map(x => {
@@ -599,6 +602,7 @@ export function SessionHostView({ session, lesson }: Props) {
             totalSwipes: x.totalSwipes + 1,
             ...(p.wbFills !== undefined && { wbFills: p.wbFills }),
             ...(p.wbResults !== undefined && { wbResults: p.wbResults }),
+            ...(p.ctmFixes !== undefined && { ctmLastQuestionIndex: p.questionIndex, ctmFixes: p.ctmFixes }),
           }
         }))
       })
@@ -2245,6 +2249,7 @@ export function SessionHostView({ session, lesson }: Props) {
             {currentMechanicId === 'correct_the_mistake' && currentActivityMode !== 'shared' && (
               <CorrectTheMistakeIndividualHostPanel
                 participants={participants}
+                items={currentActivityItems.map(i => ({ id: i.id, incorrect: i.incorrect ?? '', correct: i.correct ?? '' }))}
                 totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}

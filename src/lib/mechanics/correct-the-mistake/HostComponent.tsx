@@ -35,15 +35,78 @@ interface HostParticipant {
   score: number
   correctCount: number
   totalSwipes: number
+  ctmLastQuestionIndex?: number
+  ctmFixes?: Record<string, string>
+}
+
+interface CTMItem {
+  id: string
+  incorrect: string
+  correct: string
 }
 
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
+// ── SentenceMirror ────────────────────────────────────────────────────────────
+
+function SentenceMirror({ item, fixes, submitted }: {
+  item: CTMItem
+  fixes?: Record<string, string>
+  submitted: boolean
+}) {
+  const iWords = getWords(item.incorrect)
+  const cWords = getWords(item.correct)
+  const mistakeIndices = getMistakeIndices(item.incorrect, item.correct)
+
+  return (
+    <div className="bg-slate-800 rounded-xl px-3 py-2.5">
+      <div className="flex flex-wrap gap-x-1 gap-y-1 leading-loose">
+        {iWords.map((word, wi) => {
+          const fix = fixes?.[String(wi)]
+          const display = fix !== undefined && fix !== '' ? fix : word
+          const isMistake = mistakeIndices.has(wi)
+
+          if (submitted && fixes) {
+            const isCorrect = isMistake
+              ? (fix ?? '').trim().toLowerCase() === (cWords[wi] ?? '').toLowerCase()
+              : fix === undefined || fix === ''
+            const colorClass = isMistake
+              ? (isCorrect
+                  ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-600/50'
+                  : 'bg-red-900/40 text-red-300 border border-red-600/50')
+              : (fix !== undefined && fix !== '')
+                ? 'bg-amber-900/30 text-amber-300 border border-amber-600/40'
+                : 'text-slate-200'
+            return (
+              <span key={wi} className={`inline-block px-1 py-0.5 rounded text-xs font-medium ${colorClass}`}>
+                {isMistake && !isCorrect ? (
+                  <><span className="line-through opacity-50">{display}</span><span className="ml-1 text-emerald-400">{cWords[wi]}</span></>
+                ) : display}
+              </span>
+            )
+          }
+
+          // Not yet submitted — show fix in sky if typed, plain otherwise
+          const hasFix = fix !== undefined && fix !== ''
+          return (
+            <span key={wi} className={`inline-block px-1 py-0.5 rounded text-xs font-medium ${
+              hasFix ? 'bg-sky-900/40 text-sky-200 border border-sky-600/40' : 'text-slate-300'
+            }`}>
+              {display}
+            </span>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Individual Host Panel ─────────────────────────────────────────────────────
 
 export interface CorrectTheMistakeIndividualHostPanelProps {
   participants: HostParticipant[]
+  items: CTMItem[]
   totalItems: number
   isLastActivity: boolean
   isAdvancing: boolean
@@ -54,7 +117,7 @@ export interface CorrectTheMistakeIndividualHostPanelProps {
 }
 
 export function CorrectTheMistakeIndividualHostPanel({
-  participants, totalItems, isLastActivity, isAdvancing, isLesson,
+  participants, items, totalItems, isLastActivity, isAdvancing, isLesson,
   onNextActivity, onEndLesson, onEndGame,
 }: CorrectTheMistakeIndividualHostPanelProps) {
   return (
@@ -64,8 +127,15 @@ export function CorrectTheMistakeIndividualHostPanel({
           const answered = p.cardIndex
           const accuracy = p.totalSwipes > 0 ? Math.round((p.correctCount / p.totalSwipes) * 100) : null
           const done = answered >= totalItems
+
+          // Which sentence to mirror: last submitted (if any), else current working sentence
+          const hasResult = p.ctmLastQuestionIndex !== undefined && p.ctmFixes !== undefined
+          const mirrorIndex = hasResult ? p.ctmLastQuestionIndex! : Math.min(answered, totalItems - 1)
+          const mirrorItem = items[mirrorIndex]
+
           return (
             <div key={p.id} className={`bg-white rounded-2xl border p-4 space-y-3 transition-all ${done ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200'}`}>
+              {/* Header */}
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 ${avatarBg(i)}`}>
                   {p.nickname[0].toUpperCase()}
@@ -75,7 +145,7 @@ export function CorrectTheMistakeIndividualHostPanel({
                   <p className="text-xs text-slate-400 mt-0.5">
                     {done
                       ? <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Done</span>
-                      : `Sentence ${answered}/${totalItems}`}
+                      : `Sentence ${answered + 1}/${totalItems}`}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
@@ -83,6 +153,22 @@ export function CorrectTheMistakeIndividualHostPanel({
                   <p className="text-xs text-slate-400">pts</p>
                 </div>
               </div>
+
+              {/* Sentence mirror */}
+              {mirrorItem && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
+                    {hasResult ? `Sentence ${mirrorIndex! + 1} result` : `Working on sentence ${mirrorIndex + 1}`}
+                  </p>
+                  <SentenceMirror
+                    item={mirrorItem}
+                    fixes={hasResult ? p.ctmFixes : undefined}
+                    submitted={hasResult}
+                  />
+                </div>
+              )}
+
+              {/* Progress bar */}
               {totalItems > 0 && (
                 <div className="space-y-1">
                   <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -98,6 +184,7 @@ export function CorrectTheMistakeIndividualHostPanel({
                   )}
                 </div>
               )}
+
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${p.online ? 'bg-emerald-400' : 'bg-slate-300'}`} />
                 <span className="text-xs text-slate-400">{p.online ? 'Live' : 'Disconnected'}</span>
@@ -119,8 +206,6 @@ export function CorrectTheMistakeIndividualHostPanel({
 }
 
 // ── Shared Host Panel ─────────────────────────────────────────────────────────
-
-interface CTMItem { id: string; incorrect: string; correct: string }
 
 export interface CorrectTheMistakeSharedHostPanelProps {
   state: CorrectTheMistakeSharedState

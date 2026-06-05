@@ -171,6 +171,7 @@ export function CorrectTheMistakePlayerPanel({
         correct: allMistakesFixed,
         score: newScore,
         activityIndex: activityIndexRef.current,
+        ctmFixes: Object.fromEntries(Object.entries(wordFixes).map(([k, v]) => [k, v])),
       },
     })
     if (participantIdRef.current) {
