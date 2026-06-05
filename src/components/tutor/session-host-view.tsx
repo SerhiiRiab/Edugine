@@ -31,6 +31,8 @@ import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
 import { WordBankIndividualHostPanel, WordBankSharedHostPanel } from '@/lib/mechanics/word-bank/HostComponent'
 import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
 import { WordChoiceIndividualHostPanel, WordChoiceSharedHostPanel } from '@/lib/mechanics/word-choice/HostComponent'
+import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
+import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel } from '@/lib/mechanics/correct-the-mistake/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -60,6 +62,9 @@ interface CardItem {
   // Word Bank
   text?: string
   wordBank?: string[]
+  // Correct the Mistake
+  incorrect?: string
+  correct?: string
 }
 
 interface SwipeRecord {
@@ -185,6 +190,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
   // Word Choice shared state (word_choice in shared mode)
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
+  // Correct the Mistake shared state (correct_the_mistake in shared mode)
+  const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -221,6 +228,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const voteStateRef = useRef<VoteState | null>(null)
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
   const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
+  const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -232,6 +240,8 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { talkTimeStateRef.current = talkTimeState }, [talkTimeState])
   useEffect(() => { voteStateRef.current = voteState }, [voteState])
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
+  useEffect(() => { wordChoiceSharedStateRef.current = wordChoiceSharedState }, [wordChoiceSharedState])
+  useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -404,6 +414,19 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'fills' in (stateRow.state as Record<string, unknown>)) {
             setWordChoiceSharedState(stateRow.state as unknown as WordChoiceSharedState)
+          }
+        }
+
+        // Restore correct_the_mistake shared state from DB on tab restore / reconnect
+        if (currentMechanic === 'correct_the_mistake' && currentActivityMode === 'shared' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'fixes' in (stateRow.state as Record<string, unknown>)) {
+            setCtmSharedState(stateRow.state as unknown as CorrectTheMistakeSharedState)
           }
         }
       } catch { /* participants will be populated via presence on reconnect */ }
@@ -653,6 +676,31 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: WordChoiceSharedState }
         if (p.state) setWordChoiceSharedState(p.state)
       })
+      .on('broadcast', { event: 'ctm_fix' }, ({ payload }) => {
+        const p = payload as { itemIndex: number; wordIndex: number; value: string; activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setCtmSharedState(prev => {
+          if (!prev) return prev
+          const key = `${p.itemIndex}_${p.wordIndex}`
+          const newFixes = p.value ? { ...prev.fixes, [key]: p.value } : Object.fromEntries(Object.entries(prev.fixes).filter(([k]) => k !== key))
+          const newState: CorrectTheMistakeSharedState = { ...prev, fixes: newFixes }
+          ctmSharedStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({
+            type: 'broadcast', event: 'ctm_state_update', payload: { state: newState },
+          })
+          return newState
+        })
+      })
+      .on('broadcast', { event: 'ctm_state_update' }, ({ payload }) => {
+        const p = payload as { state: CorrectTheMistakeSharedState }
+        if (p.state) setCtmSharedState(p.state)
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -843,6 +891,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newVoteState: VoteState | undefined
         let newWordBankSharedState: WordBankSharedState | undefined
         let newWordChoiceSharedState: WordChoiceSharedState | undefined
+        let newCtmSharedState: CorrectTheMistakeSharedState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -898,7 +947,17 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setWordChoiceSharedState(newWordChoiceSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null)
+        } else if (firstActivity?.mechanic_id === 'correct_the_mistake' && firstActivity?.mode === 'shared') {
+          newCtmSharedState = { fixes: {}, revealed: false, phase: 'playing' }
+          const supabase = createClient()
+          await supabase.from('shared_activity_state').upsert({
+            session_id: session.id, activity_index: currentActivityIndex,
+            state: newCtmSharedState as unknown as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          setCtmSharedState(newCtmSharedState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
@@ -918,6 +977,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setVoteState(null)
           setWordBankSharedState(null)
           setWordChoiceSharedState(null)
+          setCtmSharedState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -937,6 +997,7 @@ export function SessionHostView({ session, lesson }: Props) {
             voteState: newVoteState,
             wordBankSharedState: newWordBankSharedState,
             wordChoiceSharedState: newWordChoiceSharedState,
+            ctmSharedState: newCtmSharedState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -984,6 +1045,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newVoteState: VoteState | undefined
       let newWordBankSharedState: WordBankSharedState | undefined
       let newWordChoiceSharedState: WordChoiceSharedState | undefined
+      let newCtmSharedState: CorrectTheMistakeSharedState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1042,7 +1104,17 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordChoiceSharedState(newWordChoiceSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null)
+      } else if (nextActivity?.mechanic_id === 'correct_the_mistake' && nextActivity?.mode === 'shared') {
+        newCtmSharedState = { fixes: {}, revealed: false, phase: 'playing' }
+        const supabase = createClient()
+        await supabase.from('shared_activity_state').upsert({
+          session_id: session.id, activity_index: nextIndex,
+          state: newCtmSharedState as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        })
+        setCtmSharedState(newCtmSharedState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
@@ -1062,6 +1134,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setVoteState(null)
         setWordBankSharedState(null)
         setWordChoiceSharedState(null)
+        setCtmSharedState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1079,6 +1152,7 @@ export function SessionHostView({ session, lesson }: Props) {
           voteState: newVoteState,
           wordBankSharedState: newWordBankSharedState,
           wordChoiceSharedState: newWordChoiceSharedState,
+          ctmSharedState: newCtmSharedState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -1367,6 +1441,20 @@ export function SessionHostView({ session, lesson }: Props) {
     setWordChoiceSharedState(newState)
     channelRef.current?.send({
       type: 'broadcast', event: 'word_choice_state_update', payload: { state: newState },
+    })
+  }
+
+  async function handleCtmReveal() {
+    if (!ctmSharedState) return
+    const newState: CorrectTheMistakeSharedState = { ...ctmSharedState, revealed: true }
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setCtmSharedState(newState)
+    channelRef.current?.send({
+      type: 'broadcast', event: 'ctm_state_update', payload: { state: newState },
     })
   }
 
@@ -2147,6 +2235,40 @@ export function SessionHostView({ session, lesson }: Props) {
                 isAdvancing={isAdvancing}
                 isLesson={isLesson}
                 onReveal={handleWordChoiceReveal}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── CORRECT THE MISTAKE — individual mode ────────────────── */}
+            {currentMechanicId === 'correct_the_mistake' && currentActivityMode !== 'shared' && (
+              <CorrectTheMistakeIndividualHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── CORRECT THE MISTAKE — shared mode ────────────────────── */}
+            {currentMechanicId === 'correct_the_mistake' && currentActivityMode === 'shared' && ctmSharedState && (
+              <CorrectTheMistakeSharedHostPanel
+                state={ctmSharedState}
+                items={currentActivityItems.map(i => ({
+                  id: i.id,
+                  incorrect: i.incorrect ?? '',
+                  correct: i.correct ?? '',
+                }))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onReveal={handleCtmReveal}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onEndGame={handleEndGame}
