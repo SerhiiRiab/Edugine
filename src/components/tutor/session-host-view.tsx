@@ -1061,7 +1061,7 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setCtmSharedState(newCtmSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'debate_roulette') {
           newDebateRouletteState = await initDebateRouletteState(session.id, currentActivityIndex)
           setDebateRouletteState(newDebateRouletteState)
@@ -1074,11 +1074,11 @@ export function SessionHostView({ session, lesson }: Props) {
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'roleplay_quest') {
           newRoleplayQuestState = await initRoleplayQuestState(session.id, currentActivityIndex)
           setRoleplayQuestState(newRoleplayQuestState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'speaking_challenge') {
           newSpeakingChallengeState = await initSpeakingChallengeState(session.id, currentActivityIndex)
           setSpeakingChallengeState(newSpeakingChallengeState)
@@ -1223,7 +1223,7 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordChoiceSharedState(newWordChoiceSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null); setDebateRouletteState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'correct_the_mistake' && nextActivity?.mode === 'shared') {
         newCtmSharedState = { fixes: {}, revealed: false, phase: 'playing' }
         const supabase = createClient()
@@ -1233,7 +1233,7 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setCtmSharedState(newCtmSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'debate_roulette') {
         newDebateRouletteState = await initDebateRouletteState(session.id, nextIndex)
         setDebateRouletteState(newDebateRouletteState)
@@ -1246,11 +1246,11 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
         newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
         setRoleplayQuestState(newRoleplayQuestState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
