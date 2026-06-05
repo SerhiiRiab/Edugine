@@ -13,6 +13,7 @@ import { SpeedDebateContentEditor } from '@/lib/mechanics/speed-debate/ContentEd
 import { RoleplayQuestContentEditor } from '@/lib/mechanics/roleplay-quest/ContentEditor'
 import { SpeakingChallengeContentEditor } from '@/lib/mechanics/speaking-challenge/ContentEditor'
 import { WordChoiceContentEditor } from '@/lib/mechanics/word-choice/ContentEditor'
+import { CorrectTheMistakeContentEditor } from '@/lib/mechanics/correct-the-mistake/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -93,7 +94,8 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'speed_debate')   return <SpeedDebateContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'roleplay_quest')     return <RoleplayQuestContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'speaking_challenge') return <SpeakingChallengeContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'word_choice')     return <WordChoiceContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'word_choice')          return <WordChoiceContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'correct_the_mistake') return <CorrectTheMistakeContentEditor set={set} initialItems={items ?? []} />
     return <ContentSetEditor set={set} initialItems={items ?? []} />
   }
 
