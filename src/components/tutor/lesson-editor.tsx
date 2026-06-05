@@ -684,11 +684,13 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
 
 interface EditModalProps {
   activity: ActivityRow
+  lessonId: string
   onSave: (id: string, data: { mode: 'individual' | 'shared' | 'vote'; config: Record<string, unknown> }) => Promise<void>
   onClose: () => void
 }
 
-function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
+function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalProps) {
+  const [tab, setTab] = useState<'settings' | 'content'>('settings')
   const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>(activity.mode)
   const [timerSeconds, setTimerSeconds] = useState(
     typeof activity.config.timerSeconds === 'number' ? String(activity.config.timerSeconds) : '',
@@ -699,6 +701,8 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
   const [saving, setSaving] = useState(false)
   const indOnly = INDIVIDUAL_ONLY.has(activity.mechanic_id)
   const voteCap = VOTE_CAPABLE.has(activity.mechanic_id)
+  const mechanic = MECHANIC_META[activity.mechanic_id]
+  const ActivityIcon = mechanic?.Icon ?? Gamepad2
 
   async function handleSave() {
     setSaving(true)
@@ -718,121 +722,178 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="font-bold text-slate-800">Edit Activity</h2>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col max-h-[90vh]">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+          <div>
+            <h2 className="font-bold text-slate-800">Edit Activity</h2>
+            <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[220px]">{activity.content_set_title}</p>
+          </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+            className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-6 py-5 space-y-5">
-          {/* Content set — read-only */}
-          <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
-            <p className="text-xs text-slate-400 font-medium mb-0.5">Activity</p>
-            <p className="text-sm font-semibold text-slate-800">{activity.content_set_title}</p>
-          </div>
-
-          {/* Mode */}
-          <div className="space-y-2">
-            <p className="text-sm font-semibold text-slate-700">Mode</p>
-            <div className="flex gap-2">
-              {!SHARED_ONLY.has(activity.mechanic_id) && (
-                <button
-                  type="button"
-                  onClick={() => setMode('individual')}
-                  className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                    mode === 'individual'
-                      ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
-                      : 'border-slate-100 text-slate-500 hover:border-slate-200'
-                  }`}
-                >
-                  <span>👤</span> Individual
-                </button>
-              )}
-              {voteCap && (
-                <button
-                  type="button"
-                  onClick={() => setMode('vote')}
-                  className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                    mode === 'vote'
-                      ? 'border-amber-400 bg-amber-50 text-amber-700'
-                      : 'border-slate-100 text-slate-500 hover:border-slate-200'
-                  }`}
-                >
-                  <span>🗳️</span> Vote
-                </button>
-              )}
-              {!indOnly && !voteCap && (
-                <button
-                  type="button"
-                  onClick={() => setMode('shared')}
-                  className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                    mode === 'shared'
-                      ? 'border-blue-400 bg-blue-50 text-blue-700'
-                      : 'border-slate-100 text-slate-500 hover:border-slate-200'
-                  }`}
-                >
-                  <span>🤝</span> Shared
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700 block">
-              Instructions for students{' '}
-              <span className="text-slate-400 font-normal text-xs">optional</span>
-            </label>
-            <textarea
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              placeholder={
-                activity.mechanic_id === 'talk_time' ? 'Speak about the prompt when it\'s your turn' :
-                activity.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
-                activity.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
-                activity.mechanic_id === 'true_false' ? 'Read each statement and decide if it\'s true or false' :
-                activity.mechanic_id === 'multiple_choice' ? 'Read the question and choose the correct answer' :
-                activity.mechanic_id === 'word_bank' ? 'Fill in the blanks using words from the word bank' :
-                'Swipe right if correct, left if wrong'
-              }
-              maxLength={200}
-              rows={2}
-              className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                focus-visible:border-violet-400 resize-none transition-colors
-                placeholder:text-slate-300"
-            />
-          </div>
-
-          {/* Timer */}
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-slate-700 block">
-              Time limit{' '}
-              <span className="text-slate-400 font-normal text-xs">optional</span>
-            </label>
-            <div className="flex items-center gap-3">
-              <input
-                type="number"
-                min="10"
-                max="3600"
-                value={timerSeconds}
-                onChange={(e) => setTimerSeconds(e.target.value)}
-                placeholder="e.g. 120"
-                className="w-28 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                  focus-visible:border-violet-400 transition-colors"
-              />
-              <span className="text-sm text-slate-400">seconds</span>
-            </div>
-          </div>
+        {/* Tabs */}
+        <div className="flex border-b border-slate-100 shrink-0">
+          <button
+            type="button"
+            onClick={() => setTab('settings')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+              tab === 'settings' ? 'border-violet-500 text-violet-700' : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            Settings
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab('content')}
+            className={`flex-1 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+              tab === 'content' ? 'border-violet-500 text-violet-700' : 'border-transparent text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            Content
+          </button>
         </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3">
+        {/* Body — scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+          {/* ── Settings tab ──────────────────────────────────────────── */}
+          {tab === 'settings' && (
+            <>
+              {/* Mode */}
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-700">Mode</p>
+                <div className="flex gap-2">
+                  {!SHARED_ONLY.has(activity.mechanic_id) && (
+                    <button
+                      type="button"
+                      onClick={() => setMode('individual')}
+                      className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                        mode === 'individual'
+                          ? 'border-emerald-400 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                      }`}
+                    >
+                      <User className="w-4 h-4 shrink-0" /> Individual
+                    </button>
+                  )}
+                  {voteCap && (
+                    <button
+                      type="button"
+                      onClick={() => setMode('vote')}
+                      className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                        mode === 'vote'
+                          ? 'border-amber-400 bg-amber-50 text-amber-700'
+                          : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                      }`}
+                    >
+                      <BarChart2 className="w-4 h-4 shrink-0" /> Vote
+                    </button>
+                  )}
+                  {!indOnly && !voteCap && (
+                    <button
+                      type="button"
+                      onClick={() => setMode('shared')}
+                      className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 text-sm font-medium transition-all ${
+                        mode === 'shared'
+                          ? 'border-blue-400 bg-blue-50 text-blue-700'
+                          : 'border-slate-100 text-slate-500 hover:border-slate-200'
+                      }`}
+                    >
+                      <Users className="w-4 h-4 shrink-0" /> Shared
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 block">
+                  Instructions{' '}
+                  <span className="text-slate-400 font-normal text-xs">optional</span>
+                </label>
+                <textarea
+                  value={instructions}
+                  onChange={(e) => setInstructions(e.target.value)}
+                  placeholder={
+                    activity.mechanic_id === 'talk_time' ? "Speak about the prompt when it's your turn" :
+                    activity.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
+                    activity.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
+                    activity.mechanic_id === 'true_false' ? "Read each statement and decide if it's true or false" :
+                    activity.mechanic_id === 'multiple_choice' ? 'Read the question and choose the correct answer' :
+                    activity.mechanic_id === 'word_bank' ? 'Fill in the blanks using words from the word bank' :
+                    'Swipe right if correct, left if wrong'
+                  }
+                  maxLength={200}
+                  rows={2}
+                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                    focus-visible:border-violet-400 resize-none transition-colors placeholder:text-slate-300"
+                />
+              </div>
+
+              {/* Timer */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-700 block">
+                  Time limit{' '}
+                  <span className="text-slate-400 font-normal text-xs">optional</span>
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min="10"
+                    max="3600"
+                    value={timerSeconds}
+                    onChange={(e) => setTimerSeconds(e.target.value)}
+                    placeholder="e.g. 120"
+                    className="w-28 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                      focus-visible:border-violet-400 transition-colors"
+                  />
+                  <span className="text-sm text-slate-400">seconds</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ── Content tab ───────────────────────────────────────────── */}
+          {tab === 'content' && (
+            <div className="space-y-4">
+              <div className={`flex items-center gap-3 p-4 rounded-xl border ${mechanic?.classes ?? 'bg-slate-50 border-slate-100'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${mechanic?.classes.split(' ')[0] ?? 'bg-slate-100'}`}>
+                  <ActivityIcon className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-800 text-sm truncate">{activity.content_set_title}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {mechanic?.label ?? activity.mechanic_id} · {activity.content_set_item_count} cards
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-slate-400">
+                Open the content editor to add, remove, or edit the individual items in this activity.
+              </p>
+              <Link
+                href={`/tutor/content-sets/${activity.content_set_id}/edit?returnToLesson=${lessonId}`}
+                onClick={onClose}
+                className="flex items-center justify-center gap-2 w-full py-3 rounded-xl
+                  bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Open content editor
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Footer — always visible */}
+        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -840,16 +901,28 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
           >
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50
-              text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-          >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-            Done
-          </button>
+          {tab === 'settings' && (
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-50
+                text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              Save changes
+            </button>
+          )}
+          {tab === 'content' && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200
+                text-slate-700 font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+            >
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -861,12 +934,11 @@ function EditActivityModal({ activity, onSave, onClose }: EditModalProps) {
 interface ActivityCardProps {
   activity: ActivityRow
   index: number
-  lessonId: string
   onEdit: (a: ActivityRow) => void
   onDelete: (id: string) => void
 }
 
-function SortableActivityCard({ activity, index, lessonId, onEdit, onDelete }: ActivityCardProps) {
+function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: activity.id,
   })
@@ -946,22 +1018,15 @@ function SortableActivityCard({ activity, index, lessonId, onEdit, onDelete }: A
             ? <><BarChart2 className="w-3 h-3" />Vote</>
             : <><Users className="w-3 h-3" />Shared</>}
         </span>
-        <Link
-          href={`/tutor/content-sets/${activity.content_set_id}/edit?returnToLesson=${lessonId}`}
-          title="Edit activity content"
-          className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8 rounded-lg
-            hover:bg-violet-50 text-slate-300 hover:text-violet-600 transition-all"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-        </Link>
         <button
           type="button"
           onClick={() => onEdit(activity)}
-          title="Edit mode & config"
-          className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8 rounded-lg
-            hover:bg-slate-100 text-slate-300 hover:text-slate-600 transition-all"
+          className="opacity-0 group-hover:opacity-100 flex items-center gap-1.5 px-3 py-1.5 rounded-lg
+            border border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50
+            text-slate-500 hover:text-violet-700 text-xs font-semibold transition-all"
         >
-          <Pencil className="w-3.5 h-3.5" />
+          <Pencil className="w-3 h-3" />
+          Edit
         </button>
         <button
           type="button"
@@ -1393,7 +1458,6 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                   <SortableActivityCard
                     activity={activity}
                     index={index}
-                    lessonId={lesson.id}
                     onEdit={setEditingActivity}
                     onDelete={handleDeleteActivity}
                   />
@@ -1445,6 +1509,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
       {editingActivity && (
         <EditActivityModal
           activity={editingActivity}
+          lessonId={lesson.id}
           onSave={handleEditActivity}
           onClose={() => setEditingActivity(null)}
         />
