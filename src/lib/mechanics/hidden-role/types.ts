@@ -10,10 +10,13 @@ export interface HiddenRoleItem {
   languageConstraints: string[]
 }
 
+// Special sentinel ID used when the host/tutor takes a role
+export const TUTOR_PARTICIPANT_ID = '__tutor__'
+
 export interface HiddenRoleState {
   scenario: string                     // from content_set.description
   phase: 1 | 2 | 3 | 4
-  assignments: Record<string, number>  // participantId → item index (their role card)
+  assignments: Record<string, number>  // participantId → item index; "__tutor__" key when host plays
   readyParticipants: string[]          // Phase 1: who confirmed reading their role
   timerRunning: boolean
   timerStartedAt: string | null
@@ -27,6 +30,7 @@ export interface HiddenRoleState {
   spyWins: boolean                     // false = detectives win
   revealed: boolean
   status: 'active' | 'finished'
+  tutorNickname: string | null         // non-null when host has taken a role
 }
 
 export function computeTimeLeft(state: HiddenRoleState): number {

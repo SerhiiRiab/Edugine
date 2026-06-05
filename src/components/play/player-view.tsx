@@ -335,7 +335,8 @@ export function PlayerView({ session, lesson }: Props) {
       .single()
       .then(({ data }) => {
         if (data?.state && 'assignments' in (data.state as Record<string, unknown>)) {
-          setHiddenRoleState(data.state as unknown as HiddenRoleState)
+          const restoredHR = data.state as unknown as HiddenRoleState
+          setHiddenRoleState({ ...restoredHR, tutorNickname: restoredHR.tutorNickname ?? null })
         }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps

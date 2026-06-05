@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
-import { computeTimeLeft } from './types'
+import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
 import { Shield, Eye, Check, Gamepad2 } from 'lucide-react'
 
 export function HiddenRolePlayerComponent(_props: MechanicPlayerProps<HiddenRoleState>) { return null }
@@ -59,6 +59,13 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
   const myItem: HiddenRoleItem | null = myIndex !== undefined ? (items[myIndex] ?? null) : null
   const otherParticipants = participants.filter(p => p.id !== participantId)
 
+  // Inject tutor as a synthetic participant when they've taken a role
+  const tutorParticipant = state.tutorNickname && state.assignments[TUTOR_PARTICIPANT_ID] !== undefined
+    ? { id: TUTOR_PARTICIPANT_ID, nickname: state.tutorNickname }
+    : null
+  const votableParticipants = [...otherParticipants, ...(tutorParticipant ? [tutorParticipant] : [])]
+  const totalPlayers = participants.length + (tutorParticipant ? 1 : 0)
+
   function sendReady() {
     channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_ready', payload: { participantId } })
   }
@@ -73,6 +80,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
 
   if (state.status === 'finished') {
     const spyPlayer = participants.find(p => (state.assignments[p.id] !== undefined) && items[state.assignments[p.id]]?.isSpy)
+    const tutorIsSpy = tutorParticipant && (items[state.assignments[TUTOR_PARTICIPANT_ID]]?.isSpy ?? false)
     const spyRoleName = items.find(i => i.isSpy)?.roleName ?? 'The spy'
     const iAmSpy = myItem?.isSpy ?? false
     return (
@@ -80,7 +88,8 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
         <div className="text-5xl">{state.spyWins ? '🕵️' : '🔍'}</div>
         <p className="text-white font-extrabold text-xl">{state.spyWins ? `${spyRoleName} wins!` : `Investigators win! ${spyRoleName} has been caught!`}</p>
         {iAmSpy && <p className="text-rose-400 text-sm font-semibold">You were the spy!</p>}
-        {spyPlayer && !iAmSpy && <p className="text-slate-300 text-sm">The spy was <span className="font-bold text-rose-400">{spyPlayer.nickname}</span></p>}
+        {tutorIsSpy && !iAmSpy && <p className="text-slate-300 text-sm">The spy was <span className="font-bold text-rose-400">{state.tutorNickname}</span> (teacher)</p>}
+        {spyPlayer && !iAmSpy && !tutorIsSpy && <p className="text-slate-300 text-sm">The spy was <span className="font-bold text-rose-400">{spyPlayer.nickname}</span></p>}
       </div>
     )
   }
@@ -209,7 +218,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
             <p className="text-slate-400 text-sm">Vote anonymously. Your vote is private until reveal.</p>
           </div>
 
-          <div className="text-center text-xs text-slate-500">{state.votedCount}/{participants.length} voted</div>
+          <div className="text-center text-xs text-slate-500">{state.votedCount}/{totalPlayers} voted</div>
 
           {myVote ? (
             <div className="bg-emerald-900/30 border border-emerald-700/40 rounded-2xl px-4 py-4 text-center space-y-1">
@@ -219,11 +228,11 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
             </div>
           ) : (
             <div className="space-y-2">
-              {otherParticipants.map((p, i) => (
+              {votableParticipants.map((p, i) => (
                 <button key={p.id} onClick={() => sendVote(p.id)} disabled={votePending}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-slate-800 border border-slate-700 hover:border-pink-500 hover:bg-pink-900/20 transition-colors group">
                   <div className={`w-9 h-9 rounded-full flex items-center justify-center text-white font-bold shrink-0 ${avatarBg(i)}`}>{p.nickname[0].toUpperCase()}</div>
-                  <span className="text-white font-semibold text-sm flex-1 text-left">{p.nickname}</span>
+                  <span className="text-white font-semibold text-sm flex-1 text-left">{p.nickname}{p.id === TUTOR_PARTICIPANT_ID ? ' (teacher)' : ''}</span>
                   <Shield className="w-4 h-4 text-slate-600 group-hover:text-pink-400 transition-colors" />
                 </button>
               ))}
@@ -251,6 +260,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
           {/* All roles revealed */}
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">All roles</p>
+            {/* Students */}
             {participants.map((p, i) => {
               const idx = state.assignments[p.id]
               const item = idx !== undefined ? items[idx] : null
@@ -267,12 +277,30 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
                     {voteCount > 0 && <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${item?.isSpy ? 'bg-rose-700/50 text-rose-300' : 'bg-slate-700 text-slate-300'}`}>{voteCount}v</span>}
                     {state.voteWinner === p.id && <Eye className="w-4 h-4 text-yellow-400 shrink-0" />}
                   </div>
-                  {item && (
-                    <p className="text-xs text-slate-400 leading-relaxed pl-10">{item.roleDescription}</p>
-                  )}
+                  {item && <p className="text-xs text-slate-400 leading-relaxed pl-10">{item.roleDescription}</p>}
                 </div>
               )
             })}
+            {/* Tutor row (if they took a role) */}
+            {tutorParticipant && (() => {
+              const tutorIdx = state.assignments[TUTOR_PARTICIPANT_ID]
+              const tutorRevealItem = tutorIdx !== undefined ? items[tutorIdx] : null
+              const tutorVotes = state.voteResults[TUTOR_PARTICIPANT_ID] ?? 0
+              return (
+                <div className={`rounded-2xl border px-4 py-3 space-y-1 ${tutorRevealItem?.isSpy ? 'bg-rose-900/30 border-rose-600/40' : 'bg-slate-800/60 border-slate-700/30'}`}>
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 bg-pink-600">T</div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{tutorParticipant.nickname} (teacher)</p>
+                      {tutorRevealItem && <p className={`text-xs font-semibold ${tutorRevealItem.isSpy ? 'text-rose-400' : 'text-slate-400'}`}>{tutorRevealItem.roleName}{tutorRevealItem.isSpy && ' 🕵️'}</p>}
+                    </div>
+                    {tutorVotes > 0 && <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${tutorRevealItem?.isSpy ? 'bg-rose-700/50 text-rose-300' : 'bg-slate-700 text-slate-300'}`}>{tutorVotes}v</span>}
+                    {state.voteWinner === TUTOR_PARTICIPANT_ID && <Eye className="w-4 h-4 text-yellow-400 shrink-0" />}
+                  </div>
+                  {tutorRevealItem && <p className="text-xs text-slate-400 leading-relaxed pl-10">{tutorRevealItem.roleDescription}</p>}
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

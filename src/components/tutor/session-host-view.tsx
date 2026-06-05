@@ -36,6 +36,7 @@ import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel 
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostComponent'
 import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-role/types'
+import { TUTOR_PARTICIPANT_ID } from '@/lib/mechanics/hidden-role/types'
 import { HiddenRoleHostPanel } from '@/lib/mechanics/hidden-role/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
@@ -462,7 +463,8 @@ export function SessionHostView({ session, lesson }: Props) {
             .eq('activity_index', actIdx)
             .single()
           if (stateRow?.state && 'assignments' in (stateRow.state as Record<string, unknown>)) {
-            setHiddenRoleState(stateRow.state as unknown as HiddenRoleState)
+            const restoredHR = stateRow.state as unknown as HiddenRoleState
+            setHiddenRoleState({ ...restoredHR, tutorNickname: restoredHR.tutorNickname ?? null })
           }
         }
 
@@ -1760,6 +1762,26 @@ export function SessionHostView({ session, lesson }: Props) {
     await hrStateUpdate({ ...cur, status: 'finished' })
   }
 
+  async function handleHiddenRoleTutorTakeRole(roleIndex: number) {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, assignments: { ...cur.assignments, [TUTOR_PARTICIPANT_ID]: roleIndex }, tutorNickname: 'Teacher' })
+  }
+
+  async function handleHiddenRoleTutorDropRole() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    const { [TUTOR_PARTICIPANT_ID]: _dropped, ...rest } = cur.assignments
+    await hrStateUpdate({ ...cur, assignments: rest, tutorNickname: null })
+  }
+
+  async function handleHiddenRoleTutorVote(votedForId: string) {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    const newResults = { ...cur.voteResults, [votedForId]: (cur.voteResults[votedForId] ?? 0) + 1 }
+    await hrStateUpdate({ ...cur, votedCount: cur.votedCount + 1, voteResults: newResults })
+  }
+
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -2606,6 +2628,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 state={hiddenRoleState}
                 participants={participants}
                 items={currentActivityItems as unknown as HiddenRoleItem[]}
+                tutorNickname="Teacher"
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
                 isLesson={isLesson}
@@ -2620,6 +2643,9 @@ export function SessionHostView({ session, lesson }: Props) {
                 onGoToVote={handleHiddenRoleGoToVote}
                 onReveal={handleHiddenRoleReveal}
                 onFinish={handleHiddenRoleFinish}
+                onTutorTakeRole={handleHiddenRoleTutorTakeRole}
+                onTutorDropRole={handleHiddenRoleTutorDropRole}
+                onTutorVote={handleHiddenRoleTutorVote}
               />
             )}
 

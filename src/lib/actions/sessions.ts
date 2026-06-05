@@ -892,8 +892,18 @@ export async function initHiddenRoleState(
   const items = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
     .sort((a, b) => a.position - b.position)
 
-  // Randomly assign roles to participants (shuffle item indices, wrap if more players than roles)
+  // Shuffle item indices, then guarantee the spy role lands in the first N slots
   const shuffled = [...items.keys()].sort(() => Math.random() - 0.5)
+  if (participants.length > 0 && participants.length <= items.length) {
+    const spyIndex = items.findIndex(item => item.data.isSpy === true)
+    if (spyIndex >= 0) {
+      const posInShuffled = shuffled.indexOf(spyIndex)
+      if (posInShuffled >= participants.length) {
+        const swapWith = Math.floor(Math.random() * participants.length)
+        ;[shuffled[posInShuffled], shuffled[swapWith]] = [shuffled[swapWith], shuffled[posInShuffled]]
+      }
+    }
+  }
   const assignments: Record<string, number> = {}
   participants.forEach((pid, i) => { assignments[pid] = shuffled[i % Math.max(shuffled.length, 1)] })
 
@@ -912,6 +922,7 @@ export async function initHiddenRoleState(
     spyWins: false,
     revealed: false,
     status: 'active',
+    tutorNickname: null,
   }
 
   const { data: existing } = await supabase
