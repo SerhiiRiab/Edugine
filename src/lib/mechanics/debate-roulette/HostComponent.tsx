@@ -56,6 +56,8 @@ export function RouletteWheel({
   const N = topics.length
   const [rotation, setRotation] = useState(0)
   const prevTargetRef = useRef<number | null>(null)
+  // Stable per-instance ID prefix so path IDs don't clash when two wheels are on the same page
+  const idPrefix = useRef(`rw${Math.random().toString(36).slice(2, 7)}`).current
 
   useEffect(() => {
     // Reset guard when turn resets so the same index can be reused next turn
@@ -94,7 +96,6 @@ export function RouletteWheel({
   const segAngle = 360 / N
   const isSpinning = spinState === 'spinning'
   const fontSize = N <= 4 ? 12 : N <= 6 ? 11 : N <= 8 ? 10 : 9
-  const textR = N <= 4 ? 80 : N <= 6 ? 85 : 92
 
   return (
     <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
@@ -116,6 +117,22 @@ export function RouletteWheel({
           : { duration: 0 }}
       >
         <svg viewBox="0 0 300 300" className="w-full h-full" style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.5))' }}>
+          {/* Radial text paths — one per segment, from inner hub → outer rim */}
+          <defs>
+            {topics.map((_, i) => {
+              const midA = (i + 0.5) * segAngle
+              const inner = polarToXY(cx, cy, 24, midA)
+              const outer = polarToXY(cx, cy, 132, midA)
+              return (
+                <path
+                  key={i}
+                  id={`${idPrefix}-${i}`}
+                  d={`M ${inner.x.toFixed(1)} ${inner.y.toFixed(1)} L ${outer.x.toFixed(1)} ${outer.y.toFixed(1)}`}
+                />
+              )
+            })}
+          </defs>
+
           {/* Outer ring */}
           <circle cx="150" cy="150" r="149" fill="#0f172a" />
           <circle cx="150" cy="150" r="143" fill="#1e293b" />
@@ -123,39 +140,34 @@ export function RouletteWheel({
           {topics.map((topic, i) => {
             const startA = i * segAngle
             const endA = (i + 1) * segAngle
-            const midA = (i + 0.5) * segAngle
-
-            // When wheel is at final rotation R = (360 - midA), the combined
-            // visual rotation of text = textRotation + R.  Set textRotation = midA
-            // so the sum = 360 = 0° → text is horizontal when segment is at pointer.
-            const textRotation = midA
-
-            const tp = polarToXY(cx, cy, textR, midA)
             const label = wheelLabel(topic, N)
             const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length]
 
             return (
               <g key={i}>
                 <path d={slicePath(cx, cy, r, startA, endA)} fill={color} />
-                {/* Subtle divider */}
+                {/* Segment divider */}
                 <line
                   x1={cx} y1={cy}
-                  x2={polarToXY(cx, cy, r, startA).x.toFixed(2)}
-                  y2={polarToXY(cx, cy, r, startA).y.toFixed(2)}
+                  x2={polarToXY(cx, cy, r, startA).x.toFixed(1)}
+                  y2={polarToXY(cx, cy, r, startA).y.toFixed(1)}
                   stroke="rgba(0,0,0,0.3)" strokeWidth="1.5"
                 />
+                {/* Text radiating from center outward along midpoint angle */}
                 <text
-                  x={tp.x} y={tp.y}
-                  textAnchor="middle"
-                  dominantBaseline="middle"
                   fill="rgba(255,255,255,0.95)"
                   fontSize={fontSize}
                   fontWeight="700"
                   fontFamily="system-ui, -apple-system, sans-serif"
-                  transform={`rotate(${textRotation}, ${tp.x.toFixed(2)}, ${tp.y.toFixed(2)})`}
                   style={{ userSelect: 'none' }}
                 >
-                  {label}
+                  <textPath
+                    href={`#${idPrefix}-${i}`}
+                    startOffset="50%"
+                    textAnchor="middle"
+                  >
+                    {label}
+                  </textPath>
                 </text>
               </g>
             )
