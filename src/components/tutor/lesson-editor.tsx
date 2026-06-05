@@ -194,7 +194,7 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
   hidden_role: {
     label: 'Hidden Role',
     Icon: Theater,
-    classes: 'bg-pink-100 text-pink-700 border-pink-200',
+    classes: 'bg-rose-50 text-rose-600 border-rose-300',
   },
 }
 

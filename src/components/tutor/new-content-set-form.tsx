@@ -52,7 +52,7 @@ const CATEGORY_TILE: Record<string, { badge: string; dot: string }> = {
   reading:    { badge: 'border-rose-300 bg-rose-50',       dot: 'border-rose-500 bg-rose-500' },
   writing:    { badge: 'border-teal-300 bg-teal-50',       dot: 'border-teal-500 bg-teal-500' },
   content:        { badge: 'border-orange-300 bg-orange-50',   dot: 'border-orange-500 bg-orange-500' },
-  simulations:    { badge: 'border-pink-300 bg-pink-50',       dot: 'border-pink-500 bg-pink-500' },
+  simulations:    { badge: 'border-rose-300 bg-rose-50',       dot: 'border-rose-500 bg-rose-500' },
 }
 const DEFAULT_TILE = { badge: 'border-violet-300 bg-violet-50', dot: 'border-violet-500 bg-violet-500' }
 

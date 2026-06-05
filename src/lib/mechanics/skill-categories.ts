@@ -50,7 +50,7 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
   },
   {
     id: 'simulations', label: 'Simulations', Icon: Theater, order: 8,
-    colors: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200' },
+    colors: { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-300' },
   },
 ]
 
