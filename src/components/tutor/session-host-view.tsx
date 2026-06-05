@@ -1765,14 +1765,41 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleHiddenRoleTutorTakeRole(roleIndex: number) {
     const cur = hiddenRoleStateRef.current
     if (!cur) return
+    const isSpyRole = (currentActivityItems[roleIndex] as unknown as HiddenRoleItem)?.isSpy
+    if (isSpyRole && cur.tutorCandidateIndex !== null) {
+      // Spy swap: student holding spy gets tutor's candidate slot; tutor gets spy
+      const spyStudentId = Object.entries(cur.assignments)
+        .find(([pid, idx]) => idx === roleIndex && pid !== TUTOR_PARTICIPANT_ID)?.[0]
+      if (spyStudentId) {
+        const newAssignments = {
+          ...cur.assignments,
+          [spyStudentId]: cur.tutorCandidateIndex,
+          [TUTOR_PARTICIPANT_ID]: roleIndex,
+        }
+        await hrStateUpdate({ ...cur, assignments: newAssignments, tutorNickname: 'Teacher' })
+        return
+      }
+    }
     await hrStateUpdate({ ...cur, assignments: { ...cur.assignments, [TUTOR_PARTICIPANT_ID]: roleIndex }, tutorNickname: 'Teacher' })
   }
 
   async function handleHiddenRoleTutorDropRole() {
     const cur = hiddenRoleStateRef.current
     if (!cur) return
-    const { [TUTOR_PARTICIPANT_ID]: _dropped, ...rest } = cur.assignments
-    await hrStateUpdate({ ...cur, assignments: rest, tutorNickname: null })
+    const tutorRoleIdx = cur.assignments[TUTOR_PARTICIPANT_ID]
+    const { [TUTOR_PARTICIPANT_ID]: _dropped, ...restAssignments } = cur.assignments
+    const tutorHadSpy = tutorRoleIdx !== undefined &&
+      (currentActivityItems[tutorRoleIdx] as unknown as HiddenRoleItem)?.isSpy
+    if (tutorHadSpy && cur.tutorCandidateIndex !== null) {
+      // Reverse swap: student who holds tutorCandidateIndex gets spy back
+      const studentToRestoreSpy = Object.entries(restAssignments)
+        .find(([_, idx]) => idx === cur.tutorCandidateIndex)?.[0]
+      if (studentToRestoreSpy && tutorRoleIdx !== undefined) {
+        await hrStateUpdate({ ...cur, assignments: { ...restAssignments, [studentToRestoreSpy]: tutorRoleIdx }, tutorNickname: null })
+        return
+      }
+    }
+    await hrStateUpdate({ ...cur, assignments: restAssignments, tutorNickname: null })
   }
 
   async function handleHiddenRoleTutorVote(votedForId: string) {

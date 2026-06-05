@@ -218,6 +218,7 @@ export function HiddenRoleHostPanel({
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
                 <UserPlus className="w-3.5 h-3.5" />Take a role (optional)
               </p>
+              {/* Candidate (investigator) button */}
               <button onClick={wrap(() => onTutorTakeRole(candidateIdx))} disabled={isBusy}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-left hover:border-pink-300 hover:bg-pink-50 transition-colors">
                 <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-slate-400">
@@ -229,6 +230,27 @@ export function HiddenRoleHostPanel({
                 </div>
                 <span className="text-xs text-slate-400 shrink-0">Join →</span>
               </button>
+              {/* Spy swap option — spy is with a student; tutor can take it via swap */}
+              {(() => {
+                const spyIdx = items.findIndex(i => i.isSpy)
+                const spyItem = spyIdx >= 0 ? items[spyIdx] : null
+                const spyIsWithStudent = spyIdx >= 0 && spyIdx !== candidateIdx &&
+                  Object.entries(state.assignments).some(([pid, idx]) => idx === spyIdx && pid !== TUTOR_PARTICIPANT_ID)
+                if (!spyIsWithStudent || !spyItem) return null
+                return (
+                  <button onClick={wrap(() => onTutorTakeRole(spyIdx))} disabled={isBusy}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-rose-200 bg-rose-50 text-left hover:border-rose-400 hover:bg-rose-100 transition-colors">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-rose-500">
+                      <Eye className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-rose-700 truncate">{spyItem.roleName} 🕵️</p>
+                      <p className="text-xs text-rose-400 truncate">{spyItem.roleDescription}</p>
+                    </div>
+                    <span className="text-xs text-rose-400 shrink-0">Swap →</span>
+                  </button>
+                )
+              })()}
             </div>
           ) : null}
 
