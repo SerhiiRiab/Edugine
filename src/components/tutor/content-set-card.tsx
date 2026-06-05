@@ -62,6 +62,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: Mic2,
     classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
   },
+  hidden_role: {
+    label: 'Hidden Role',
+    Icon: Theater,
+    classes: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
 }
 
 const SKILL_CATEGORY_MAP = Object.fromEntries(SKILL_CATEGORIES.map((c) => [c.id, c]))
