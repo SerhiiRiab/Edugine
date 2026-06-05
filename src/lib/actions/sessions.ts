@@ -907,6 +907,9 @@ export async function initHiddenRoleState(
   const assignments: Record<string, number> = {}
   participants.forEach((pid, i) => { assignments[pid] = shuffled[i % Math.max(shuffled.length, 1)] })
 
+  // The tutor's pre-determined slot: next item in the shuffled order after all participants
+  const tutorCandidateIndex = participants.length < items.length ? shuffled[participants.length] : null
+
   const state: HiddenRoleState = {
     scenario,
     phase: 1,
@@ -923,6 +926,7 @@ export async function initHiddenRoleState(
     revealed: false,
     status: 'active',
     tutorNickname: null,
+    tutorCandidateIndex,
   }
 
   const { data: existing } = await supabase

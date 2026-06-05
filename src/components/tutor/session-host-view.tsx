@@ -464,7 +464,7 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'assignments' in (stateRow.state as Record<string, unknown>)) {
             const restoredHR = stateRow.state as unknown as HiddenRoleState
-            setHiddenRoleState({ ...restoredHR, tutorNickname: restoredHR.tutorNickname ?? null })
+            setHiddenRoleState({ ...restoredHR, tutorNickname: restoredHR.tutorNickname ?? null, tutorCandidateIndex: restoredHR.tutorCandidateIndex ?? null })
           }
         }
 

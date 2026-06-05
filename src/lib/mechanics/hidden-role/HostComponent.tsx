@@ -103,8 +103,9 @@ export function HiddenRoleHostPanel({
 
   const tutorRoleIndex = state.assignments[TUTOR_PARTICIPANT_ID]
   const tutorItem = tutorRoleIndex !== undefined ? (items[tutorRoleIndex] ?? null) : null
-  const assignedIndices = new Set(Object.values(state.assignments))
-  const unclaimedItems = items.map((item, idx) => ({ item, idx })).filter(({ idx }) => !assignedIndices.has(idx))
+  // Pre-determined slot from session init — the next item in the shuffled order after all participants
+  const candidateIdx = state.tutorCandidateIndex
+  const candidateItem = candidateIdx !== null && candidateIdx !== undefined ? (items[candidateIdx] ?? null) : null
   const totalPlayers = participants.length + (tutorItem ? 1 : 0)
 
   if (state.status === 'finished') {
@@ -212,26 +213,22 @@ export function HiddenRoleHostPanel({
                 )}
               </div>
             </div>
-          ) : unclaimedItems.length > 0 ? (
+          ) : candidateItem && candidateIdx !== null ? (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1.5">
                 <UserPlus className="w-3.5 h-3.5" />Take a role (optional)
               </p>
-              <div className="space-y-1.5">
-                {unclaimedItems.map(({ item, idx }) => (
-                  <button key={idx} onClick={wrap(() => onTutorTakeRole(idx))} disabled={isBusy}
-                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 text-left hover:border-pink-300 hover:bg-pink-50 transition-colors ${item.isSpy ? 'border-rose-200 bg-rose-50/50' : 'border-slate-200 bg-white'}`}>
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${item.isSpy ? 'bg-rose-500' : 'bg-slate-400'}`}>
-                      <Shield className="w-3.5 h-3.5 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800 truncate">{item.roleName}</p>
-                      <p className="text-xs text-slate-400 truncate">{item.roleDescription}</p>
-                    </div>
-                    <span className="text-xs text-slate-400 shrink-0">Claim →</span>
-                  </button>
-                ))}
-              </div>
+              <button onClick={wrap(() => onTutorTakeRole(candidateIdx))} disabled={isBusy}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-slate-200 bg-white text-left hover:border-pink-300 hover:bg-pink-50 transition-colors">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 bg-slate-400">
+                  <Shield className="w-3.5 h-3.5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 truncate">{candidateItem.roleName}</p>
+                  <p className="text-xs text-slate-400 truncate">{candidateItem.roleDescription}</p>
+                </div>
+                <span className="text-xs text-slate-400 shrink-0">Join →</span>
+              </button>
             </div>
           ) : null}
 

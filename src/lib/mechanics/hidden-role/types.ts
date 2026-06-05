@@ -31,6 +31,7 @@ export interface HiddenRoleState {
   revealed: boolean
   status: 'active' | 'finished'
   tutorNickname: string | null         // non-null when host has taken a role
+  tutorCandidateIndex: number | null   // pre-determined role slot for tutor (next item after distributed pool)
 }
 
 export function computeTimeLeft(state: HiddenRoleState): number {
