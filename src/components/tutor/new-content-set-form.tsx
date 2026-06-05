@@ -39,7 +39,7 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   word_choice:        ToggleLeft,
   correct_the_mistake: PencilRuler,
   debate_roulette: Gamepad2,
-  hidden_role:     Gamepad2,
+  hidden_role:     Theater,
 }
 
 // ── Badge/dot colours keyed by skill_category — fully static for Tailwind ────

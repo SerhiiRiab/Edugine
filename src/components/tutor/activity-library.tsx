@@ -30,6 +30,7 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   roleplay_quest:     Theater,
   speaking_challenge: Mic2,
   word_choice:        ToggleLeft,
+  hidden_role:        Theater,
 }
 
 const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {
@@ -39,7 +40,8 @@ const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {
   grammar:    { tile: 'hover:border-purple-200', icon: 'bg-purple-100 text-purple-600' },
   listening:  { tile: 'hover:border-yellow-200', icon: 'bg-yellow-100 text-yellow-600' },
   reading:    { tile: 'hover:border-teal-200',   icon: 'bg-teal-100 text-teal-600' },
-  content:    { tile: 'hover:border-slate-300',  icon: 'bg-slate-100 text-slate-500' },
+  content:     { tile: 'hover:border-slate-300',  icon: 'bg-slate-100 text-slate-500' },
+  simulations: { tile: 'hover:border-rose-200',   icon: 'bg-rose-50 text-rose-600' },
 }
 const DEFAULT_COLORS = { tile: 'hover:border-violet-200', icon: 'bg-violet-100 text-violet-600' }
 
@@ -50,7 +52,8 @@ const CATEGORIES = [
   { value: 'listening',  label: 'Listening' },
   { value: 'reading',    label: 'Reading' },
   { value: 'writing',    label: 'Writing' },
-  { value: 'content',    label: 'Content' },
+  { value: 'content',     label: 'Content' },
+  { value: 'simulations', label: 'Simulations' },
 ]
 
 interface Mechanic {
