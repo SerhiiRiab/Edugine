@@ -74,6 +74,8 @@ export default async function HostPage({
             blanks: i.data.blanks as Array<{ answer: string; options?: string[] }> | undefined,
             text: i.data.text as string | undefined,
             wordBank: i.data.wordBank as string[] | undefined,
+            incorrect: i.data.incorrect as string | undefined,
+            correct: i.data.correct as string | undefined,
           })),
       }))
 
@@ -118,6 +120,8 @@ export default async function HostPage({
     text: (i.data as { text?: string }).text,
     blanks: (i.data as { blanks?: Array<{ answer: string }> }).blanks,
     wordBank: (i.data as { wordBank?: string[] }).wordBank,
+    incorrect: (i.data as { incorrect?: string }).incorrect,
+    correct: (i.data as { correct?: string }).correct,
   }))
 
   return (
