@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -35,6 +35,8 @@ import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-m
 import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel } from '@/lib/mechanics/correct-the-mistake/HostComponent'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostComponent'
+import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-role/types'
+import { HiddenRoleHostPanel } from '@/lib/mechanics/hidden-role/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -201,6 +203,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Debate Roulette state
   const [debateRouletteState, setDebateRouletteState] = useState<DebateRouletteState | null>(null)
 
+  // Hidden Role state
+  const [hiddenRoleState, setHiddenRoleState] = useState<HiddenRoleState | null>(null)
+
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
 
@@ -238,6 +243,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
   const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
   const debateRouletteStateRef = useRef<DebateRouletteState | null>(null)
+  const hiddenRoleStateRef = useRef<HiddenRoleState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -252,6 +258,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { wordChoiceSharedStateRef.current = wordChoiceSharedState }, [wordChoiceSharedState])
   useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
   useEffect(() => { debateRouletteStateRef.current = debateRouletteState }, [debateRouletteState])
+  useEffect(() => { hiddenRoleStateRef.current = hiddenRoleState }, [hiddenRoleState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -437,6 +444,19 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'topics' in (stateRow.state as Record<string, unknown>)) {
             setDebateRouletteState(stateRow.state as unknown as DebateRouletteState)
+          }
+        }
+
+        // Restore hidden_role state from DB on tab restore / reconnect
+        if (currentMechanic === 'hidden_role' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'assignments' in (stateRow.state as Record<string, unknown>)) {
+            setHiddenRoleState(stateRow.state as unknown as HiddenRoleState)
           }
         }
 
@@ -730,6 +750,46 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: DebateRouletteState }
         if (p.state) setDebateRouletteState(p.state)
       })
+      .on('broadcast', { event: 'hidden_role_state_update' }, ({ payload }) => {
+        const p = payload as { state: HiddenRoleState }
+        if (p.state) { setHiddenRoleState(p.state); hiddenRoleStateRef.current = p.state }
+      })
+      .on('broadcast', { event: 'hidden_role_ready' }, ({ payload }) => {
+        const p = payload as { participantId: string }
+        if (!p.participantId) return
+        setHiddenRoleState(prev => {
+          if (!prev) return prev
+          if (prev.readyParticipants.includes(p.participantId)) return prev
+          const next: HiddenRoleState = { ...prev, readyParticipants: [...prev.readyParticipants, p.participantId] }
+          hiddenRoleStateRef.current = next
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: next as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_state_update', payload: { state: next } })
+          return next
+        })
+      })
+      .on('broadcast', { event: 'hidden_role_vote' }, ({ payload }) => {
+        const p = payload as { voterId: string; votedForId: string }
+        if (!p.voterId || !p.votedForId) return
+        setHiddenRoleState(prev => {
+          if (!prev || prev.phase !== 3) return prev
+          const newResults = { ...prev.voteResults, [p.votedForId]: (prev.voteResults[p.votedForId] ?? 0) + 1 }
+          const next: HiddenRoleState = { ...prev, votedCount: prev.votedCount + 1, voteResults: newResults }
+          hiddenRoleStateRef.current = next
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: next as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_state_update', payload: { state: next } })
+          return next
+        })
+      })
       .on('broadcast', { event: 'debate_roulette_spin_request' }, () => {
         const cur = debateRouletteStateRef.current
         if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
@@ -927,6 +987,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newWordChoiceSharedState: WordChoiceSharedState | undefined
         let newCtmSharedState: CorrectTheMistakeSharedState | undefined
         let newDebateRouletteState: DebateRouletteState | undefined
+        let newHiddenRoleState: HiddenRoleState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -996,7 +1057,12 @@ export function SessionHostView({ session, lesson }: Props) {
         } else if (firstActivity?.mechanic_id === 'debate_roulette') {
           newDebateRouletteState = await initDebateRouletteState(session.id, currentActivityIndex)
           setDebateRouletteState(newDebateRouletteState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+        } else if (firstActivity?.mechanic_id === 'hidden_role') {
+          newHiddenRoleState = await initHiddenRoleState(session.id, currentActivityIndex)
+          setHiddenRoleState(newHiddenRoleState)
+          hiddenRoleStateRef.current = newHiddenRoleState
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
@@ -1008,7 +1074,7 @@ export function SessionHostView({ session, lesson }: Props) {
         } else if (firstActivity?.mechanic_id === 'speaking_challenge') {
           newSpeakingChallengeState = await initSpeakingChallengeState(session.id, currentActivityIndex)
           setSpeakingChallengeState(newSpeakingChallengeState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
@@ -1018,6 +1084,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setWordChoiceSharedState(null)
           setCtmSharedState(null)
           setDebateRouletteState(null)
+          setHiddenRoleState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -1039,6 +1106,7 @@ export function SessionHostView({ session, lesson }: Props) {
             wordChoiceSharedState: newWordChoiceSharedState,
             ctmSharedState: newCtmSharedState,
             debateRouletteState: newDebateRouletteState,
+            hiddenRoleState: newHiddenRoleState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -1088,6 +1156,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newWordChoiceSharedState: WordChoiceSharedState | undefined
       let newCtmSharedState: CorrectTheMistakeSharedState | undefined
       let newDebateRouletteState: DebateRouletteState | undefined
+      let newHiddenRoleState: HiddenRoleState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1160,7 +1229,12 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'debate_roulette') {
         newDebateRouletteState = await initDebateRouletteState(session.id, nextIndex)
         setDebateRouletteState(newDebateRouletteState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+      } else if (nextActivity?.mechanic_id === 'hidden_role') {
+        newHiddenRoleState = await initHiddenRoleState(session.id, nextIndex)
+        setHiddenRoleState(newHiddenRoleState)
+        hiddenRoleStateRef.current = newHiddenRoleState
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
@@ -1172,7 +1246,7 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -1182,6 +1256,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setWordChoiceSharedState(null)
         setCtmSharedState(null)
         setDebateRouletteState(null)
+        setHiddenRoleState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1201,6 +1276,7 @@ export function SessionHostView({ session, lesson }: Props) {
           wordChoiceSharedState: newWordChoiceSharedState,
           ctmSharedState: newCtmSharedState,
           debateRouletteState: newDebateRouletteState,
+          hiddenRoleState: newHiddenRoleState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -1604,6 +1680,78 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = debateRouletteStateRef.current
     if (!cur) return
     await drStateUpdate({ ...cur, status: 'finished', timerRunning: false })
+  }
+
+  // ── Hidden Role handlers ──────────────────────────────────────────────────────
+
+  async function hrStateUpdate(newState: HiddenRoleState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setHiddenRoleState(newState)
+    hiddenRoleStateRef.current = newState
+    channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_state_update', payload: { state: newState } })
+  }
+
+  async function handleHiddenRoleStartDiscussion() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, phase: 2 })
+  }
+
+  async function handleHiddenRoleTimerStart() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur || cur.timerRunning) return
+    await hrStateUpdate({ ...cur, timerRunning: true, timerStartedAt: new Date().toISOString() })
+  }
+
+  async function handleHiddenRoleTimerPause() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur || !cur.timerRunning) return
+    const remaining = Math.max(0, cur.timeLeftAtStart - Math.floor((Date.now() - new Date(cur.timerStartedAt!).getTime()) / 1000))
+    await hrStateUpdate({ ...cur, timerRunning: false, timeLeftAtStart: remaining, timerStartedAt: null })
+  }
+
+  async function handleHiddenRoleTimerReset() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null, timeLeftAtStart: cur.turnDuration })
+  }
+
+  async function handleHiddenRoleSetDuration(seconds: number) {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, turnDuration: seconds, timeLeftAtStart: seconds, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleHiddenRoleGoToVote() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, phase: 3, timerRunning: false, votedCount: 0, voteResults: {} })
+  }
+
+  async function handleHiddenRoleReveal() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    const votes = cur.voteResults
+    const sortedIds = Object.keys(votes).sort((a, b) => (votes[b] ?? 0) - (votes[a] ?? 0))
+    const voteWinner = sortedIds[0] ?? null
+    // Find which participant holds the spy role
+    const spyPid = Object.keys(cur.assignments).find(pid => {
+      const idx = cur.assignments[pid]
+      const item = currentActivityItems[idx]
+      return item && (item as unknown as HiddenRoleItem).isSpy
+    }) ?? null
+    const spyWins = voteWinner !== spyPid
+    await hrStateUpdate({ ...cur, phase: 4, voteWinner, voteResults: votes, spyWins, revealed: true })
+  }
+
+  async function handleHiddenRoleFinish() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, status: 'finished' })
   }
 
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
@@ -2446,6 +2594,29 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── HIDDEN ROLE ──────────────────────────────────────────── */}
+            {currentMechanicId === 'hidden_role' && hiddenRoleState && (
+              <HiddenRoleHostPanel
+                state={hiddenRoleState}
+                participants={participants}
+                items={currentActivityItems as unknown as HiddenRoleItem[]}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+                onStartDiscussion={handleHiddenRoleStartDiscussion}
+                onTimerStart={handleHiddenRoleTimerStart}
+                onTimerPause={handleHiddenRoleTimerPause}
+                onTimerReset={handleHiddenRoleTimerReset}
+                onSetDuration={handleHiddenRoleSetDuration}
+                onGoToVote={handleHiddenRoleGoToVote}
+                onReveal={handleHiddenRoleReveal}
+                onFinish={handleHiddenRoleFinish}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -2526,7 +2697,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

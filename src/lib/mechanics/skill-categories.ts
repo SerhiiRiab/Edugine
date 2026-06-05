@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { BookOpen, PencilRuler, Mic, Headphones, BookText, PenLine, Clapperboard } from 'lucide-react'
+import { BookOpen, PencilRuler, Mic, Headphones, BookText, PenLine, Clapperboard, Theater } from 'lucide-react'
 
 export type SkillCategoryId =
   | 'vocabulary'
@@ -9,6 +9,7 @@ export type SkillCategoryId =
   | 'reading'
   | 'writing'
   | 'content'
+  | 'simulations'
 
 export interface SkillCategory {
   id: SkillCategoryId
@@ -47,6 +48,10 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
     id: 'content', label: 'Content / Input', Icon: Clapperboard, order: 7,
     colors: { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-200' },
   },
+  {
+    id: 'simulations', label: 'Simulations', Icon: Theater, order: 8,
+    colors: { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-200' },
+  },
 ]
 
 // Multi-category mapping — a mechanic can appear under several skill categories.
@@ -67,6 +72,7 @@ export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
   word_choice:           ['grammar', 'vocabulary', 'reading'],
   correct_the_mistake:   ['grammar', 'writing'],
   debate_roulette:       ['speaking'],
+  hidden_role:           ['simulations'],
 }
 
 // Derived single-category map (first/primary) — kept for badge display and legacy compat.

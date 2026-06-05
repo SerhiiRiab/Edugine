@@ -191,12 +191,17 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: Gamepad2,
     classes: 'bg-purple-100 text-purple-700 border-purple-200',
   },
+  hidden_role: {
+    label: 'Hidden Role',
+    Icon: Theater,
+    classes: 'bg-pink-100 text-pink-700 border-pink-200',
+  },
 }
 
 // Mechanics that only support individual mode
 const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap'])
 // Mechanics that only support shared mode
-const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette'])
+const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette', 'hidden_role'])
 // Mechanics that support individual OR vote mode
 const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
 

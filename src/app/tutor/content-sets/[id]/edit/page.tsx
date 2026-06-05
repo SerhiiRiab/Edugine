@@ -15,6 +15,7 @@ import { SpeakingChallengeContentEditor } from '@/lib/mechanics/speaking-challen
 import { WordChoiceContentEditor } from '@/lib/mechanics/word-choice/ContentEditor'
 import { CorrectTheMistakeContentEditor } from '@/lib/mechanics/correct-the-mistake/ContentEditor'
 import { DebateRouletteContentEditor } from '@/lib/mechanics/debate-roulette/ContentEditor'
+import { HiddenRoleContentEditor } from '@/lib/mechanics/hidden-role/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -98,6 +99,7 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'word_choice')          return <WordChoiceContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'correct_the_mistake') return <CorrectTheMistakeContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'debate_roulette')      return <DebateRouletteContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'hidden_role')          return <HiddenRoleContentEditor set={set} initialItems={items ?? []} />
     return <ContentSetEditor set={set} initialItems={items ?? []} />
   }
 
