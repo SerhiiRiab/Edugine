@@ -31,10 +31,13 @@ function slicePath(cx: number, cy: number, r: number, start: number, end: number
   return `M ${cx} ${cy} L ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)} Z`
 }
 
-// Truncate topic for display inside the wheel segment
-function shortLabel(topic: string, N: number): string {
-  const max = N <= 4 ? 24 : N <= 6 ? 18 : N <= 8 ? 13 : 9
-  return topic.length > max ? topic.slice(0, max - 1) + '…' : topic
+// First 2-3 words, capped by character width for the segment arc
+function wheelLabel(topic: string, N: number): string {
+  const words = topic.trim().split(/\s+/)
+  const maxWords = N <= 4 ? 4 : N <= 6 ? 3 : 2
+  const short = words.slice(0, maxWords).join(' ')
+  const maxChars = N <= 4 ? 22 : N <= 6 ? 16 : N <= 8 ? 11 : 8
+  return short.length > maxChars ? short.slice(0, maxChars - 1) + '…' : short
 }
 
 // ── RouletteWheel ─────────────────────────────────────────────────────────────
@@ -55,14 +58,24 @@ export function RouletteWheel({
   const prevTargetRef = useRef<number | null>(null)
 
   useEffect(() => {
+    // Reset guard when turn resets so the same index can be reused next turn
+    if (spinState === 'idle') {
+      prevTargetRef.current = null
+      return
+    }
     if (spinState !== 'spinning' || spinTargetIndex === null) return
     if (spinTargetIndex === prevTargetRef.current) return
     prevTargetRef.current = spinTargetIndex
 
     const segAngle = 360 / Math.max(N, 1)
+    // Centre angle of target segment (clockwise from top)
     const targetCentre = (spinTargetIndex + 0.5) * segAngle
+
+    // CSS rotate(R) moves a point from θ to θ+R, so the segment AT the pointer
+    // after rotation is the one originally at 360-R.  To land segment i:  R = 360 - centre
+    const targetR = (360 - (targetCentre % 360)) % 360
     const currentMod = ((rotation % 360) + 360) % 360
-    let delta = targetCentre - currentMod
+    let delta = targetR - currentMod
     if (delta <= 0) delta += 360
     setRotation(r => r + delta + 5 * 360)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -112,12 +125,13 @@ export function RouletteWheel({
             const endA = (i + 1) * segAngle
             const midA = (i + 0.5) * segAngle
 
-            // Radial text rotation: makes text readable when segment is at top
-            // Flip bottom-half text to avoid upside-down reading
-            const textRotation = midA <= 180 ? midA : midA - 180
+            // When wheel is at final rotation R = (360 - midA), the combined
+            // visual rotation of text = textRotation + R.  Set textRotation = midA
+            // so the sum = 360 = 0° → text is horizontal when segment is at pointer.
+            const textRotation = midA
 
             const tp = polarToXY(cx, cy, textR, midA)
-            const label = shortLabel(topic, N)
+            const label = wheelLabel(topic, N)
             const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length]
 
             return (
