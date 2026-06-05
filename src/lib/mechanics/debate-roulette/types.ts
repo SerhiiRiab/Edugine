@@ -10,7 +10,6 @@ export interface DebateRouletteState {
   topics: string[]
   turnOrder: string[]           // participant IDs
   currentSpeakerIndex: number
-  currentTopic: string | null
   currentPosition: 'for' | 'against' | null
   spinState: 'idle' | 'spinning' | 'done'
   spinTargetIndex: number | null  // which segment the wheel lands on (for animation sync)

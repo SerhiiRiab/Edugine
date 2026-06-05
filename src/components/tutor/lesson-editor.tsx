@@ -958,6 +958,10 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
   const ActivityIcon = mechanic?.Icon ?? Gamepad2
   const timer = typeof activity.config.timerSeconds === 'number' ? activity.config.timerSeconds : null
   const hasInstructions = typeof activity.config.instructions === 'string' && activity.config.instructions.length > 0
+  const displayMode: 'individual' | 'shared' | 'vote' =
+    SHARED_ONLY.has(activity.mechanic_id) ? 'shared' :
+    INDIVIDUAL_ONLY.has(activity.mechanic_id) ? 'individual' :
+    activity.mode
 
   return (
     <div
@@ -1016,16 +1020,16 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
         )}
         <span
           className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
-            activity.mode === 'individual'
+            displayMode === 'individual'
               ? 'bg-emerald-50 text-emerald-600 border-emerald-200'
-              : activity.mode === 'vote'
+              : displayMode === 'vote'
               ? 'bg-amber-50 text-amber-600 border-amber-200'
               : 'bg-blue-50 text-blue-600 border-blue-200'
           }`}
         >
-          {activity.mode === 'individual'
+          {displayMode === 'individual'
             ? <><User className="w-3 h-3" />Individual</>
-            : activity.mode === 'vote'
+            : displayMode === 'vote'
             ? <><BarChart2 className="w-3 h-3" />Vote</>
             : <><Users className="w-3 h-3" />Shared</>}
         </span>

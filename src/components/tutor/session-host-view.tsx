@@ -1547,7 +1547,6 @@ export function SessionHostView({ session, lesson }: Props) {
       const done: DebateRouletteState = {
         ...latest,
         spinState: 'done',
-        currentTopic: latest.topics[targetIndex] ?? null,
         timerRunning: latest.turnDuration > 0,
         timerStartedAt: latest.turnDuration > 0 ? new Date().toISOString() : null,
         timeLeftAtStart: latest.turnDuration,
@@ -1586,7 +1585,6 @@ export function SessionHostView({ session, lesson }: Props) {
         ...cur,
         currentSpeakerIndex: nextIndex,
         spinState: 'idle',
-        currentTopic: null,
         currentPosition: null,
         spinTargetIndex: null,
         timerRunning: false,

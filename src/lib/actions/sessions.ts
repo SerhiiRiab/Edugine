@@ -796,11 +796,12 @@ export async function initDebateRouletteState(
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('content_items(data)')
+    .select('content_items(id, position, data)')
     .eq('id', contentSetId)
     .single()
 
-  const topics = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown> }>)
+  const topics = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+    .sort((a, b) => a.position - b.position)
     .map(item => (item.data.topic as string) ?? '')
     .filter(t => t)
 
@@ -808,7 +809,6 @@ export async function initDebateRouletteState(
     topics,
     turnOrder,
     currentSpeakerIndex: 0,
-    currentTopic: null,
     currentPosition: null,
     spinState: 'idle',
     spinTargetIndex: null,

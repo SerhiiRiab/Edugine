@@ -95,6 +95,12 @@ export function DebateRoulettePlayerPanel({
   const nextTurnIndex = (state.currentSpeakerIndex + 1) % state.turnOrder.length
   const isUpNext = state.turnOrder[nextTurnIndex] === participantId && !isMyTurn
 
+  // Derive current topic from topics array + spinTargetIndex
+  const currentTopic =
+    state.spinState !== 'idle' && state.spinTargetIndex !== null
+      ? (state.topics[state.spinTargetIndex] ?? null)
+      : null
+
   function requestSpin() {
     channelRef.current?.send({
       type: 'broadcast',
@@ -139,28 +145,33 @@ export function DebateRoulettePlayerPanel({
           </button>
         )}
 
-        {/* Current topic + position */}
-        {state.spinState === 'done' && state.currentTopic && (
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 px-5 py-4 space-y-3">
-            <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Topic</p>
-            <p className="text-white font-bold text-base leading-snug">{state.currentTopic}</p>
+        {/* Spinning indicator */}
+        {state.spinState === 'spinning' && (
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-center">
+            <p className="text-slate-400 text-sm animate-pulse">Spinning…</p>
+          </div>
+        )}
+
+        {/* Full topic + position shown prominently below wheel */}
+        {state.spinState === 'done' && currentTopic && (
+          <div className={`rounded-2xl border-2 px-5 py-4 space-y-2 ${
+            state.currentPosition === 'for'
+              ? 'bg-emerald-900/30 border-emerald-600/50'
+              : state.currentPosition === 'against'
+              ? 'bg-rose-900/30 border-rose-600/50'
+              : 'bg-slate-800 border-slate-600'
+          }`}>
+            <p className="text-slate-400 text-[10px] font-bold uppercase tracking-wide">Topic</p>
+            <p className="text-white font-bold text-base leading-snug">{currentTopic}</p>
             {state.currentPosition && isMyTurn && (
-              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold ${
-                state.currentPosition === 'for'
-                  ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-600/50'
-                  : 'bg-rose-900/40 text-rose-300 border border-rose-600/50'
-              }`}>
-                {state.currentPosition === 'for' ? '🟢 You are FOR this' : '🔴 You are AGAINST this'}
-              </div>
+              <p className={`text-sm font-bold ${state.currentPosition === 'for' ? 'text-emerald-300' : 'text-rose-300'}`}>
+                {state.currentPosition === 'for' ? '🟢 You are arguing FOR this' : '🔴 You are arguing AGAINST this'}
+              </p>
             )}
             {state.currentPosition && !isMyTurn && (
-              <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                state.currentPosition === 'for'
-                  ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-700/40'
-                  : 'bg-rose-900/30 text-rose-400 border border-rose-700/40'
-              }`}>
+              <p className={`text-xs font-semibold ${state.currentPosition === 'for' ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {currentParticipant?.nickname ?? 'Speaker'} is {state.currentPosition === 'for' ? 'For 🟢' : 'Against 🔴'}
-              </div>
+              </p>
             )}
           </div>
         )}

@@ -11,12 +11,12 @@ export function DebateRouletteHostComponent(_props: MechanicHostProps<DebateRoul
   return null
 }
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
+// ── Wheel helpers ─────────────────────────────────────────────────────────────
 
 const SEGMENT_COLORS = [
-  '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626',
-  '#9333ea', '#0284c7', '#0d9488', '#ca8a04', '#be123c',
   '#6d28d9', '#0369a1', '#065f46', '#92400e', '#9f1239',
+  '#4338ca', '#0e7490', '#15803d', '#b45309', '#be185d',
+  '#7c3aed', '#0284c7', '#16a34a', '#d97706', '#e11d48',
 ]
 
 function polarToXY(cx: number, cy: number, r: number, angleDeg: number) {
@@ -29,6 +29,12 @@ function slicePath(cx: number, cy: number, r: number, start: number, end: number
   const e = polarToXY(cx, cy, r, end)
   const large = end - start > 180 ? 1 : 0
   return `M ${cx} ${cy} L ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)} Z`
+}
+
+// Truncate topic for display inside the wheel segment
+function shortLabel(topic: string, N: number): string {
+  const max = N <= 4 ? 24 : N <= 6 ? 18 : N <= 8 ? 13 : 9
+  return topic.length > max ? topic.slice(0, max - 1) + '…' : topic
 }
 
 // ── RouletteWheel ─────────────────────────────────────────────────────────────
@@ -54,9 +60,7 @@ export function RouletteWheel({
     prevTargetRef.current = spinTargetIndex
 
     const segAngle = 360 / Math.max(N, 1)
-    // Angle of segment centre from top (clockwise)
     const targetCentre = (spinTargetIndex + 0.5) * segAngle
-    // Current wheel's 0° position relative to its segments
     const currentMod = ((rotation % 360) + 360) % 360
     let delta = targetCentre - currentMod
     if (delta <= 0) delta += 360
@@ -68,7 +72,7 @@ export function RouletteWheel({
     return (
       <div style={{ width: size, height: size }}
         className="flex items-center justify-center rounded-full bg-slate-800 border-4 border-slate-700">
-        <p className="text-slate-400 text-sm text-center px-4">No topics — add some in the content editor</p>
+        <p className="text-slate-400 text-sm text-center px-6">No topics yet — add some in the content editor</p>
       </div>
     )
   }
@@ -76,18 +80,21 @@ export function RouletteWheel({
   const cx = 150, cy = 150, r = 138
   const segAngle = 360 / N
   const isSpinning = spinState === 'spinning'
+  const fontSize = N <= 4 ? 12 : N <= 6 ? 11 : N <= 8 ? 10 : 9
+  const textR = N <= 4 ? 80 : N <= 6 ? 85 : 92
 
   return (
-    <div className="relative" style={{ width: size, height: size }}>
+    <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
       {/* Pointer */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 pointer-events-none"
-        style={{ marginTop: -2 }}>
-        <svg width="24" height="28" viewBox="0 0 24 28">
-          <polygon points="12,26 2,2 22,2" fill="white" stroke="#1e293b" strokeWidth="1.5" />
+      <div className="absolute top-0 left-1/2 z-20 pointer-events-none"
+        style={{ transform: 'translateX(-50%) translateY(-4px)' }}>
+        <svg width="22" height="26" viewBox="0 0 22 26">
+          <polygon points="11,24 1,1 21,1" fill="white" stroke="#0f172a" strokeWidth="1.5" />
+          <polygon points="11,24 2,2 20,2" fill="#7c3aed" />
         </svg>
       </div>
 
-      {/* Wheel */}
+      {/* Spinning wheel */}
       <motion.div
         className="w-full h-full"
         animate={{ rotate: rotation }}
@@ -95,37 +102,43 @@ export function RouletteWheel({
           ? { duration: 3.5, ease: [0.22, 0.68, 0.12, 1.0] }
           : { duration: 0 }}
       >
-        <svg viewBox="0 0 300 300" className="w-full h-full drop-shadow-xl">
-          {/* Outer border */}
-          <circle cx="150" cy="150" r="148" fill="#1e293b" />
-          <circle cx="150" cy="150" r="144" fill="#0f172a" />
+        <svg viewBox="0 0 300 300" className="w-full h-full" style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.5))' }}>
+          {/* Outer ring */}
+          <circle cx="150" cy="150" r="149" fill="#0f172a" />
+          <circle cx="150" cy="150" r="143" fill="#1e293b" />
 
           {topics.map((topic, i) => {
             const startA = i * segAngle
             const endA = (i + 1) * segAngle
             const midA = (i + 0.5) * segAngle
-            const textR = N <= 4 ? 85 : N <= 6 ? 90 : 95
+
+            // Radial text rotation: makes text readable when segment is at top
+            // Flip bottom-half text to avoid upside-down reading
+            const textRotation = midA <= 180 ? midA : midA - 180
+
             const tp = polarToXY(cx, cy, textR, midA)
-            const maxLen = N <= 3 ? 28 : N <= 5 ? 22 : N <= 8 ? 16 : 12
-            const label = topic.length > maxLen ? topic.slice(0, maxLen - 1) + '…' : topic
-            const fontSize = N <= 4 ? 12 : N <= 6 ? 11 : N <= 10 ? 10 : 9
+            const label = shortLabel(topic, N)
+            const color = SEGMENT_COLORS[i % SEGMENT_COLORS.length]
 
             return (
               <g key={i}>
-                <path d={slicePath(cx, cy, r, startA, endA)} fill={SEGMENT_COLORS[i % SEGMENT_COLORS.length]} />
-                {/* Divider line */}
+                <path d={slicePath(cx, cy, r, startA, endA)} fill={color} />
+                {/* Subtle divider */}
                 <line
                   x1={cx} y1={cy}
-                  x2={polarToXY(cx, cy, r, startA).x}
-                  y2={polarToXY(cx, cy, r, startA).y}
-                  stroke="rgba(0,0,0,0.25)" strokeWidth="1"
+                  x2={polarToXY(cx, cy, r, startA).x.toFixed(2)}
+                  y2={polarToXY(cx, cy, r, startA).y.toFixed(2)}
+                  stroke="rgba(0,0,0,0.3)" strokeWidth="1.5"
                 />
                 <text
                   x={tp.x} y={tp.y}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fill="white" fontSize={fontSize} fontWeight="700"
-                  fontFamily="system-ui, sans-serif"
-                  transform={`rotate(${midA + 90}, ${tp.x}, ${tp.y})`}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill="rgba(255,255,255,0.95)"
+                  fontSize={fontSize}
+                  fontWeight="700"
+                  fontFamily="system-ui, -apple-system, sans-serif"
+                  transform={`rotate(${textRotation}, ${tp.x.toFixed(2)}, ${tp.y.toFixed(2)})`}
                   style={{ userSelect: 'none' }}
                 >
                   {label}
@@ -135,9 +148,9 @@ export function RouletteWheel({
           })}
 
           {/* Centre hub */}
-          <circle cx={cx} cy={cy} r="22" fill="#0f172a" />
-          <circle cx={cx} cy={cy} r="16" fill="#1e293b" />
-          <circle cx={cx} cy={cy} r="6" fill="#7c3aed" />
+          <circle cx={cx} cy={cy} r="20" fill="#0f172a" />
+          <circle cx={cx} cy={cy} r="14" fill="#1e293b" />
+          <circle cx={cx} cy={cy} r="7" fill="#7c3aed" />
         </svg>
       </motion.div>
     </div>
@@ -171,7 +184,7 @@ function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: nu
   )
 }
 
-// ── HostPanel ─────────────────────────────────────────────────────────────────
+// ── Host Panel ─────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
@@ -219,7 +232,6 @@ export function DebateRouletteHostPanel({
     autoAdvancedRef.current = false
   }, [state])
 
-  // Tick timer
   useEffect(() => {
     if (!state.timerRunning || state.turnDuration === 0) return
     const id = setInterval(() => {
@@ -249,6 +261,12 @@ export function DebateRouletteHostPanel({
   const currentSpeakerId = state.turnOrder[state.currentSpeakerIndex]
   const currentParticipant = participants.find(p => p.id === currentSpeakerId)
   const currentParticipantIndex = participants.findIndex(p => p.id === currentSpeakerId)
+
+  // Derive current topic from topics array + spinTargetIndex
+  const currentTopic =
+    state.spinState !== 'idle' && state.spinTargetIndex !== null
+      ? (state.topics[state.spinTargetIndex] ?? null)
+      : null
 
   if (state.status === 'finished') {
     return (
@@ -281,9 +299,9 @@ export function DebateRouletteHostPanel({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
 
-      {/* Duration picker (always visible, only active before first spin) */}
+      {/* Setup: duration + start */}
       {state.status === 'waiting' && (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
           <div className="flex items-center gap-2">
@@ -317,6 +335,26 @@ export function DebateRouletteHostPanel({
 
       {state.status === 'active' && (
         <>
+          {/* Current speaker */}
+          <div className="flex items-center gap-3 bg-white rounded-2xl border border-slate-200 px-4 py-3">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0 ${avatarBg(currentParticipantIndex)}`}>
+              {(currentParticipant?.nickname ?? '?')[0].toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-slate-800 truncate">{currentParticipant?.nickname ?? 'Unknown'}</p>
+              <p className="text-xs text-slate-400">Turn {state.currentSpeakerIndex + 1} of {state.turnOrder.length}</p>
+            </div>
+            {state.currentPosition && (
+              <span className={`px-3 py-1 rounded-full text-sm font-bold border shrink-0 ${
+                state.currentPosition === 'for'
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                  : 'bg-rose-100 text-rose-700 border-rose-300'
+              }`}>
+                {state.currentPosition === 'for' ? '🟢 For' : '🔴 Against'}
+              </span>
+            )}
+          </div>
+
           {/* Roulette wheel */}
           <div className="flex justify-center">
             <RouletteWheel
@@ -327,72 +365,66 @@ export function DebateRouletteHostPanel({
             />
           </div>
 
-          {/* Current speaker + result */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0 ${avatarBg(currentParticipantIndex)}`}>
-                {(currentParticipant?.nickname ?? '?')[0].toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-slate-800 truncate">{currentParticipant?.nickname ?? 'Unknown'}</p>
-                <p className="text-xs text-slate-400">
-                  Turn {state.currentSpeakerIndex + 1} of {state.turnOrder.length}
-                </p>
-              </div>
+          {/* Full topic text shown prominently below wheel */}
+          {state.spinState === 'done' && currentTopic && (
+            <div className={`rounded-2xl border-2 px-5 py-4 space-y-2 ${
+              state.currentPosition === 'for'
+                ? 'bg-emerald-50 border-emerald-300'
+                : state.currentPosition === 'against'
+                ? 'bg-rose-50 border-rose-300'
+                : 'bg-slate-50 border-slate-200'
+            }`}>
+              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Topic</p>
+              <p className="text-base font-bold text-slate-800 leading-snug">{currentTopic}</p>
               {state.currentPosition && (
-                <span className={`px-3 py-1 rounded-full text-sm font-bold border ${
-                  state.currentPosition === 'for'
-                    ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                    : 'bg-rose-100 text-rose-700 border-rose-300'
-                }`}>
-                  {state.currentPosition === 'for' ? '🟢 For' : '🔴 Against'}
-                </span>
+                <p className={`text-sm font-semibold ${state.currentPosition === 'for' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  {state.currentPosition === 'for' ? '🟢 Argue FOR this statement' : '🔴 Argue AGAINST this statement'}
+                </p>
               )}
             </div>
+          )}
 
-            {state.spinState === 'done' && state.currentTopic && (
-              <div className="bg-slate-50 rounded-xl px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Topic</p>
-                <p className="text-sm font-bold text-slate-800 leading-snug">{state.currentTopic}</p>
-              </div>
-            )}
-          </div>
+          {state.spinState === 'spinning' && (
+            <div className="rounded-2xl bg-slate-50 border border-slate-200 px-5 py-4 text-center">
+              <p className="text-slate-400 text-sm font-medium animate-pulse">Spinning…</p>
+            </div>
+          )}
 
           {/* Controls */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-2">
             {/* Spin */}
             <button
               onClick={wrap(onSpin)}
               disabled={isBusy || state.spinState === 'spinning' || state.spinState === 'done'}
-              className="flex items-center justify-center gap-2 py-3 rounded-xl
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
                 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed
-                text-white font-bold text-sm transition-colors shadow-sm col-span-2"
+                text-white font-bold text-sm transition-colors shadow-sm"
             >
               <Dices className="w-4 h-4" />
               {state.spinState === 'spinning' ? 'Spinning…' : state.spinState === 'done' ? 'Spun ✓' : 'Spin!'}
             </button>
 
-            {/* Timer controls (only after spin) */}
+            {/* Timer controls */}
             {state.spinState === 'done' && state.turnDuration > 0 && (
-              <>
+              <div className="flex gap-2">
                 <button onClick={wrap(state.timerRunning ? onTimerPause : onTimerStart)} disabled={isBusy}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200
                     hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-colors">
                   {state.timerRunning ? <><Pause className="w-4 h-4" />Pause</> : <><Play className="w-4 h-4" />Resume</>}
                 </button>
                 <button onClick={wrap(onTimerReset)} disabled={isBusy}
-                  className="flex items-center justify-center gap-2 py-3 rounded-xl border border-slate-200
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200
                     hover:bg-slate-50 text-slate-700 font-semibold text-sm transition-colors">
                   <RotateCcw className="w-4 h-4" />Reset
                 </button>
-              </>
+              </div>
             )}
 
             {/* Next turn */}
             {state.spinState === 'done' && (
               <button onClick={wrap(onNextTurn)} disabled={isBusy}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl
-                  bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white font-bold text-sm transition-colors col-span-2">
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                  bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white font-bold text-sm transition-colors">
                 <ChevronRight className="w-4 h-4" />Next Student
               </button>
             )}
@@ -449,14 +481,12 @@ export function DebateRouletteHostPanel({
           </div>
 
           {/* End controls */}
-          <div className="flex gap-3">
-            <button onClick={wrap(onFinish)} disabled={isBusy}
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl
-                border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600
-                text-slate-400 text-sm font-semibold transition-colors">
-              <StopCircle className="w-4 h-4" />Finish
-            </button>
-          </div>
+          <button onClick={wrap(onFinish)} disabled={isBusy}
+            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl
+              border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600
+              text-slate-400 text-sm font-semibold transition-colors">
+            <StopCircle className="w-4 h-4" />Finish debate
+          </button>
         </>
       )}
     </div>
