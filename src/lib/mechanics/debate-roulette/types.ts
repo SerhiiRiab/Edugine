@@ -18,6 +18,8 @@ export interface DebateRouletteState {
   timeLeftAtStart: number
   turnDuration: number          // seconds; 0 = manual (no auto-advance)
   status: 'waiting' | 'active' | 'finished'
+  usefulPhrases: string[]       // set-level phrases from content_set.description
+  currentRound: number          // 1-based; increments each time all students have spoken
 }
 
 export function computeTimeLeft(state: DebateRouletteState): number {

@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2, Dices, Rocket } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2, Dices, Rocket, MessageSquare } from 'lucide-react'
 import {
   updateContentSet,
   createContentItem,
@@ -46,9 +46,22 @@ export function DebateRouletteContentEditor({ set, initialItems }: Props) {
   const [bulkImporting, setBulkImporting] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
 
+  const [phrases, setPhrases] = useState(set.description ?? '')
+
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const phrasesTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const markSaved = useCallback(() => { setSaveStatus('saved'); setSavedAt(new Date()) }, [])
+
+  function handlePhrasesChange(val: string) {
+    setPhrases(val)
+    if (phrasesTimer.current) clearTimeout(phrasesTimer.current)
+    setSaveStatus('saving')
+    phrasesTimer.current = setTimeout(async () => {
+      try { await updateContentSet(set.id, { description: val }); markSaved() }
+      catch { setSaveStatus('error') }
+    }, 1500)
+  }
 
   function flushMeta(newTitle: string) {
     if (metaTimer.current) clearTimeout(metaTimer.current)
@@ -169,6 +182,24 @@ export function DebateRouletteContentEditor({ set, initialItems }: Props) {
           <Dices className="w-4 h-4" />
           <span className="text-sm font-semibold">Debate Roulette</span>
           <span className="text-xs text-slate-400 font-normal">· Speaking</span>
+        </div>
+
+        {/* Useful phrases */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-4 h-4 text-slate-400" />
+            <p className="text-sm font-semibold text-slate-700">Useful Phrases</p>
+          </div>
+          <p className="text-xs text-slate-400">Shown to students during their turn. One phrase per line.</p>
+          <textarea
+            value={phrases}
+            onChange={e => handlePhrasesChange(e.target.value)}
+            placeholder={"I strongly believe…\nOn the other hand…\nIn my opinion…\nTo sum up…"}
+            rows={4}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700
+              focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
+              resize-none transition-colors placeholder:text-slate-300"
+          />
         </div>
 
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">

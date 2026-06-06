@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Play, Pause, RotateCcw, ChevronRight, StopCircle, Dices, Timer, Users } from 'lucide-react'
+import { Play, Pause, RotateCcw, ChevronRight, StopCircle, Dices, Timer, Users, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { DebateRouletteState } from './types'
 import { computeTimeLeft } from './types'
@@ -249,6 +249,7 @@ export function DebateRouletteHostPanel({
 }: DebateRouletteHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const [showPhrases, setShowPhrases] = useState(false)
   const expiredRef = useRef(false)
   const autoAdvancedRef = useRef(false)
 
@@ -368,7 +369,7 @@ export function DebateRouletteHostPanel({
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-slate-800 truncate">{currentParticipant?.nickname ?? 'Unknown'}</p>
-              <p className="text-xs text-slate-400">Turn {state.currentSpeakerIndex + 1} of {state.turnOrder.length}</p>
+              <p className="text-xs text-slate-400">Round {state.currentRound ?? 1} · Turn {state.currentSpeakerIndex + 1} of {state.turnOrder.length}</p>
             </div>
             {state.currentPosition && (
               <span className={`px-3 py-1 rounded-full text-sm font-bold border shrink-0 ${
@@ -506,12 +507,40 @@ export function DebateRouletteHostPanel({
             </div>
           </div>
 
+          {/* Useful phrases — collapsible */}
+          {(state.usefulPhrases ?? []).length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowPhrases(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-3 text-xs font-semibold
+                  text-slate-500 uppercase tracking-wide hover:bg-slate-50 transition-colors"
+              >
+                <span className="flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Useful phrases ({state.usefulPhrases.length})
+                </span>
+                {showPhrases ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+              {showPhrases && (
+                <div className="px-5 pb-4 space-y-1 border-t border-slate-100">
+                  {state.usefulPhrases.map((phrase, i) => (
+                    <div key={i} className="flex items-start gap-2 text-sm text-slate-600">
+                      <span className="text-slate-300 shrink-0 mt-0.5">•</span>
+                      <span>{phrase}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* End controls */}
           <button onClick={wrap(onFinish)} disabled={isBusy}
             className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl
               border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600
               text-slate-400 text-sm font-semibold transition-colors">
-            <StopCircle className="w-4 h-4" />Finish debate
+            <StopCircle className="w-4 h-4" />End Activity
           </button>
         </>
       )}

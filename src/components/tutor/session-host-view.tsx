@@ -1705,7 +1705,24 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur) return
     const nextIndex = cur.currentSpeakerIndex + 1
     if (nextIndex >= cur.turnOrder.length) {
-      await drStateUpdate({ ...cur, status: 'finished', timerRunning: false, spinState: 'idle' })
+      // All students have spoken — start a new round with shuffled order
+      const shuffled = [...cur.turnOrder]
+      for (let j = shuffled.length - 1; j > 0; j--) {
+        const k = Math.floor(Math.random() * (j + 1));
+        [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]]
+      }
+      await drStateUpdate({
+        ...cur,
+        currentSpeakerIndex: 0,
+        currentRound: (cur.currentRound ?? 1) + 1,
+        turnOrder: shuffled,
+        spinState: 'idle',
+        currentPosition: null,
+        spinTargetIndex: null,
+        timerRunning: false,
+        timerStartedAt: null,
+        timeLeftAtStart: cur.turnDuration,
+      })
     } else {
       await drStateUpdate({
         ...cur,

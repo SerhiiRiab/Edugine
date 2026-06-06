@@ -798,7 +798,7 @@ export async function initDebateRouletteState(
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('content_items(id, position, data)')
+    .select('description, content_items(id, position, data)')
     .eq('id', contentSetId)
     .single()
 
@@ -806,6 +806,11 @@ export async function initDebateRouletteState(
     .sort((a, b) => a.position - b.position)
     .map(item => (item.data.topic as string) ?? '')
     .filter(t => t)
+
+  const usefulPhrases = (contentSet?.description ?? '')
+    .split('\n')
+    .map((l: string) => l.trim())
+    .filter(Boolean)
 
   const state: DebateRouletteState = {
     topics,
@@ -819,6 +824,8 @@ export async function initDebateRouletteState(
     timeLeftAtStart: timerDuration,
     turnDuration: timerDuration,
     status: 'waiting',
+    usefulPhrases,
+    currentRound: 1,
   }
 
   const { data: existing } = await supabase
