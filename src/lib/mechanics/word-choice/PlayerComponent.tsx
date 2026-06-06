@@ -310,11 +310,11 @@ function InlineDropdown({
       onChange={e => { if (!submitted && e.target.value !== '') onChange(parseInt(e.target.value)) }}
       disabled={submitted}
       className={`inline-block mx-1 px-2 py-0.5 rounded-lg border text-sm font-semibold
-        text-white bg-transparent outline-none align-middle cursor-pointer transition-all
+        text-white bg-slate-800 outline-none align-middle cursor-pointer transition-all
         disabled:cursor-not-allowed ${borderColor}`}
     >
-      <option value="" disabled>—</option>
-      {blank.options.map((opt, i) => <option key={i} value={String(i)}>{opt}</option>)}
+      <option value="" disabled className="bg-slate-800 text-white">—</option>
+      {blank.options.map((opt, i) => <option key={i} value={String(i)} className="bg-slate-800 text-white">{opt}</option>)}
     </select>
   )
 }
@@ -386,11 +386,11 @@ export function WordChoiceSharedPlayerPanel({
                             value={fills[globalIdx] !== undefined ? String(fills[globalIdx]) : ''}
                             onChange={e => { if (e.target.value !== '') handleChange(globalIdx, parseInt(e.target.value)) }}
                             className={`inline-block mx-1 px-2 py-0.5 rounded-lg border text-sm font-semibold
-                              text-white bg-transparent outline-none align-middle cursor-pointer transition-all
+                              text-white bg-slate-800 outline-none align-middle cursor-pointer transition-all
                               ${fills[globalIdx] !== undefined ? 'border-sky-500 bg-sky-900/20' : 'border-slate-600 bg-slate-700/50'}`}
                           >
-                            <option value="" disabled>—</option>
-                            {blank.options.map((opt, oi) => <option key={oi} value={String(oi)}>{opt}</option>)}
+                            <option value="" disabled className="bg-slate-800 text-white">—</option>
+                            {blank.options.map((opt, oi) => <option key={oi} value={String(oi)} className="bg-slate-800 text-white">{opt}</option>)}
                           </select>
                         )
                       )}
