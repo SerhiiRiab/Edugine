@@ -76,10 +76,13 @@ function parseLine(line: string, separator: string): Record<string, unknown> | n
     const optStr = parts[i + 2]
     if (!optStr) return null
     const options = optStr.split(',').map(o => o.trim()).filter(Boolean)
+    if (!options.includes(answer)) options.push(answer)
     if (options.length < 2) return null
-    let correctIndex = options.indexOf(answer)
-    if (correctIndex === -1) { options.unshift(answer); correctIndex = 0 }
-    blanks.push({ options, correctIndex })
+    for (let j = options.length - 1; j > 0; j--) {
+      const k = Math.floor(Math.random() * (j + 1));
+      [options[j], options[k]] = [options[k], options[j]]
+    }
+    blanks.push({ options, correctIndex: options.indexOf(answer) })
   }
   return { sentence, blanks }
 }
