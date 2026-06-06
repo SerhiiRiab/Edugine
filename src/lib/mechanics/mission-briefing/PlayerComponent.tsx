@@ -84,7 +84,7 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-violet-600">
                   <span className="text-white font-extrabold text-lg">
-                    {myItem.playerLabel.charAt(0).toUpperCase()}
+                    {(myItem.playerLabel ?? '?').charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div>

@@ -95,6 +95,8 @@ export default async function PlayPage({ params }: Props) {
             secretGoal: i.data.secretGoal as string | undefined,
             isSpy: i.data.isSpy as boolean | undefined,
             languageConstraints: i.data.languageConstraints as string[] | undefined,
+            playerLabel: i.data.playerLabel as string | undefined,
+            briefing: i.data.briefing as string | undefined,
           })),
       }))
 
@@ -148,6 +150,8 @@ export default async function PlayPage({ params }: Props) {
       secretGoal: d.secretGoal as string | undefined,
       isSpy: d.isSpy as boolean | undefined,
       languageConstraints: d.languageConstraints as string[] | undefined,
+      playerLabel: d.playerLabel as string | undefined,
+      briefing: d.briefing as string | undefined,
     }
   })
 
