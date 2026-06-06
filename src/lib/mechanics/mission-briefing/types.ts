@@ -8,6 +8,11 @@ export interface MissionBriefingItem {
   languageConstraints?: string[]
 }
 
+export interface MissionBriefingEvent {
+  text: string
+  sentAt: number  // unix ms
+}
+
 export interface MissionBriefingState {
   scenario: string                     // content_set.description — mission + shared objective
   phase: 1 | 2 | 3 | 4
@@ -19,6 +24,7 @@ export interface MissionBriefingState {
   result: 'complete' | 'failed' | null
   debriefNote: string
   status: 'active' | 'finished'
+  events: MissionBriefingEvent[]       // game master events injected during phase 2; max 10
 }
 
 export function computeTimeLeft(state: MissionBriefingState): number {

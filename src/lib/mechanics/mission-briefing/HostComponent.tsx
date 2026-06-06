@@ -1,12 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Play, Pause, RotateCcw, StopCircle, ChevronRight, CheckCircle2, XCircle, FileText, Users } from 'lucide-react'
+import { Play, Pause, RotateCcw, StopCircle, ChevronRight, CheckCircle2, XCircle, FileText, Users, Zap } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
 import { computeTimeLeft } from './types'
 
 export function MissionBriefingHostComponent(_props: MechanicHostProps<MissionBriefingState>) { return null }
+
+function relativeTime(sentAt: number): string {
+  const secs = Math.floor((Date.now() - sentAt) / 1000)
+  if (secs < 60) return 'just now'
+  const mins = Math.floor(secs / 60)
+  return `${mins} min ago`
+}
 
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
@@ -62,6 +69,7 @@ export interface MissionBriefingHostPanelProps {
   onMissionComplete: () => Promise<void>
   onMissionFailed: () => Promise<void>
   onSetDebriefNote: (note: string) => Promise<void>
+  onInjectEvent: (text: string) => Promise<void>
   onFinish: () => Promise<void>
 }
 
@@ -69,11 +77,13 @@ export function MissionBriefingHostPanel({
   state, participants, items, isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
   onStartMission, onTimerStart, onTimerPause, onTimerReset,
-  onSetDuration, onTimeUp, onMissionComplete, onMissionFailed, onSetDebriefNote, onFinish,
+  onSetDuration, onTimeUp, onMissionComplete, onMissionFailed, onSetDebriefNote, onInjectEvent, onFinish,
 }: MissionBriefingHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
   const [localDebriefNote, setLocalDebriefNote] = useState(state.debriefNote ?? '')
+  const [showEventPanel, setShowEventPanel] = useState(false)
+  const [eventText, setEventText] = useState('')
 
   useEffect(() => { setDisplayTime(computeTimeLeft(state)) }, [state])
 
@@ -244,6 +254,58 @@ export function MissionBriefingHostPanel({
                 </div>
               )
             })}
+          </div>
+
+          {/* ── Inject Event ── */}
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowEventPanel(p => !p)}
+              disabled={(state.events ?? []).length >= 10}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 disabled:opacity-40 text-amber-700 font-semibold text-sm transition-colors"
+            >
+              <Zap className="w-4 h-4" />Inject Event{(state.events ?? []).length >= 10 ? ' (limit reached)' : ''}
+            </button>
+            {showEventPanel && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 space-y-2">
+                <textarea
+                  value={eventText}
+                  onChange={e => setEventText(e.target.value)}
+                  rows={2}
+                  placeholder="New event message..."
+                  className="w-full rounded-lg border border-amber-200 px-3 py-2 text-sm bg-white focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 resize-none placeholder:text-amber-300"
+                />
+                <button
+                  onClick={async () => {
+                    const trimmed = eventText.trim()
+                    if (!trimmed || isBusy) return
+                    setIsBusy(true)
+                    try {
+                      await onInjectEvent(trimmed)
+                      setEventText('')
+                      setShowEventPanel(false)
+                    } finally {
+                      setIsBusy(false)
+                    }
+                  }}
+                  disabled={!eventText.trim() || isBusy}
+                  className="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-sm transition-colors"
+                >
+                  Send to all
+                </button>
+              </div>
+            )}
+            {(state.events ?? []).length > 0 && (
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Sent events</p>
+                {[...(state.events ?? [])].reverse().map((ev, i) => (
+                  <div key={i} className="flex items-start gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-50 border border-amber-100">
+                    <span className="text-amber-500 text-xs shrink-0">⚡</span>
+                    <span className="text-xs text-amber-800 flex-1 leading-snug">{ev.text}</span>
+                    <span className="text-[10px] text-amber-400 shrink-0 whitespace-nowrap">{relativeTime(ev.sentAt)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <button onClick={wrap(onTimeUp)} disabled={isBusy}

@@ -1924,6 +1924,15 @@ export function SessionHostView({ session, lesson }: Props) {
     await mbStateUpdate({ ...cur, status: 'finished' })
   }
 
+  async function handleMBInjectEvent(text: string) {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    const events = [...(cur.events ?? [])]
+    if (events.length >= 10) return
+    events.push({ text, sentAt: Date.now() })
+    await mbStateUpdate({ ...cur, events })
+  }
+
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -2812,6 +2821,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onMissionComplete={handleMBMissionComplete}
                 onMissionFailed={handleMBMissionFailed}
                 onSetDebriefNote={handleMBSetDebriefNote}
+                onInjectEvent={handleMBInjectEvent}
                 onFinish={handleMBFinish}
               />
             )}

@@ -8,6 +8,13 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 
 export function MissionBriefingPlayerComponent(_props: MechanicPlayerProps<MissionBriefingState>) { return null }
 
+function relativeTime(sentAt: number): string {
+  const secs = Math.floor((Date.now() - sentAt) / 1000)
+  if (secs < 60) return 'just now'
+  const mins = Math.floor(secs / 60)
+  return `${mins} min ago`
+}
+
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
@@ -43,6 +50,7 @@ export interface MissionBriefingPlayerPanelProps {
 export function MissionBriefingPlayerPanel({ participantId, state, items, participants }: MissionBriefingPlayerPanelProps) {
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
   const [briefingCollapsed, setBriefingCollapsed] = useState(false)
+  const [, setTick] = useState(0)
 
   useEffect(() => { setDisplayTime(computeTimeLeft(state)) }, [state])
 
@@ -52,6 +60,11 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
     return () => clearInterval(id)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
+
+  useEffect(() => {
+    const id = setInterval(() => setTick(t => t + 1), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   const myIndex = state.assignments[participantId]
   const myItem: MissionBriefingItem | null = myIndex !== undefined ? (items[myIndex] ?? null) : null
@@ -137,6 +150,22 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
       {/* ── Phase 2: Communication ── */}
       {state.phase === 2 && (
         <div className="flex-1 flex flex-col gap-4 px-4 py-4">
+          {/* Game Master Events */}
+          {(state.events ?? []).length > 0 && (
+            <div className="space-y-2">
+              {[...(state.events ?? [])].slice(-3).reverse().map((ev, i) => (
+                <div key={i} className="flex items-start gap-3 px-4 py-3 rounded-2xl bg-amber-900/30 border border-amber-600/50">
+                  <span className="text-amber-400 text-base shrink-0">⚡</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-0.5">New Intel</p>
+                    <p className="text-sm text-amber-100 leading-relaxed">{ev.text}</p>
+                  </div>
+                  <span className="text-[10px] text-amber-600 shrink-0 mt-0.5 whitespace-nowrap">{relativeTime(ev.sentAt)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {state.scenario && (
             <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Mission</p>

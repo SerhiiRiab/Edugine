@@ -1018,6 +1018,7 @@ export async function initMissionBriefingState(
     result: null,
     debriefNote: '',
     status: 'active',
+    events: [],
   }
 
   const { data: existing } = await supabase
