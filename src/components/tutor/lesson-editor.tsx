@@ -1357,26 +1357,58 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         <div className="mb-8 p-4 rounded-2xl border border-slate-100 bg-white space-y-3">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Visibility</p>
           <div className="flex gap-2 flex-wrap">
-            {(
-              [
-                { value: 'private',  icon: Lock,  label: 'Private',  desc: 'Only you can see',      colors: 'border-slate-300 bg-slate-50 text-slate-700' },
-                { value: 'unlisted', icon: Link2, label: 'Unlisted', desc: 'Anyone with the link',   colors: 'border-violet-400 bg-violet-50 text-violet-700' },
-                { value: 'public',   icon: Globe, label: 'Public',   desc: 'Listed publicly',        colors: 'border-sky-400 bg-sky-50 text-sky-700' },
-              ] as const
-            ).map(({ value, icon: Icon, label, desc, colors }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => handleVisibilityClick(value)}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all cursor-pointer
-                  ${visibility === value ? colors : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
-              >
-                <Icon className="w-3.5 h-3.5 shrink-0" />
-                <span>{label}</span>
-                {visibility !== value && <span className="text-xs font-normal text-slate-400 hidden sm:inline">{desc}</span>}
-              </button>
-            ))}
+            {/* Private */}
+            <button
+              type="button"
+              onClick={() => handleVisibilityClick('private')}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+                ${visibility === 'private'
+                  ? 'border-slate-300 bg-slate-50 text-slate-700'
+                  : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
+            >
+              <Lock className="w-3.5 h-3.5 shrink-0" />
+              <span>Private</span>
+              {visibility !== 'private' && <span className="text-xs font-normal text-slate-400 hidden sm:inline">Only you</span>}
+            </button>
+
+            {/* Unlisted */}
+            <button
+              type="button"
+              onClick={() => handleVisibilityClick('unlisted')}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+                ${visibility === 'unlisted'
+                  ? 'border-violet-400 bg-violet-50 text-violet-700'
+                  : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
+            >
+              <Link2 className="w-3.5 h-3.5 shrink-0" />
+              <span>Unlisted</span>
+              {visibility !== 'unlisted' && <span className="text-xs font-normal text-slate-400 hidden sm:inline">Anyone with link</span>}
+            </button>
+
+            {/* Public — two visual states: pending (dashed) vs saved (solid) */}
+            <button
+              type="button"
+              onClick={() => handleVisibilityClick('public')}
+              className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+                ${visibility !== 'public'
+                  ? 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'
+                  : savedAsPublic
+                    ? 'border-sky-500 bg-sky-500 text-white'
+                    : 'border-sky-400 border-dashed bg-sky-50 text-sky-600'}`}
+            >
+              <Globe className="w-3.5 h-3.5 shrink-0" />
+              <span>Public</span>
+              {visibility !== 'public' && <span className="text-xs font-normal text-slate-400 hidden sm:inline">Listed publicly</span>}
+              {visibility === 'public' && savedAsPublic && <Check className="w-3.5 h-3.5 shrink-0" />}
+            </button>
           </div>
+
+          {/* Helper text: public selected but not yet saved */}
+          {visibility === 'public' && !savedAsPublic && (
+            <p className="text-xs text-sky-600 font-medium">
+              Fill in description and level below to publish
+            </p>
+          )}
 
           {/* Unlisted: share link */}
           {visibility === 'unlisted' && lesson.share_token && (
@@ -1398,6 +1430,14 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
           {/* Public: meta form */}
           {visibility === 'public' && (
             <div className="mt-1 pt-3 border-t border-slate-100 space-y-4">
+
+              {/* Not-yet-published notice */}
+              {!savedAsPublic && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+                  <span>Not published yet. Fill in the fields below and click <strong>Save as Public</strong>.</span>
+                </div>
+              )}
 
               {/* Description */}
               <div className="space-y-1.5">
@@ -1440,11 +1480,11 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
               <div className="space-y-1.5">
                 <p className="text-xs font-semibold text-slate-600">Public URL</p>
                 <p className="text-xs font-mono text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 break-all">
-                  edugine.app/lessons/<span className="text-slate-700">{pubSlug}</span>
+                  edugine.app/lessons/<span className="text-slate-700">{pubSlug || <span className="text-slate-300 italic">generated from title</span>}</span>
                 </p>
               </div>
 
-              {/* Publish / Update button */}
+              {/* Save button */}
               <div className="flex items-center gap-3 pt-1">
                 <button
                   type="button"
@@ -1454,7 +1494,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                     disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
                 >
                   {savingPub ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
-                  {savedAsPublic ? 'Update public lesson' : 'Publish lesson'}
+                  {savedAsPublic ? 'Save changes' : 'Save as Public'}
                 </button>
 
                 {savedAsPublic && pubSlug && (
