@@ -59,21 +59,27 @@ export async function updateLessonVisibility(
 
     if (existing) return { error: 'This slug is already taken — please choose another' }
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('lessons')
       .update({ visibility, slug, level, description: description.trim() || null })
       .eq('id', id)
       .eq('owner_id', user.id)
+      .select('id')
+      .single()
 
     if (error) throw new Error(error.message)
+    if (!updated) return { error: 'Lesson not found or you do not have permission to edit it' }
   } else {
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('lessons')
       .update({ visibility })
       .eq('id', id)
       .eq('owner_id', user.id)
+      .select('id')
+      .single()
 
     if (error) throw new Error(error.message)
+    if (!updated) return { error: 'Lesson not found or you do not have permission to edit it' }
   }
 
   revalidatePath('/tutor/lessons')

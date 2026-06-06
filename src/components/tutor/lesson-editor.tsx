@@ -1116,6 +1116,10 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
       toast.error('Please select a level')
       return
     }
+    if (!pubSlug) {
+      toast.error('Cannot generate a URL from this title — add more words or use Latin characters')
+      return
+    }
     setSavingPub(true)
     try {
       const result = await updateLessonVisibility(lesson.id, 'public', {
