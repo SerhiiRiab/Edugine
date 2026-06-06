@@ -67,28 +67,28 @@ interface ScenarioTemplate {
 
 const TEMPLATES: ScenarioTemplate[] = [
   {
-    name: 'Rescue Operation',
-    scenario: 'Your team must evacuate survivors from a damaged building. You each have different intel. Coordinate your plan using only verbal communication — no showing screens.\n\nMission objective: Decide the evacuation route and order of rescue. You have 5 minutes.',
+    name: 'Arctic Expedition',
+    scenario: 'Your research team is stranded at an Arctic base after a storm damaged your equipment. You have limited supplies and a rescue helicopter arriving in 6 hours. Each team member has different information about your situation. Coordinate to make the right decisions.\n\nMission objective: Agree on three priorities: what to fix first, what supplies to protect, and where to set up the rescue signal.',
     cards: [
       {
-        playerLabel: 'Agent A — Floor Plan',
-        briefing: 'You have the building floor plan. Staircase A is blocked on floor 2. Emergency exit is on the east side of floor 3. There is an elevator that still works on the west wing.',
-        languageConstraints: ['You can only give directions and locations', 'Do not say "blocked" — say "unavailable"'],
+        playerLabel: 'Meteorologist',
+        briefing: 'The storm will return in 4 hours with stronger winds. Temperature will drop to -40°C overnight. The helicopter cannot land in winds above 60km/h. Current wind speed is 35km/h and rising.',
+        languageConstraints: ['You can only give weather data and time estimates', 'No suggestions allowed'],
       },
       {
-        playerLabel: 'Agent B — Survivor Positions',
-        briefing: 'There are 3 survivors: one on floor 1 (mobile), one on floor 2 (injured, cannot walk), one on floor 3 (unresponsive). The injured person needs two people to carry them.',
-        languageConstraints: ['You can only describe people and their conditions', 'You cannot suggest routes'],
+        playerLabel: 'Equipment Engineer',
+        briefing: 'The heating system has a crack but can be repaired in 2 hours with the spare parts in Storage B. The radio transmitter works but only has 30 minutes of battery left. The emergency beacon in Storage A is intact.',
+        languageConstraints: ['You can only describe equipment status', 'You must say "Technically speaking:" before every statement'],
       },
       {
-        playerLabel: 'Agent C — Hazard Report',
-        briefing: 'There is a gas leak on floor 2, west corridor. Fire is spreading from floor 1, east side. The roof is unstable — no one should go above floor 3.',
-        languageConstraints: ['You can only warn about dangers', 'You must say "Warning:" before every statement'],
+        playerLabel: 'Supply Officer',
+        briefing: 'You have food for 5 days, but medical supplies for only 2 people for 1 day. Storage B is partially flooded — some spare parts may be damaged. The emergency sled has fuel for 40km.',
+        languageConstraints: ['You can only ask questions to clarify others\' information', 'No statements'],
       },
       {
-        playerLabel: 'Agent D — Protocol Rules',
-        briefing: 'Maximum 2 people per trip on the staircase. Injured must be evacuated before unresponsive. Never leave someone alone on a floor with fire.',
-        languageConstraints: ['You can only state rules and confirm/deny if a plan follows protocol'],
+        playerLabel: 'Team Leader',
+        briefing: 'Protocol says: beacon must be activated at least 3 hours before pickup. Helicopter landing zone must be cleared and marked. In extreme cold, all team members must stay together — no solo missions.',
+        languageConstraints: ['You must summarize what others say before adding your information', 'Use: "So what I understand is..."'],
       },
     ],
   },
