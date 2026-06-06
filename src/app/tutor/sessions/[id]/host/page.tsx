@@ -82,6 +82,8 @@ export default async function HostPage({
             secretGoal: i.data.secretGoal as string | undefined,
             isSpy: i.data.isSpy as boolean | undefined,
             languageConstraints: i.data.languageConstraints as string[] | undefined,
+            playerLabel: i.data.playerLabel as string | undefined,
+            briefing: i.data.briefing as string | undefined,
           })),
       }))
 
@@ -133,6 +135,8 @@ export default async function HostPage({
     secretGoal: (i.data as { secretGoal?: string }).secretGoal,
     isSpy: (i.data as { isSpy?: boolean }).isSpy,
     languageConstraints: (i.data as { languageConstraints?: string[] }).languageConstraints,
+    playerLabel: (i.data as { playerLabel?: string }).playerLabel,
+    briefing: (i.data as { briefing?: string }).briefing,
   }))
 
   return (

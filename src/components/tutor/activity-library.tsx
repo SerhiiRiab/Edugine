@@ -31,6 +31,7 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   speaking_challenge: Mic2,
   word_choice:        ToggleLeft,
   hidden_role:        Theater,
+  mission_briefing:   Target,
 }
 
 const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {

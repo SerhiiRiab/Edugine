@@ -29,6 +29,8 @@ import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRoulettePlayerPanel } from '@/lib/mechanics/debate-roulette/PlayerComponent'
 import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-role/types'
 import { HiddenRolePlayerPanel } from '@/lib/mechanics/hidden-role/PlayerComponent'
+import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
+import { MissionBriefingPlayerPanel } from '@/lib/mechanics/mission-briefing/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
@@ -71,6 +73,9 @@ interface CardItem {
   secretGoal?: string
   isSpy?: boolean
   languageConstraints?: string[]
+  // Mission Briefing
+  playerLabel?: string
+  briefing?: string
 }
 
 interface LessonActivity {
@@ -152,6 +157,9 @@ export function PlayerView({ session, lesson }: Props) {
   const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
   const [debateRouletteState, setDebateRouletteState] = useState<DebateRouletteState | null>(null)
   const [hiddenRoleState, setHiddenRoleState] = useState<HiddenRoleState | null>(null)
+
+  // ── Mission Briefing ──────────────────────────────────────────────────────────
+  const [missionBriefingState, setMissionBriefingState] = useState<MissionBriefingState | null>(null)
 
   // ── Speed Debate ──────────────────────────────────────────────────────────────
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -342,6 +350,24 @@ export function PlayerView({ session, lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, hiddenRoleState])
 
+  // ── Mission Briefing: fetch from DB on reconnect ─────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'mission_briefing' || missionBriefingState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'assignments' in (data.state as Record<string, unknown>)) {
+          setMissionBriefingState(data.state as unknown as MissionBriefingState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, missionBriefingState])
+
   // ── Speed Debate: fetch from DB on reconnect ──────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || currentMechanicId !== 'speed_debate' || speedDebateState) return
@@ -526,7 +552,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -540,6 +566,7 @@ export function PlayerView({ session, lesson }: Props) {
         setCtmSharedState(p.ctmSharedState ?? null)
         setDebateRouletteState(p.debateRouletteState ?? null)
         setHiddenRoleState(p.hiddenRoleState ?? null)
+        setMissionBriefingState(p.missionBriefingState ?? null)
         setSpeedDebateState(p.speedDebateState ?? null)
         setRoleplayQuestState(p.roleplayQuestState ?? null)
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
@@ -566,7 +593,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -578,6 +605,7 @@ export function PlayerView({ session, lesson }: Props) {
         setCtmSharedState(p.ctmSharedState ?? null)
         setDebateRouletteState(p.debateRouletteState ?? null)
         setHiddenRoleState(p.hiddenRoleState ?? null)
+        setMissionBriefingState(p.missionBriefingState ?? null)
         setSpeedDebateState(p.speedDebateState ?? null)
         setRoleplayQuestState(p.roleplayQuestState ?? null)
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
@@ -603,6 +631,10 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'hidden_role_state_update' }, ({ payload }) => {
         const p = payload as { state: HiddenRoleState }
         if (p.state) setHiddenRoleState(p.state)
+      })
+      .on('broadcast', { event: 'mission_briefing_state_update' }, ({ payload }) => {
+        const p = payload as { state: MissionBriefingState }
+        if (p.state) setMissionBriefingState(p.state)
       })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
@@ -1351,8 +1383,26 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* Mission Briefing */}
+          {currentMechanicId === 'mission_briefing' && participantId && (
+            missionBriefingState
+              ? (
+                <MissionBriefingPlayerPanel
+                  participantId={participantId}
+                  state={missionBriefingState}
+                  items={currentItems as unknown as MissionBriefingItem[]}
+                  participants={waitingParticipants}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading briefing…</p>
+                </div>
+              )
+          )}
+
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

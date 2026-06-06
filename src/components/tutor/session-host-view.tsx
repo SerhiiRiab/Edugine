@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -38,6 +38,8 @@ import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostCom
 import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-role/types'
 import { TUTOR_PARTICIPANT_ID } from '@/lib/mechanics/hidden-role/types'
 import { HiddenRoleHostPanel } from '@/lib/mechanics/hidden-role/HostComponent'
+import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
+import { MissionBriefingHostPanel } from '@/lib/mechanics/mission-briefing/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -213,6 +215,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Hidden Role state
   const [hiddenRoleState, setHiddenRoleState] = useState<HiddenRoleState | null>(null)
 
+  // Mission Briefing state
+  const [missionBriefingState, setMissionBriefingState] = useState<MissionBriefingState | null>(null)
+
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
 
@@ -251,6 +256,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
   const debateRouletteStateRef = useRef<DebateRouletteState | null>(null)
   const hiddenRoleStateRef = useRef<HiddenRoleState | null>(null)
+  const missionBriefingStateRef = useRef<MissionBriefingState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -266,6 +272,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
   useEffect(() => { debateRouletteStateRef.current = debateRouletteState }, [debateRouletteState])
   useEffect(() => { hiddenRoleStateRef.current = hiddenRoleState }, [hiddenRoleState])
+  useEffect(() => { missionBriefingStateRef.current = missionBriefingState }, [missionBriefingState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -465,6 +472,21 @@ export function SessionHostView({ session, lesson }: Props) {
           if (stateRow?.state && 'assignments' in (stateRow.state as Record<string, unknown>)) {
             const restoredHR = stateRow.state as unknown as HiddenRoleState
             setHiddenRoleState({ ...restoredHR, tutorNickname: restoredHR.tutorNickname ?? null, tutorCandidateIndex: restoredHR.tutorCandidateIndex ?? null })
+          }
+        }
+
+        // Restore mission_briefing state from DB on tab restore / reconnect
+        if (currentMechanic === 'mission_briefing' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'assignments' in (stateRow.state as Record<string, unknown>)) {
+            const restored = stateRow.state as unknown as MissionBriefingState
+            setMissionBriefingState(restored)
+            missionBriefingStateRef.current = restored
           }
         }
 
@@ -798,6 +820,10 @@ export function SessionHostView({ session, lesson }: Props) {
           return next
         })
       })
+      .on('broadcast', { event: 'mission_briefing_state_update' }, ({ payload }) => {
+        const p = payload as { state: MissionBriefingState }
+        if (p.state) { setMissionBriefingState(p.state); missionBriefingStateRef.current = p.state }
+      })
       .on('broadcast', { event: 'debate_roulette_spin_request' }, () => {
         const cur = debateRouletteStateRef.current
         if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
@@ -996,6 +1022,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newCtmSharedState: CorrectTheMistakeSharedState | undefined
         let newDebateRouletteState: DebateRouletteState | undefined
         let newHiddenRoleState: HiddenRoleState | undefined
+        let newMissionBriefingState: MissionBriefingState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1070,7 +1097,12 @@ export function SessionHostView({ session, lesson }: Props) {
           newHiddenRoleState = await initHiddenRoleState(session.id, currentActivityIndex)
           setHiddenRoleState(newHiddenRoleState)
           hiddenRoleStateRef.current = newHiddenRoleState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null); setMissionBriefingState(null)
+        } else if (firstActivity?.mechanic_id === 'mission_briefing') {
+          newMissionBriefingState = await initMissionBriefingState(session.id, currentActivityIndex)
+          setMissionBriefingState(newMissionBriefingState)
+          missionBriefingStateRef.current = newMissionBriefingState
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setRoleplayQuestState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
@@ -1093,6 +1125,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setCtmSharedState(null)
           setDebateRouletteState(null)
           setHiddenRoleState(null)
+          setMissionBriefingState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -1115,6 +1148,7 @@ export function SessionHostView({ session, lesson }: Props) {
             ctmSharedState: newCtmSharedState,
             debateRouletteState: newDebateRouletteState,
             hiddenRoleState: newHiddenRoleState,
+            missionBriefingState: newMissionBriefingState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -1165,6 +1199,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newCtmSharedState: CorrectTheMistakeSharedState | undefined
       let newDebateRouletteState: DebateRouletteState | undefined
       let newHiddenRoleState: HiddenRoleState | undefined
+      let newMissionBriefingState: MissionBriefingState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1242,19 +1277,24 @@ export function SessionHostView({ session, lesson }: Props) {
         newHiddenRoleState = await initHiddenRoleState(session.id, nextIndex)
         setHiddenRoleState(newHiddenRoleState)
         hiddenRoleStateRef.current = newHiddenRoleState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null); setMissionBriefingState(null)
+      } else if (nextActivity?.mechanic_id === 'mission_briefing') {
+        newMissionBriefingState = await initMissionBriefingState(session.id, nextIndex)
+        setMissionBriefingState(newMissionBriefingState)
+        missionBriefingStateRef.current = newMissionBriefingState
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setRoleplayQuestState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null)
       } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
         newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
         setRoleplayQuestState(newRoleplayQuestState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null); setMissionBriefingState(null)
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -1265,6 +1305,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setCtmSharedState(null)
         setDebateRouletteState(null)
         setHiddenRoleState(null)
+        setMissionBriefingState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1285,6 +1326,7 @@ export function SessionHostView({ session, lesson }: Props) {
           ctmSharedState: newCtmSharedState,
           debateRouletteState: newDebateRouletteState,
           hiddenRoleState: newHiddenRoleState,
+          missionBriefingState: newMissionBriefingState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -1807,6 +1849,79 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur) return
     const newResults = { ...cur.voteResults, [votedForId]: (cur.voteResults[votedForId] ?? 0) + 1 }
     await hrStateUpdate({ ...cur, votedCount: cur.votedCount + 1, voteResults: newResults })
+  }
+
+  // ── Mission Briefing handlers ─────────────────────────────────────────────────
+  async function mbStateUpdate(newState: MissionBriefingState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setMissionBriefingState(newState)
+    missionBriefingStateRef.current = newState
+    channelRef.current?.send({ type: 'broadcast', event: 'mission_briefing_state_update', payload: { state: newState } })
+  }
+
+  async function handleMBStartMission() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, phase: 2 })
+  }
+
+  async function handleMBTimerStart() {
+    const cur = missionBriefingStateRef.current
+    if (!cur || cur.timerRunning) return
+    await mbStateUpdate({ ...cur, timerRunning: true, timerStartedAt: new Date().toISOString() })
+  }
+
+  async function handleMBTimerPause() {
+    const cur = missionBriefingStateRef.current
+    if (!cur || !cur.timerRunning) return
+    const remaining = Math.max(0, cur.timeLeftAtStart - Math.floor((Date.now() - new Date(cur.timerStartedAt!).getTime()) / 1000))
+    await mbStateUpdate({ ...cur, timerRunning: false, timeLeftAtStart: remaining, timerStartedAt: null })
+  }
+
+  async function handleMBTimerReset() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null, timeLeftAtStart: cur.turnDuration })
+  }
+
+  async function handleMBSetDuration(seconds: number) {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, turnDuration: seconds, timeLeftAtStart: seconds, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleMBTimeUp() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, phase: 3, timerRunning: false })
+  }
+
+  async function handleMBMissionComplete() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, phase: 4, result: 'complete' })
+  }
+
+  async function handleMBMissionFailed() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, phase: 4, result: 'failed' })
+  }
+
+  async function handleMBSetDebriefNote(note: string) {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, debriefNote: note })
+  }
+
+  async function handleMBFinish() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, status: 'finished' })
   }
 
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
@@ -2676,6 +2791,31 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── MISSION BRIEFING ─────────────────────────────────────── */}
+            {currentMechanicId === 'mission_briefing' && missionBriefingState && (
+              <MissionBriefingHostPanel
+                state={missionBriefingState}
+                participants={participants}
+                items={currentActivityItems as unknown as MissionBriefingItem[]}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+                onStartMission={handleMBStartMission}
+                onTimerStart={handleMBTimerStart}
+                onTimerPause={handleMBTimerPause}
+                onTimerReset={handleMBTimerReset}
+                onSetDuration={handleMBSetDuration}
+                onTimeUp={handleMBTimeUp}
+                onMissionComplete={handleMBMissionComplete}
+                onMissionFailed={handleMBMissionFailed}
+                onSetDebriefNote={handleMBSetDebriefNote}
+                onFinish={handleMBFinish}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -2756,7 +2896,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

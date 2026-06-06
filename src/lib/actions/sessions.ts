@@ -13,6 +13,7 @@ import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/
 import { makeInitialShuffleQueue } from '@/lib/mechanics/speaking-challenge/types'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import type { HiddenRoleState } from '@/lib/mechanics/hidden-role/types'
+import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -927,6 +928,96 @@ export async function initHiddenRoleState(
     status: 'active',
     tutorNickname: null,
     tutorCandidateIndex,
+  }
+
+  const { data: existing } = await supabase
+    .from('shared_activity_state')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('activity_index', activityIndex)
+    .single()
+
+  if (existing) {
+    await supabase.from('shared_activity_state')
+      .update({ state: state as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId).eq('activity_index', activityIndex)
+  } else {
+    await supabase.from('shared_activity_state')
+      .insert({ session_id: sessionId, activity_index: activityIndex, state: state as unknown as Record<string, unknown> })
+  }
+
+  return state
+}
+
+export async function initMissionBriefingState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<MissionBriefingState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+  if (!session) throw new Error('Session not found')
+
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const participants = (participantRows ?? []).map(p => p.id)
+
+  let contentSetId: string
+  let timerDuration = 300  // 5 minutes default
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position, config')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+    timerDuration =
+      typeof (activity.config as Record<string, unknown>)?.timerSeconds === 'number'
+        ? ((activity.config as Record<string, unknown>).timerSeconds as number)
+        : 300
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description, content_items(id, position, data)')
+    .eq('id', contentSetId)
+    .single()
+
+  const scenario = contentSet?.description ?? ''
+  const items = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+    .sort((a, b) => a.position - b.position) as unknown as MissionBriefingItem[]
+
+  // Assign items to participants in order; extra players share the last card
+  const assignments: Record<string, number> = {}
+  participants.forEach((pid, i) => {
+    assignments[pid] = Math.min(i, Math.max(0, items.length - 1))
+  })
+
+  const state: MissionBriefingState = {
+    scenario,
+    phase: 1,
+    assignments,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: timerDuration,
+    turnDuration: timerDuration,
+    result: null,
+    debriefNote: '',
+    status: 'active',
   }
 
   const { data: existing } = await supabase
