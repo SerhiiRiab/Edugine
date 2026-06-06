@@ -60,11 +60,15 @@ export const wordChoiceDefinition: MechanicDefinition<WordChoiceConfig, WordChoi
         if (!answer) return null
         const optStr = parts[i + 2]
         if (!optStr) return null
-        const options = optStr.split(',').map(o => o.trim()).filter(Boolean)
-        if (options.length < 2) return null
-        let correctIndex = options.indexOf(answer)
-        if (correctIndex === -1) { options.unshift(answer); correctIndex = 0 }
-        blanks.push({ options, correctIndex })
+        const rawOptions = optStr.split(',').map(o => o.trim()).filter(Boolean)
+        if (!rawOptions.includes(answer)) rawOptions.push(answer)
+        if (rawOptions.length < 2) return null
+        // shuffle so correct answer lands in a random position
+        for (let j = rawOptions.length - 1; j > 0; j--) {
+          const k = Math.floor(Math.random() * (j + 1));
+          [rawOptions[j], rawOptions[k]] = [rawOptions[k], rawOptions[j]]
+        }
+        blanks.push({ options: rawOptions, correctIndex: rawOptions.indexOf(answer) })
       }
       return { sentence, blanks }
     },
