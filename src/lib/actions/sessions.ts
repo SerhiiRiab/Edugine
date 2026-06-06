@@ -629,7 +629,7 @@ export async function initSpeakingChallengeState(
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('content_items(data, position)')
+    .select('description, content_items(data, position)')
     .eq('id', contentSetId)
     .single()
 
@@ -639,6 +639,8 @@ export async function initSpeakingChallengeState(
   const words = rawItems
     .map(item => (item.data.word as string)?.trim() ?? '')
     .filter(Boolean)
+
+  const instructions = (contentSet?.description ?? '').trim()
 
   const initialState: SpeakingChallengeState = {
     words,
@@ -652,6 +654,7 @@ export async function initSpeakingChallengeState(
     wordChangedAt: null,
     wordInterval: 10,
     status: 'setup',
+    instructions,
   }
 
   await supabase.from('shared_activity_state').upsert(

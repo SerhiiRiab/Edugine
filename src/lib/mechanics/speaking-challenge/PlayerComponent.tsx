@@ -146,6 +146,16 @@ export function SpeakingChallengePlayerPanel({
         </div>
       )}
 
+      {/* Instructions */}
+      {state.instructions && (
+        <div className="px-4 py-2.5 border-b border-slate-800/50">
+          <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-2.5 text-center">
+            <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-0.5">Task</p>
+            <p className="text-sm text-slate-200 leading-snug">{state.instructions}</p>
+          </div>
+        </div>
+      )}
+
       {/* Main word */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 overflow-hidden">
         <AnimatePresence mode="wait">

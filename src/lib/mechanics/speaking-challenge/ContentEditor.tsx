@@ -44,12 +44,24 @@ export function SpeakingChallengeContentEditor({ set, initialItems }: Props) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [addingRow, setAddingRow] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [instructions, setInstructions] = useState(set.description ?? '')
   const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+  const instructionsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const markSaved = useCallback(() => { setSaveStatus('saved'); setSavedAt(new Date()) }, [])
+
+  function handleInstructionsChange(val: string) {
+    setInstructions(val)
+    if (instructionsTimer.current) clearTimeout(instructionsTimer.current)
+    setSaveStatus('saving')
+    instructionsTimer.current = setTimeout(async () => {
+      try { await updateContentSet(set.id, { description: val }); markSaved() }
+      catch { setSaveStatus('error') }
+    }, 1500)
+  }
 
   function flushMeta(newTitle: string) {
     if (metaTimer.current) clearTimeout(metaTimer.current)
@@ -245,6 +257,21 @@ export function SpeakingChallengeContentEditor({ set, initialItems }: Props) {
             ))}
           </div>
         )}
+
+        {/* Instructions for students */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Instructions for students</p>
+          <textarea
+            value={instructions}
+            onChange={e => handleInstructionsChange(e.target.value)}
+            placeholder="e.g. Use each word in a sentence about the future of work..."
+            rows={3}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700
+              focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
+              resize-none transition-colors placeholder:text-slate-300"
+          />
+          <p className="text-[10px] text-slate-400">Optional — shown above the word display during gameplay</p>
+        </div>
       </div>
 
       {showBulkImport && speakingChallengeDefinition.bulkImport && (

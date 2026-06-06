@@ -224,6 +224,15 @@ export function SpeakingChallengeHostPanel({
 
   return (
     <div className="space-y-3">
+      {/* Instructions */}
+      {state.instructions && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5">
+          <p className="text-xs font-medium text-emerald-700">
+            <span className="font-semibold">Task:</span> {state.instructions}
+          </p>
+        </div>
+      )}
+
       {/* Current word */}
       <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl border border-violet-200 px-5 py-5 text-center">
         <AnimatePresence mode="wait">

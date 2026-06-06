@@ -16,6 +16,7 @@ export interface SpeakingChallengeState {
   wordChangedAt: string | null // ISO — when current word appeared; null during setup
   wordInterval: number         // seconds between words; 0 = manual
   status: 'setup' | 'active' | 'finished'
+  instructions: string         // from content_set.description — shown above word display
 }
 
 function shuffleIndices(n: number, avoidLeading?: number): number[] {
