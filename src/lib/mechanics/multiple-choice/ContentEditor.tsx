@@ -1,17 +1,18 @@
 'use client'
 
-import { useState, useRef, useCallback, useTransition } from 'react'
+import { useState, useRef, useCallback, useTransition, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2,
-  ClipboardList, ListChecks, Rocket, X, BarChart2, User,
+  ClipboardList, ListChecks, Rocket, X, BarChart2, User, Upload,
 } from 'lucide-react'
 import {
   updateContentSet,
   createContentItem,
   deleteContentItem,
+  bulkCreateContentItems,
   updateContentItem,
 } from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
@@ -61,6 +62,38 @@ interface Props {
   initialItems: RawItem[]
 }
 
+// ── parseMCLine ───────────────────────────────────────────────────────────────
+
+function parseMCLine(line: string): Record<string, unknown> | null {
+  const trimmed = line.split('|').map(p => p.trim())
+  if (trimmed.length < 3) return null
+  const question = trimmed[0]
+  const correct = trimmed[1]
+  if (!question || !correct) return null
+  const wrongs = trimmed.slice(2).filter(Boolean)
+  if (wrongs.length === 0) return null
+
+  const options = [correct, ...wrongs]
+  for (let j = options.length - 1; j > 0; j--) {
+    const k = Math.floor(Math.random() * (j + 1));
+    [options[j], options[k]] = [options[k], options[j]]
+  }
+  const correctIndex = options.indexOf(correct)
+  return { question, options, correctIndex }
+}
+
+function parseMCBulkText(text: string): { items: Record<string, unknown>[]; partial: number } {
+  const items: Record<string, unknown>[] = []
+  let partial = 0
+  for (const line of text.split('\n')) {
+    if (!line.trim()) continue
+    const result = parseMCLine(line)
+    if (result === null) partial++
+    else items.push(result)
+  }
+  return { items, partial }
+}
+
 // ── MultipleChoiceContentEditorPage ──────────────────────────────────────────
 
 export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
@@ -72,6 +105,10 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [startingSession, startSessionTransition] = useTransition()
   const [voteMode, setVoteMode] = useState(false)
+  const [addMode, setAddMode] = useState<'interactive' | 'bulk'>('interactive')
+  const [bulkText, setBulkText] = useState('')
+  const [bulkImporting, setBulkImporting] = useState(false)
+  const bulkResult = useMemo(() => parseMCBulkText(bulkText), [bulkText])
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
@@ -223,6 +260,24 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
     }
   }
 
+  // ── Bulk import ────────────────────────────────────────────────────────────
+
+  async function handleBulkImport() {
+    if (!bulkResult.items.length || bulkImporting) return
+    setBulkImporting(true)
+    try {
+      const created = await bulkCreateContentItems(set.id, bulkResult.items)
+      setRows(prev => [...prev, ...created.map(it => rawToRow({ id: it.id, position: 0, data: it.data as Record<string, unknown> }))])
+      setBulkText('')
+      toast.success(`Added ${created.length} question${created.length !== 1 ? 's' : ''}`)
+      setAddMode('interactive')
+    } catch {
+      toast.error('Bulk import failed')
+    } finally {
+      setBulkImporting(false)
+    }
+  }
+
   function handleStartSession() {
     startSessionTransition(async () => {
       try {
@@ -336,7 +391,7 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
         </div>
       </div>
 
-      <div className="max-w-2xl mx-auto px-6 pt-8 space-y-4">
+      <div className="max-w-2xl mx-auto px-6 pt-8 space-y-6">
 
         <div className="flex items-center gap-2 text-rose-600">
           <ListChecks className="w-4 h-4" />
@@ -344,13 +399,120 @@ export function MultipleChoiceContentEditorPage({ set, initialItems }: Props) {
           <span className="text-xs text-slate-400 font-normal">· Reading</span>
         </div>
 
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600
-            hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
-        >
-          <Plus className="w-4 h-4" />Add question
-        </button>
+        {/* ── Add question panel ─────────────────────────────────────────────── */}
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-100">
+            <button
+              type="button"
+              onClick={() => setAddMode('interactive')}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                addMode === 'interactive'
+                  ? 'border-rose-500 text-rose-700'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Plus className="w-4 h-4" />Add question
+            </button>
+            <button
+              type="button"
+              onClick={() => setAddMode('bulk')}
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+                addMode === 'bulk'
+                  ? 'border-rose-500 text-rose-700'
+                  : 'border-transparent text-slate-400 hover:text-slate-600'
+              }`}
+            >
+              <Upload className="w-4 h-4" />Bulk import
+            </button>
+          </div>
+
+          {/* Interactive — single question add */}
+          {addMode === 'interactive' && (
+            <div className="p-5">
+              <button
+                onClick={handleAdd}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600
+                  hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+              >
+                <Plus className="w-4 h-4" />Add question
+              </button>
+            </div>
+          )}
+
+          {/* Bulk import panel */}
+          {addMode === 'bulk' && (
+            <div className="p-5 space-y-4">
+
+              {/* Format hint */}
+              <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Format (pipe separator)</p>
+                <p className="text-xs text-slate-500 mb-1.5">
+                  Question  ·  Correct Answer  ·  Wrong Option 2  ·  Wrong Option 3  · …
+                </p>
+                <pre className="text-xs font-mono text-slate-600 whitespace-pre-wrap leading-relaxed">
+{`What does AI stand for? | Artificial Intelligence | Automated Information | Advanced Integration | Automatic Input
+Which is an example of AI? | Voice assistants like Siri | Paper books | Bicycle locks | Paper maps`}
+                </pre>
+                <p className="text-[10px] text-slate-400 mt-1.5">Minimum 3 fields: question + correct + 1 wrong. Up to 5 wrong options. Options are shuffled on import.</p>
+              </div>
+
+              {/* Textarea */}
+              <textarea
+                value={bulkText}
+                onChange={e => setBulkText(e.target.value)}
+                rows={7}
+                placeholder={`What does AI stand for? | Artificial Intelligence | Automated Information | Advanced Integration\nWhich is an example of AI? | Voice assistants like Siri | Paper books | Bicycle locks`}
+                spellCheck={false}
+                className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono
+                  placeholder:text-slate-300 resize-none outline-none focus:border-violet-400
+                  focus:ring-2 focus:ring-violet-100 transition-colors leading-relaxed"
+              />
+
+              {/* Preview */}
+              {bulkText.trim() && (
+                <div className="rounded-xl bg-slate-50 border border-slate-200 p-3 space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Preview</p>
+                    <span className={`text-xs font-bold tabular-nums ${bulkResult.items.length > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                      {bulkResult.items.length} question{bulkResult.items.length !== 1 ? 's' : ''} ready
+                    </span>
+                  </div>
+                  {bulkResult.items.slice(0, 3).map((item, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span className="text-slate-600 truncate">{String(item.question ?? '')}</span>
+                    </div>
+                  ))}
+                  {bulkResult.items.length > 3 && (
+                    <p className="text-xs text-slate-400 pl-5">… and {bulkResult.items.length - 3} more</p>
+                  )}
+                  {bulkResult.partial > 0 && (
+                    <p className="text-xs text-amber-500 flex items-center gap-1 pt-1">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />{bulkResult.partial} line{bulkResult.partial !== 1 ? 's' : ''} skipped (need question | correct | 1+ wrong)
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleBulkImport}
+                disabled={bulkResult.items.length === 0 || bulkImporting}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
+                  bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm
+                  disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {bulkImporting
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Adding...</>
+                  : bulkResult.items.length > 0
+                    ? `Add ${bulkResult.items.length} question${bulkResult.items.length !== 1 ? 's' : ''} →`
+                    : 'Paste some questions first'}
+              </button>
+            </div>
+          )}
+        </div>
 
         {rows.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
