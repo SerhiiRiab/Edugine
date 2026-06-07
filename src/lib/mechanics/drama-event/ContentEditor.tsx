@@ -26,10 +26,12 @@ interface ContentSet { id: string; title: string; description: string | null; me
 interface RawItem { id: string; position: number; data: Record<string, unknown> }
 interface CardRow { id: string; eventType: EventType; text: string }
 
-function rawToRow(item: RawItem): CardRow {
+function rawToRow(item: RawItem): CardRow | null {
+  const eventType = item.data.eventType as string
+  if (!EVENT_TYPES.includes(eventType as EventType)) return null
   return {
     id: item.id,
-    eventType: (item.data.eventType as EventType) ?? 'twist',
+    eventType: eventType as EventType,
     text: (item.data.text as string) ?? '',
   }
 }
@@ -38,16 +40,16 @@ interface Props { set: ContentSet; initialItems: RawItem[] }
 
 const SCENARIO_TEMPLATES = [
   {
-    label: 'Job Interview Gone Wrong',
-    text: 'You are in a job interview for your dream position. Three people are interviewing you. Halfway through, something unexpected happens that changes the dynamic of the interview completely.',
+    label: 'The Interview Twist',
+    text: 'You are interviewing for your dream job at a top company in London. The panel includes the CEO, HR Director, and a senior colleague. You have prepared for weeks. The interview is going well — until the fire alarm goes off, the CEO receives an urgent phone call, and someone from a competing candidate walks in by mistake.',
   },
   {
-    label: 'Travel Crisis',
-    text: 'Your group is travelling abroad when something goes wrong at the worst possible moment. You must work together to solve the problem using only what you have available.',
+    label: 'Lost in Bangkok',
+    text: "Your group has just arrived in Bangkok for a holiday. It is your first night. You decided to explore the night market alone without a guide. Now it is midnight, your phone battery is at 3%, you cannot find your hotel, one person in the group has lost their passport, and it is starting to rain heavily.",
   },
   {
-    label: 'Business Negotiation',
-    text: 'Two companies are negotiating an important deal. Both sides want an agreement but have different priorities. Something happens that threatens to end the negotiation before a deal is reached.',
+    label: 'The Deal Breaker',
+    text: 'Representatives from two companies are meeting in a hotel conference room to sign a major business contract worth $5 million. Both sides have been negotiating for three months. The signing ceremony is in 20 minutes. Then the lead negotiator from one side receives a message that changes everything — and decides not to tell the other side immediately.',
   },
 ]
 
@@ -55,7 +57,7 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
-  const [rows, setRows] = useState<CardRow[]>(initialItems.map(rawToRow))
+  const [rows, setRows] = useState<CardRow[]>(initialItems.map(rawToRow).filter((r): r is CardRow => r !== null))
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [scenario, setScenario] = useState(set.description ?? '')
@@ -64,11 +66,16 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
   const [draftText, setDraftText] = useState('')
   const [bulkText, setBulkText] = useState('')
   const [adding, setAdding] = useState(false)
+  const wordlistRaw = initialItems.find(it => it.data.eventType === 'wordlist')
+  const [wordlistItemId, setWordlistItemId] = useState<string | null>(wordlistRaw?.id ?? null)
+  const [wordlistText, setWordlistText] = useState((wordlistRaw?.data.text as string) ?? '')
   const [bulkImporting, setBulkImporting] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scenarioTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wordlistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wordlistItemIdRef = useRef<string | null>(wordlistRaw?.id ?? null)
   const markSaved = useCallback(() => { setSaveStatus('saved'); setSavedAt(new Date()) }, [])
 
   function handleScenarioChange(val: string) {
@@ -78,6 +85,28 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
     scenarioTimer.current = setTimeout(async () => {
       try { await updateContentSet(set.id, { description: val }); markSaved() }
       catch { setSaveStatus('error') }
+    }, 1500)
+  }
+
+  function handleWordlistChange(val: string) {
+    setWordlistText(val)
+    if (wordlistTimer.current) clearTimeout(wordlistTimer.current)
+    setSaveStatus('saving')
+    wordlistTimer.current = setTimeout(async () => {
+      try {
+        const existingId = wordlistItemIdRef.current
+        if (existingId) {
+          await deleteContentItem(existingId)
+          wordlistItemIdRef.current = null
+          setWordlistItemId(null)
+        }
+        if (val.trim()) {
+          const created = await createContentItem(set.id, { eventType: 'wordlist', text: val.trim() })
+          wordlistItemIdRef.current = created.id
+          setWordlistItemId(created.id)
+        }
+        markSaved()
+      } catch { setSaveStatus('error') }
     }, 1500)
   }
 
@@ -124,7 +153,7 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
     }
     try {
       const created = await bulkCreateContentItems(set.id, items)
-      setRows(prev => [...prev, ...created.map(it => rawToRow({ id: it.id, position: 0, data: it.data as Record<string, unknown> }))])
+      setRows(prev => [...prev, ...created.map(it => rawToRow({ id: it.id, position: 0, data: it.data as Record<string, unknown> })).filter((r): r is CardRow => r !== null)])
       setBulkText('')
       toast.success(`Added ${created.length} card${created.length !== 1 ? 's' : ''}${skipped.length ? ` (${skipped.length} skipped)` : ''}`)
       setAddMode('single')
@@ -242,6 +271,21 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Key words & phrases */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
+          <p className="text-sm font-semibold text-slate-700">Key words & phrases <span className="text-xs font-normal text-slate-400">(optional)</span></p>
+          <p className="text-xs text-slate-400">Words or phrases students must use during the simulation — one per line. Shown as a reminder panel on their screen.</p>
+          <textarea
+            value={wordlistText}
+            onChange={e => handleWordlistChange(e.target.value)}
+            placeholder={"negotiate\nmake a compromise\nfind common ground\npropose a solution"}
+            rows={4}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700
+              focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20
+              resize-none transition-colors placeholder:text-slate-300"
+          />
         </div>
 
         {/* Custom event cards */}

@@ -76,7 +76,7 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
         <div className="max-w-xs bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-left space-y-1">
           <p className="text-xs font-semibold text-sky-400 uppercase tracking-wide mb-2">How it works</p>
           <p className="text-slate-300 text-sm leading-relaxed">
-            You are about to enter a live scenario simulation. Listen to the context, then react to each event that appears. Speak, discuss, and make decisions as a group. There are no wrong answers — focus on communicating clearly in English.
+            Welcome to the Drama Event simulation! Read the scenario carefully, then let your imagination run wild. As each event appears, build on the story together — speak, react, argue, negotiate and create something unexpected. The more creative and detailed your responses, the better!
           </p>
         </div>
       </div>
@@ -135,6 +135,20 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
       </div>
 
       <div className="flex-1 flex flex-col gap-4 px-4 py-4">
+
+        {/* Key words panel */}
+        {(state.wordlist ?? []).length > 0 && (
+          <div className="bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3">
+            <p className="text-xs font-semibold text-amber-400 uppercase tracking-wide mb-2">Try to use these words:</p>
+            <div className="flex flex-wrap gap-2">
+              {(state.wordlist ?? []).map((word, i) => (
+                <span key={i} className="px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium">
+                  {word}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Wheel */}
         <div className="flex justify-center">

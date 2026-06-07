@@ -14,7 +14,8 @@ import { makeInitialShuffleQueue } from '@/lib/mechanics/speaking-challenge/type
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import type { HiddenRoleState } from '@/lib/mechanics/hidden-role/types'
 import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
-import type { DramaEventState, DramaEventItem } from '@/lib/mechanics/drama-event/types'
+import type { DramaEventState, DramaEventItem, EventType as DramaEventType } from '@/lib/mechanics/drama-event/types'
+import { EVENT_TYPES as DRAMA_EVENT_TYPES } from '@/lib/mechanics/drama-event/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -1092,10 +1093,16 @@ export async function initDramaEventState(
     .single()
 
   const scenario = contentSet?.description ?? ''
-  const customCards = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+  const allItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>
+  const customCards = allItems
     .sort((a, b) => a.position - b.position)
+    .filter(item => DRAMA_EVENT_TYPES.includes(item.data.eventType as DramaEventType))
     .map(item => ({ eventType: item.data.eventType, text: item.data.text }))
     .filter((c): c is DramaEventItem => typeof c.eventType === 'string' && typeof c.text === 'string')
+  const wordlistItem = allItems.find(item => item.data.eventType === 'wordlist')
+  const wordlist = wordlistItem
+    ? ((wordlistItem.data.text as string) ?? '').split('\n').map(s => s.trim()).filter(Boolean)
+    : []
 
   const state: DramaEventState = {
     scenario,
@@ -1108,6 +1115,7 @@ export async function initDramaEventState(
     timeLeftAtStart: timerDuration,
     timerDuration,
     customCards,
+    wordlist,
     eventHistory: [],
     status: 'waiting',
     debriefNote: '',

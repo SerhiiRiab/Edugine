@@ -125,6 +125,7 @@ export interface DramaEventState {
   timeLeftAtStart: number
   timerDuration: number             // seconds; 0 = manual
   customCards: DramaEventItem[]     // tutor's custom event cards
+  wordlist: string[]                // key words/phrases students must use
   eventHistory: EventHistoryEntry[]
   status: 'waiting' | 'active' | 'finished'
   debriefNote: string
