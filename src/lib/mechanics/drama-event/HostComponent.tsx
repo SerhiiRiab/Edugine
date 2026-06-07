@@ -213,7 +213,6 @@ export interface DramaEventHostPanelProps {
   isLastActivity: boolean
   isAdvancing: boolean
   isLesson?: boolean
-  spinRequestFrom?: string | null
   onNextActivity: () => void
   onEndLesson: () => void
   onEndGame: () => void
@@ -233,7 +232,7 @@ export interface DramaEventHostPanelProps {
 }
 
 export function DramaEventHostPanel({
-  state, isLastActivity, isAdvancing, isLesson = true, spinRequestFrom,
+  state, isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
   onStart, onSpin, onSpinWithType,
   onTimerStart, onTimerPause, onTimerReset, onTimerExtend, onTimerExpired,
@@ -431,28 +430,37 @@ export function DramaEventHostPanel({
       {/* Controls */}
       <div className="space-y-2">
 
-        {/* Spin request notification */}
-        {spinRequestFrom && state.spinState === 'idle' && (
-          <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-            <span className="text-lg">🎡</span>
-            <p className="flex-1 text-sm font-semibold text-amber-800">{spinRequestFrom} wants to spin!</p>
-            <button onClick={wrap(onSpin)} disabled={isBusy}
-              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white font-bold text-sm transition-colors">
-              Allow
-            </button>
-          </div>
-        )}
-
         {state.spinState === 'idle' && (
           <>
+            {/* Time's up banner */}
+            {state.timerExpired && (
+              <div className="rounded-xl bg-orange-50 border border-orange-200 px-4 py-3 text-center space-y-0.5">
+                <p className="text-orange-700 font-bold text-sm">⏰ Time's up!</p>
+                <p className="text-orange-600 text-xs">Discussion ended. Spin for the next event or end the scenario.</p>
+              </div>
+            )}
+
             <button
               onClick={wrap(onSpin)}
               disabled={isBusy}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-                bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white font-bold text-sm transition-colors shadow-sm"
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                font-bold text-sm transition-colors shadow-sm disabled:opacity-40 text-white ${
+                state.timerExpired
+                  ? 'bg-orange-500 hover:bg-orange-600'
+                  : 'bg-sky-600 hover:bg-sky-700'
+              }`}
             >
-              <Dices className="w-4 h-4" />Spin the Wheel
+              <Dices className="w-4 h-4" />{state.timerExpired ? 'Spin again 🎡' : 'Spin the Wheel'}
             </button>
+
+            {state.timerExpired && (
+              <button onClick={wrap(onEndScenario)} disabled={isBusy}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200
+                  hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400
+                  font-semibold text-sm transition-colors disabled:opacity-40">
+                <StopCircle className="w-4 h-4" />End Scenario
+              </button>
+            )}
 
             <button
               type="button"
@@ -490,16 +498,8 @@ export function DramaEventHostPanel({
 
         {state.spinState === 'done' && (
           <>
-            {/* Timer expired banner */}
-            {state.timerExpired && (
-              <div className="rounded-xl bg-orange-50 border border-orange-200 px-4 py-3 text-center space-y-0.5">
-                <p className="text-orange-700 font-bold text-sm">⏰ Time's up!</p>
-                <p className="text-orange-600 text-xs">Ask students to share their decision, then continue.</p>
-              </div>
-            )}
-
-            {/* Timer controls (hidden when expired) */}
-            {state.timerDuration > 0 && !state.timerExpired && (
+            {/* Timer controls */}
+            {state.timerDuration > 0 && (
               <div className="flex gap-2">
                 <button onClick={wrap(state.timerRunning ? onTimerPause : onTimerStart)} disabled={isBusy}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200
@@ -520,7 +520,7 @@ export function DramaEventHostPanel({
             )}
 
             {/* Timer display */}
-            {state.timerDuration > 0 && !state.timerExpired && (
+            {state.timerDuration > 0 && (
               <div className="flex justify-center">
                 <div className="w-20 h-20">
                   <CircleTimer timeLeft={displayTime} total={state.timerDuration} running={state.timerRunning} />
@@ -543,21 +543,10 @@ export function DramaEventHostPanel({
             </div>
 
             <button onClick={handleNextEvent} disabled={isBusy}
-              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-40 ${
-                state.timerExpired
-                  ? 'bg-orange-500 hover:bg-orange-600 text-white shadow-md'
-                  : 'bg-sky-600 hover:bg-sky-700 text-white'
-              }`}>
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white font-bold text-sm transition-colors">
               <Dices className="w-4 h-4" />Next Event
             </button>
-
-            {state.timerExpired && (
-              <button onClick={wrap(onEndScenario)} disabled={isBusy}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-orange-300
-                  hover:bg-orange-50 text-orange-700 font-bold text-sm transition-colors disabled:opacity-40">
-                <StopCircle className="w-4 h-4" />End Scenario
-              </button>
-            )}
           </>
         )}
       </div>

@@ -244,7 +244,6 @@ export function SessionHostView({ session, lesson }: Props) {
 
   // Drama Event state
   const [dramaEventState, setDramaEventState] = useState<DramaEventState | null>(null)
-  const [deSpinRequestFrom, setDeSpinRequestFrom] = useState<string | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -878,11 +877,10 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: DramaEventState }
         if (p.state) { setDramaEventState(p.state); dramaEventStateRef.current = p.state }
       })
-      .on('broadcast', { event: 'drama_event_spin_request' }, ({ payload }) => {
+      .on('broadcast', { event: 'drama_event_spin_request' }, () => {
         const cur = dramaEventStateRef.current
         if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
-        const name = (payload as { nickname?: string }).nickname ?? 'A student'
-        setDeSpinRequestFrom(name)
+        handleDESpin()
       })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
@@ -2043,7 +2041,6 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDESpin() {
     const cur = dramaEventStateRef.current
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
-    setDeSpinRequestFrom(null)
     const targetIndex = Math.floor(Math.random() * 8)
     const eventType = EVENT_TYPES[targetIndex]
     const builtInPool = BUILT_IN_EVENTS[eventType]
@@ -2077,7 +2074,6 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDESpinWithType(eventType: EventType) {
     const cur = dramaEventStateRef.current
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
-    setDeSpinRequestFrom(null)
     const targetIndex = EVENT_TYPES.indexOf(eventType)
     const builtInPool = BUILT_IN_EVENTS[eventType]
     const customPool = cur.customCards.filter(c => c.eventType === eventType).map(c => c.text)
@@ -2099,8 +2095,22 @@ export function SessionHostView({ session, lesson }: Props) {
 
   async function handleDETimerExpired() {
     const cur = dramaEventStateRef.current
-    if (!cur || cur.timerExpired) return
-    await deStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null, timeLeftAtStart: 0, timerExpired: true })
+    if (!cur || cur.timerExpired || cur.spinState !== 'done') return
+    const historyEntry = cur.currentEventType && cur.currentEventText
+      ? [{ eventType: cur.currentEventType, text: cur.currentEventText, outcomeNote: '' }]
+      : []
+    await deStateUpdate({
+      ...cur,
+      spinState: 'idle',
+      spinTargetIndex: null,
+      currentEventType: null,
+      currentEventText: null,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: cur.timerDuration,
+      timerExpired: true,
+      eventHistory: [...cur.eventHistory, ...historyEntry],
+    })
   }
 
   async function handleDETimerStart() {
@@ -3093,7 +3103,6 @@ export function SessionHostView({ session, lesson }: Props) {
                 onEndScenario={handleDEEndScenario}
                 onSetDebriefNote={handleDESetDebriefNote}
                 onFinish={handleEndGame}
-                spinRequestFrom={deSpinRequestFrom}
               />
             )}
 

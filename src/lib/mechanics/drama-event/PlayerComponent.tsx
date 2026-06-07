@@ -40,12 +40,10 @@ function CircleTimerDark({ timeLeft, total, running }: { timeLeft: number; total
 export interface DramaEventPlayerPanelProps {
   state: DramaEventState
   channelRef: { current: RealtimeChannel | null }
-  nickname?: string
 }
 
-export function DramaEventPlayerPanel({ state, channelRef, nickname }: DramaEventPlayerPanelProps) {
+export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPanelProps) {
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
-  const [spinRequested, setSpinRequested] = useState(false)
 
   useEffect(() => {
     setDisplayTime(computeTimeLeft(state))
@@ -58,18 +56,11 @@ export function DramaEventPlayerPanel({ state, channelRef, nickname }: DramaEven
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.timerDuration])
 
-  // Reset spin request when spin starts or new event appears
-  useEffect(() => {
-    if (state.spinState !== 'idle') setSpinRequested(false)
-  }, [state.spinState])
-
   function requestSpin() {
-    if (spinRequested) return
-    setSpinRequested(true)
     channelRef.current?.send({
       type: 'broadcast',
       event: 'drama_event_spin_request',
-      payload: { nickname: nickname ?? 'A student' },
+      payload: {},
     })
   }
 
@@ -164,18 +155,23 @@ export function DramaEventPlayerPanel({ state, channelRef, nickname }: DramaEven
           <EventWheel spinState={state.spinState} spinTargetIndex={state.spinTargetIndex} size={250} />
         </div>
 
-        {/* Spin request button (idle only) */}
+        {/* Spin button (idle only) */}
         {state.spinState === 'idle' && (
-          <button onClick={requestSpin} disabled={spinRequested}
-            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl
-              text-white font-bold text-base transition-colors shadow-md active:scale-[0.98]
-              ${spinRequested
-                ? 'bg-slate-600 cursor-not-allowed opacity-70'
-                : 'bg-sky-600 hover:bg-sky-500'
-              }`}>
-            <span className="text-lg">🎡</span>
-            {spinRequested ? 'Request sent… waiting for tutor' : 'Request to spin'}
-          </button>
+          <>
+            {state.timerExpired && (
+              <div className="rounded-2xl bg-orange-500/15 border border-orange-500/40 px-4 py-3 text-center">
+                <p className="text-orange-300 font-bold text-base">⏰ Time's up!</p>
+                <p className="text-orange-200/80 text-sm">Discussion ended — spin for the next event!</p>
+              </div>
+            )}
+            <button onClick={requestSpin}
+              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl
+                text-white font-bold text-base transition-colors shadow-md active:scale-[0.98]
+                ${state.timerExpired ? 'bg-orange-500 hover:bg-orange-400' : 'bg-sky-600 hover:bg-sky-500'}`}>
+              <span className="text-lg">🎡</span>
+              {state.timerExpired ? 'Spin again!' : 'Spin the wheel!'}
+            </button>
+          </>
         )}
 
         {/* Spinning indicator */}
@@ -203,17 +199,8 @@ export function DramaEventPlayerPanel({ state, channelRef, nickname }: DramaEven
           </div>
         )}
 
-        {/* Timer expired banner */}
-        {state.spinState === 'done' && state.timerExpired && (
-          <div className="rounded-2xl bg-orange-500/15 border border-orange-500/40 px-5 py-4 text-center space-y-1">
-            <p className="text-orange-300 font-bold text-base">⏰ Time's up!</p>
-            <p className="text-orange-200/80 text-sm">Make your decision and share it with the group.</p>
-            <p className="text-slate-400 text-xs mt-1">Waiting for the next event…</p>
-          </div>
-        )}
-
         {/* Timer */}
-        {state.spinState === 'done' && state.timerDuration > 0 && !state.timerExpired && (
+        {state.spinState === 'done' && state.timerDuration > 0 && (
           <div className="flex justify-center">
             <div className="w-20 h-20">
               <CircleTimerDark timeLeft={displayTime} total={state.timerDuration} running={state.timerRunning} />
