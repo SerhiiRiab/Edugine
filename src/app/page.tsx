@@ -53,7 +53,7 @@ export default async function Home() {
       <section className="flex flex-col items-center justify-center text-center px-6 py-28 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur border border-white/20 rounded-full px-4 py-1.5 text-white/80 text-sm font-medium mb-8">
           <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          Now in beta — free for tutors
+          Free for tutors
         </div>
 
         <h1 className="text-5xl md:text-7xl font-extrabold text-white tracking-tight leading-tight mb-6">
