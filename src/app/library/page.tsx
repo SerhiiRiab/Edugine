@@ -18,6 +18,7 @@ export type LibraryLesson = {
   slug: string
   activity_count: number
   mechanic_ids: string[]
+  author_name: string | null
 }
 
 export default async function LibraryPage() {
@@ -27,7 +28,7 @@ export default async function LibraryPage() {
     supabase.auth.getUser(),
     supabase
       .from('lessons')
-      .select('id, title, description, level, slug, lesson_activities(id, mechanic_id)')
+      .select('id, title, description, level, slug, user_id, lesson_activities(id, mechanic_id), profiles(full_name)')
       .eq('visibility', 'public')
       .not('slug', 'is', null)
       .order('created_at', { ascending: false }),
@@ -37,6 +38,8 @@ export default async function LibraryPage() {
     .filter((l) => l.slug)
     .map((l) => {
       const acts = (l.lesson_activities ?? []) as { id: string; mechanic_id: string }[]
+      const profileRaw = l.profiles as { full_name: string | null }[] | { full_name: string | null } | null
+      const profile = Array.isArray(profileRaw) ? profileRaw[0] ?? null : profileRaw
       return {
         id: l.id,
         title: l.title,
@@ -45,6 +48,7 @@ export default async function LibraryPage() {
         slug: l.slug!,
         activity_count: acts.length,
         mechanic_ids: [...new Set(acts.map((a) => a.mechanic_id))],
+        author_name: profile?.full_name ?? null,
       }
     })
 

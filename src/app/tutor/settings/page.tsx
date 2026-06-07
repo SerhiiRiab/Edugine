@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { Crown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { ProfileForm } from './profile-form'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -12,7 +13,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, pro_expires_at')
+    .select('plan, pro_expires_at, full_name, country, languages, bio, website')
     .eq('id', user!.id)
     .single()
 
@@ -47,6 +48,15 @@ export default async function SettingsPage() {
           </Link>
         </div>
       </div>
+
+      {/* Profile */}
+      <ProfileForm
+        initialFullName={profile?.full_name ?? ''}
+        initialCountry={profile?.country ?? ''}
+        initialLanguages={(profile?.languages as string[] | null) ?? []}
+        initialBio={profile?.bio ?? ''}
+        initialWebsite={profile?.website ?? ''}
+      />
 
       {/* Plan & Billing */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">

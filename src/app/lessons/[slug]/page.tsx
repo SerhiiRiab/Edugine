@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { PublicLessonActions } from './lesson-actions'
+import { AvatarInitials } from '@/components/ui/avatar-initials'
 import {
   GraduationCap,
   LayoutList,
@@ -53,7 +54,7 @@ async function fetchLesson(slug: string) {
   const { data } = await supabase
     .from('lessons')
     .select(`
-      id, title, description, level,
+      id, title, description, level, user_id,
       lesson_activities(
         id, mechanic_id, mode, position,
         content_sets(id, title)
@@ -104,6 +105,14 @@ export default async function PublicLessonPage({ params }: Props) {
   ])
 
   if (!lesson) notFound()
+
+  const { data: creatorProfile } = lesson.user_id
+    ? await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', lesson.user_id)
+        .single()
+    : { data: null }
 
   type RawActivity = {
     id: string
@@ -164,6 +173,14 @@ export default async function PublicLessonPage({ params }: Props) {
                   )}
                 </div>
                 <h1 className="text-xl font-extrabold text-slate-800 leading-snug">{lesson.title}</h1>
+                {creatorProfile?.full_name && (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <AvatarInitials name={creatorProfile.full_name} size="sm" />
+                    <span className="text-xs text-slate-400">
+                      Created by <span className="font-semibold text-slate-600">{creatorProfile.full_name}</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             {lesson.description && (

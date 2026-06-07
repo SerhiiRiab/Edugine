@@ -22,6 +22,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import type { LibraryLesson } from './page'
+import { AvatarInitials } from '@/components/ui/avatar-initials'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -88,6 +89,12 @@ function LessonCard({ lesson }: { lesson: LibraryLesson }) {
           <p className="text-slate-400 text-sm line-clamp-2 leading-relaxed">
             {lesson.description}
           </p>
+        )}
+        {lesson.author_name && (
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <AvatarInitials name={lesson.author_name} size="sm" />
+            <span className="text-xs text-slate-400">by <span className="font-medium text-slate-500">{lesson.author_name}</span></span>
+          </div>
         )}
       </div>
 
