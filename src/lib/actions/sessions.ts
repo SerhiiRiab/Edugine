@@ -1116,6 +1116,7 @@ export async function initDramaEventState(
     timerDuration,
     customCards,
     wordlist,
+    timerExpired: false,
     eventHistory: [],
     status: 'waiting',
     debriefNote: '',

@@ -124,6 +124,7 @@ export interface DramaEventState {
   timerStartedAt: string | null
   timeLeftAtStart: number
   timerDuration: number             // seconds; 0 = manual
+  timerExpired: boolean             // true when discussion timer reached 0
   customCards: DramaEventItem[]     // tutor's custom event cards
   wordlist: string[]                // key words/phrases students must use
   eventHistory: EventHistoryEntry[]

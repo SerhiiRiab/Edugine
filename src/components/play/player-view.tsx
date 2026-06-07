@@ -1437,6 +1437,7 @@ export function PlayerView({ session, lesson }: Props) {
                 <DramaEventPlayerPanel
                   state={dramaEventState}
                   channelRef={channelRef}
+                  nickname={nickname}
                 />
               )
               : (

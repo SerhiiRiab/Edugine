@@ -40,10 +40,12 @@ function CircleTimerDark({ timeLeft, total, running }: { timeLeft: number; total
 export interface DramaEventPlayerPanelProps {
   state: DramaEventState
   channelRef: { current: RealtimeChannel | null }
+  nickname?: string
 }
 
-export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPanelProps) {
+export function DramaEventPlayerPanel({ state, channelRef, nickname }: DramaEventPlayerPanelProps) {
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const [spinRequested, setSpinRequested] = useState(false)
 
   useEffect(() => {
     setDisplayTime(computeTimeLeft(state))
@@ -56,11 +58,18 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.timerDuration])
 
+  // Reset spin request when spin starts or new event appears
+  useEffect(() => {
+    if (state.spinState !== 'idle') setSpinRequested(false)
+  }, [state.spinState])
+
   function requestSpin() {
+    if (spinRequested) return
+    setSpinRequested(true)
     channelRef.current?.send({
       type: 'broadcast',
       event: 'drama_event_spin_request',
-      payload: {},
+      payload: { nickname: nickname ?? 'A student' },
     })
   }
 
@@ -157,10 +166,15 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
 
         {/* Spin request button (idle only) */}
         {state.spinState === 'idle' && (
-          <button onClick={requestSpin}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl
-              bg-sky-600 hover:bg-sky-500 text-white font-bold text-base transition-colors shadow-md active:scale-[0.98]">
-            <Dices className="w-5 h-5" />Request Spin
+          <button onClick={requestSpin} disabled={spinRequested}
+            className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl
+              text-white font-bold text-base transition-colors shadow-md active:scale-[0.98]
+              ${spinRequested
+                ? 'bg-slate-600 cursor-not-allowed opacity-70'
+                : 'bg-sky-600 hover:bg-sky-500'
+              }`}>
+            <span className="text-lg">🎡</span>
+            {spinRequested ? 'Request sent… waiting for tutor' : 'Request to spin'}
           </button>
         )}
 
@@ -189,8 +203,17 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
           </div>
         )}
 
+        {/* Timer expired banner */}
+        {state.spinState === 'done' && state.timerExpired && (
+          <div className="rounded-2xl bg-orange-500/15 border border-orange-500/40 px-5 py-4 text-center space-y-1">
+            <p className="text-orange-300 font-bold text-base">⏰ Time's up!</p>
+            <p className="text-orange-200/80 text-sm">Make your decision and share it with the group.</p>
+            <p className="text-slate-400 text-xs mt-1">Waiting for the next event…</p>
+          </div>
+        )}
+
         {/* Timer */}
-        {state.spinState === 'done' && state.timerDuration > 0 && (
+        {state.spinState === 'done' && state.timerDuration > 0 && !state.timerExpired && (
           <div className="flex justify-center">
             <div className="w-20 h-20">
               <CircleTimerDark timeLeft={displayTime} total={state.timerDuration} running={state.timerRunning} />
