@@ -130,8 +130,8 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
       {/* Scenario strip */}
-      <div className="bg-slate-800/60 border-b border-slate-700 px-4 py-2 shrink-0">
-        <p className="text-slate-400 text-xs leading-relaxed line-clamp-2">{state.scenario}</p>
+      <div className="bg-slate-800/60 border-b border-slate-700 px-4 py-2.5 shrink-0 max-h-32 overflow-y-auto">
+        <p className="text-slate-400 text-xs leading-relaxed">{state.scenario}</p>
       </div>
 
       <div className="flex-1 flex flex-col gap-4 px-4 py-4">
