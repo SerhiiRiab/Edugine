@@ -22,6 +22,7 @@ export type MechanicId =
   | 'debate_roulette'
   | 'hidden_role'
   | 'mission_briefing'
+  | 'drama_event'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 

@@ -31,6 +31,8 @@ import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-rol
 import { HiddenRolePlayerPanel } from '@/lib/mechanics/hidden-role/PlayerComponent'
 import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
 import { MissionBriefingPlayerPanel } from '@/lib/mechanics/mission-briefing/PlayerComponent'
+import type { DramaEventState } from '@/lib/mechanics/drama-event/types'
+import { DramaEventPlayerPanel } from '@/lib/mechanics/drama-event/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
@@ -160,6 +162,9 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Mission Briefing ──────────────────────────────────────────────────────────
   const [missionBriefingState, setMissionBriefingState] = useState<MissionBriefingState | null>(null)
+
+  // ── Drama Event ───────────────────────────────────────────────────────────────
+  const [dramaEventState, setDramaEventState] = useState<DramaEventState | null>(null)
 
   // ── Speed Debate ──────────────────────────────────────────────────────────────
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -368,6 +373,24 @@ export function PlayerView({ session, lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, missionBriefingState])
 
+  // ── Drama Event: fetch from DB on reconnect ───────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'drama_event' || dramaEventState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'eventHistory' in (data.state as Record<string, unknown>)) {
+          setDramaEventState(data.state as unknown as DramaEventState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, dramaEventState])
+
   // ── Speed Debate: fetch from DB on reconnect ──────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || currentMechanicId !== 'speed_debate' || speedDebateState) return
@@ -552,7 +575,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -567,6 +590,7 @@ export function PlayerView({ session, lesson }: Props) {
         setDebateRouletteState(p.debateRouletteState ?? null)
         setHiddenRoleState(p.hiddenRoleState ?? null)
         setMissionBriefingState(p.missionBriefingState ?? null)
+        setDramaEventState(p.dramaEventState ?? null)
         setSpeedDebateState(p.speedDebateState ?? null)
         setRoleplayQuestState(p.roleplayQuestState ?? null)
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
@@ -593,7 +617,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -606,6 +630,7 @@ export function PlayerView({ session, lesson }: Props) {
         setDebateRouletteState(p.debateRouletteState ?? null)
         setHiddenRoleState(p.hiddenRoleState ?? null)
         setMissionBriefingState(p.missionBriefingState ?? null)
+        setDramaEventState(p.dramaEventState ?? null)
         setSpeedDebateState(p.speedDebateState ?? null)
         setRoleplayQuestState(p.roleplayQuestState ?? null)
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
@@ -635,6 +660,10 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'mission_briefing_state_update' }, ({ payload }) => {
         const p = payload as { state: MissionBriefingState }
         if (p.state) setMissionBriefingState(p.state)
+      })
+      .on('broadcast', { event: 'drama_event_state_update' }, ({ payload }) => {
+        const p = payload as { state: DramaEventState }
+        if (p.state) setDramaEventState(p.state)
       })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
@@ -1401,8 +1430,24 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* Drama Event */}
+          {currentMechanicId === 'drama_event' && (
+            dramaEventState
+              ? (
+                <DramaEventPlayerPanel
+                  state={dramaEventState}
+                  channelRef={channelRef}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading scenario…</p>
+                </div>
+              )
+          )}
+
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

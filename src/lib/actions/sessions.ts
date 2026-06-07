@@ -14,6 +14,7 @@ import { makeInitialShuffleQueue } from '@/lib/mechanics/speaking-challenge/type
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import type { HiddenRoleState } from '@/lib/mechanics/hidden-role/types'
 import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
+import type { DramaEventState, DramaEventItem } from '@/lib/mechanics/drama-event/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -1029,6 +1030,87 @@ export async function initMissionBriefingState(
     debriefNote: '',
     status: 'active',
     events: [],
+  }
+
+  const { data: existing } = await supabase
+    .from('shared_activity_state')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('activity_index', activityIndex)
+    .single()
+
+  if (existing) {
+    await supabase.from('shared_activity_state')
+      .update({ state: state as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId).eq('activity_index', activityIndex)
+  } else {
+    await supabase.from('shared_activity_state')
+      .insert({ session_id: sessionId, activity_index: activityIndex, state: state as unknown as Record<string, unknown> })
+  }
+
+  return state
+}
+
+export async function initDramaEventState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<DramaEventState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+  if (!session) throw new Error('Session not found')
+
+  let contentSetId: string
+  let timerDuration = 120  // 2 minutes default
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position, config')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+    timerDuration =
+      typeof (activity.config as Record<string, unknown>)?.timerSeconds === 'number'
+        ? ((activity.config as Record<string, unknown>).timerSeconds as number)
+        : 120
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description, content_items(id, position, data)')
+    .eq('id', contentSetId)
+    .single()
+
+  const scenario = contentSet?.description ?? ''
+  const customCards = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
+    .sort((a, b) => a.position - b.position)
+    .map(item => ({ eventType: item.data.eventType, text: item.data.text }))
+    .filter((c): c is DramaEventItem => typeof c.eventType === 'string' && typeof c.text === 'string')
+
+  const state: DramaEventState = {
+    scenario,
+    spinState: 'idle',
+    spinTargetIndex: null,
+    currentEventType: null,
+    currentEventText: null,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: timerDuration,
+    timerDuration,
+    customCards,
+    eventHistory: [],
+    status: 'waiting',
+    debriefNote: '',
   }
 
   const { data: existing } = await supabase
