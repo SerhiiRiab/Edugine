@@ -665,6 +665,10 @@ export function PlayerView({ session, lesson }: Props) {
         const p = payload as { state: DramaEventState }
         if (p.state) setDramaEventState(p.state)
       })
+      .on('broadcast', { event: 'drama_event_ended' }, ({ payload }) => {
+        const p = payload as { state: DramaEventState }
+        if (p.state) setDramaEventState(p.state)
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)

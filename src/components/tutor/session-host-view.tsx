@@ -2172,7 +2172,9 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDEEndScenario() {
     const cur = dramaEventStateRef.current
     if (!cur) return
-    await deStateUpdate({ ...cur, status: 'finished', timerRunning: false })
+    const finished = { ...cur, status: 'finished' as const, timerRunning: false }
+    await deStateUpdate(finished)
+    channelRef.current?.send({ type: 'broadcast', event: 'drama_event_ended', payload: { state: finished } })
   }
 
   async function handleDESetDebriefNote(note: string) {
