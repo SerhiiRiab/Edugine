@@ -158,6 +158,27 @@ interface Props {
   lesson?: LessonInfo
 }
 
+const MECHANIC_NAMES: Record<string, string> = {
+  swipe_battle:       'Swipe Battle',
+  speed_match:        'Speed Match',
+  story_builder:      'Story Builder',
+  talk_time:          'Talk Time',
+  content_block:      'Content Block',
+  true_false:         'True / False',
+  multiple_choice:    'Multiple Choice',
+  fill_the_gap:       'Fill the Gap',
+  word_bank:          'Word Bank',
+  speed_debate:       'Speed Debate',
+  roleplay_quest:     'Roleplay Quest',
+  speaking_challenge: 'Speaking Challenge',
+  word_choice:        'Word Choice',
+  correct_the_mistake:'Correct the Mistake',
+  debate_roulette:    'Debate Roulette',
+  hidden_role:        'Hidden Role',
+  mission_briefing:   'Mission Briefing',
+  drama_event:        'Drama Event',
+}
+
 const AVATAR_COLORS = [
   'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
   'bg-rose-500', 'bg-sky-500',
@@ -2691,7 +2712,13 @@ export function SessionHostView({ session, lesson }: Props) {
                   ) : (
                     <InfoRow label="Total cards" value={currentActivityItems.length} />
                   )}
-                  <InfoRow label="Mechanic" value="Swipe Battle" />
+                  <InfoRow label="Mechanic" value={(() => {
+                    const ids = lesson?.activities.map(a => a.mechanic_id) ?? []
+                    const unique = [...new Set(ids)]
+                    if (unique.length === 0) return '—'
+                    if (unique.length === 1) return MECHANIC_NAMES[unique[0]] ?? unique[0]
+                    return 'Multiple'
+                  })()} />
                   <InfoRow label="Code" value={<span className="font-mono text-violet-600">{session.code}</span>} />
                 </div>
               </div>
