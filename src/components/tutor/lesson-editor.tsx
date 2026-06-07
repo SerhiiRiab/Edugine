@@ -1212,8 +1212,8 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
     content_set_title: string
     content_set_item_count: number
   }) {
+    const created = await addActivity(lesson.id, data)
     const position = activities.length
-    const created = await addActivity(lesson.id, { ...data, position })
     setActivities((prev) => [
       ...prev,
       {

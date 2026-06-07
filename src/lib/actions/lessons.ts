@@ -185,13 +185,20 @@ export async function addActivity(
     mechanic_id: string
     mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
-    position: number
   },
 ): Promise<{ id: string }> {
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  console.log('[addActivity] user:', user?.id ?? 'NULL', 'authError:', authError?.message ?? 'none')
-  if (!user) throw new Error('Unauthorized: ' + (authError?.message ?? 'no session'))
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data: lastPos } = await supabase
+    .from('lesson_activities')
+    .select('position')
+    .eq('lesson_id', lessonId)
+    .order('position', { ascending: false })
+    .limit(1)
+
+  const position = lastPos && lastPos.length > 0 ? lastPos[0].position + 1 : 0
 
   const { data: activity, error } = await supabase
     .from('lesson_activities')
@@ -200,19 +207,13 @@ export async function addActivity(
       content_set_id: data.content_set_id,
       mechanic_id: data.mechanic_id,
       mode: data.mode,
-      position: data.position,
+      position,
       config: data.config,
     })
     .select('id')
     .single()
 
-  if (error || !activity) {
-    console.error('[addActivity] DB error:', error?.code, error?.message, error?.details, {
-      lessonId, mechanic_id: data.mechanic_id, mode: data.mode, position: data.position,
-    })
-    throw new Error(`[${error?.code}] ${error?.message ?? 'Failed to add activity'}`)
-  }
-  console.log('[addActivity] success:', activity.id)
+  if (error || !activity) throw new Error(error?.message ?? 'Failed to add activity')
   return activity
 }
 
@@ -246,14 +247,14 @@ export async function addContentSetToLesson(contentSetId: string, lessonId: stri
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  const [setResult, posResult] = await Promise.all([
+  const [setResult, lastPosResult] = await Promise.all([
     supabase.from('content_sets').select('mechanic_id').eq('id', contentSetId).single(),
-    supabase.from('lesson_activities').select('id', { count: 'exact', head: true }).eq('lesson_id', lessonId),
+    supabase.from('lesson_activities').select('position').eq('lesson_id', lessonId).order('position', { ascending: false }).limit(1),
   ])
 
   if (!setResult.data) throw new Error('Content set not found')
   const mechanic_id = setResult.data.mechanic_id
-  const position = posResult.count ?? 0
+  const position = lastPosResult.data && lastPosResult.data.length > 0 ? lastPosResult.data[0].position + 1 : 0
   const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
 
   const { error } = await supabase.from('lesson_activities').insert({
@@ -276,14 +277,14 @@ export async function linkContentSetToLesson(contentSetId: string, lessonId: str
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  const [setResult, posResult] = await Promise.all([
+  const [setResult, lastPosResult] = await Promise.all([
     supabase.from('content_sets').select('mechanic_id').eq('id', contentSetId).single(),
-    supabase.from('lesson_activities').select('id', { count: 'exact', head: true }).eq('lesson_id', lessonId),
+    supabase.from('lesson_activities').select('position').eq('lesson_id', lessonId).order('position', { ascending: false }).limit(1),
   ])
 
   if (!setResult.data) throw new Error('Content set not found')
   const mechanic_id = setResult.data.mechanic_id
-  const position = posResult.count ?? 0
+  const position = lastPosResult.data && lastPosResult.data.length > 0 ? lastPosResult.data[0].position + 1 : 0
   const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
 
   const { error } = await supabase.from('lesson_activities').insert({
