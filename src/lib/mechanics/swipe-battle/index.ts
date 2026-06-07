@@ -51,7 +51,7 @@ export const swipeBattleDefinition: MechanicDefinition<
       if (idx === -1) return null
       const word        = line.slice(0, idx).trim()
       const translation = line.slice(idx + 1).trim()
-      if (!word && !translation) return null
+      if (!word || !translation) return null
       return { word, translation }
     },
     itemDefaults: { isCorrect: true },

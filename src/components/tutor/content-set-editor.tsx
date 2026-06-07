@@ -350,7 +350,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       const newItems = created.map(c => rawToEditor(c as RawItem))
       setItems(prev => [...prev, ...newItems])
       setShowBulkImport(false)
-      toast.success(`Added ${rows.length} item${rows.length !== 1 ? 's' : ''}`)
+      toast.success(`Added ${created.length} item${created.length !== 1 ? 's' : ''}`)
     } catch {
       toast.error('Bulk import failed')
     }
