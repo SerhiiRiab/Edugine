@@ -54,7 +54,7 @@ async function fetchLesson(slug: string) {
   const { data } = await supabase
     .from('lessons')
     .select(`
-      id, title, description, level, user_id,
+      id, title, description, level, owner_id,
       lesson_activities(
         id, mechanic_id, mode, position,
         content_sets(id, title)
@@ -106,11 +106,11 @@ export default async function PublicLessonPage({ params }: Props) {
 
   if (!lesson) notFound()
 
-  const { data: creatorProfile } = lesson.user_id
+  const { data: creatorProfile } = lesson.owner_id
     ? await supabase
         .from('profiles')
         .select('full_name')
-        .eq('id', lesson.user_id)
+        .eq('id', lesson.owner_id)
         .single()
     : { data: null }
 

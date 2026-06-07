@@ -28,7 +28,7 @@ export default async function LibraryPage() {
     supabase.auth.getUser(),
     supabase
       .from('lessons')
-      .select('id, title, description, level, slug, user_id, lesson_activities(id, mechanic_id), profiles(full_name)')
+      .select('id, title, description, level, slug, owner_id, lesson_activities(id, mechanic_id), profiles(full_name)')
       .eq('visibility', 'public')
       .not('slug', 'is', null)
       .order('created_at', { ascending: false }),
