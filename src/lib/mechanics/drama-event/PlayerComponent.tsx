@@ -67,11 +67,17 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
   // ── Waiting ────────────────────────────────────────────────────────────────
   if (state.status === 'waiting') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
+      <div className="flex-1 flex flex-col items-center justify-center gap-5 p-6 text-center">
         <Dices className="w-14 h-14 text-sky-400" />
-        <div>
+        <div className="space-y-1">
           <p className="text-white font-bold text-lg">Drama Event</p>
-          <p className="text-slate-400 text-sm mt-1">Waiting for the tutor to start…</p>
+          <p className="text-slate-400 text-sm">Waiting for the tutor to start…</p>
+        </div>
+        <div className="max-w-xs bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4 text-left space-y-1">
+          <p className="text-xs font-semibold text-sky-400 uppercase tracking-wide mb-2">How it works</p>
+          <p className="text-slate-300 text-sm leading-relaxed">
+            You are about to enter a live scenario simulation. Listen to the context, then react to each event that appears. Speak, discuss, and make decisions as a group. There are no wrong answers — focus on communicating clearly in English.
+          </p>
         </div>
       </div>
     )
@@ -165,6 +171,7 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
               </span>
             </div>
             <p className="text-white font-bold text-base leading-snug">{state.currentEventText}</p>
+            <p className="text-slate-400 text-xs italic">Think about how this applies to your scenario and react in character.</p>
           </div>
         )}
 

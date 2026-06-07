@@ -218,6 +218,7 @@ export interface DramaEventHostPanelProps {
   onEndGame: () => void
   onStart: () => Promise<void>
   onSpin: () => Promise<void>
+  onSpinWithType: (type: EventType) => Promise<void>
   onTimerStart: () => Promise<void>
   onTimerPause: () => Promise<void>
   onTimerReset: () => Promise<void>
@@ -232,7 +233,7 @@ export interface DramaEventHostPanelProps {
 export function DramaEventHostPanel({
   state, isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
-  onStart, onSpin,
+  onStart, onSpin, onSpinWithType,
   onTimerStart, onTimerPause, onTimerReset, onTimerExtend,
   onSetDuration, onNextEvent, onEndScenario, onSetDebriefNote, onFinish,
 }: DramaEventHostPanelProps) {
@@ -240,6 +241,7 @@ export function DramaEventHostPanel({
   const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
   const [outcomeNote, setOutcomeNote] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  const [showManual, setShowManual] = useState(false)
   const [debriefNote, setDebriefNote] = useState(state.debriefNote ?? '')
   const expiredRef = useRef(false)
 
@@ -426,14 +428,48 @@ export function DramaEventHostPanel({
       {/* Controls */}
       <div className="space-y-2">
         {state.spinState === 'idle' && (
-          <button
-            onClick={wrap(onSpin)}
-            disabled={isBusy}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-              bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white font-bold text-sm transition-colors shadow-sm"
-          >
-            <Dices className="w-4 h-4" />Spin the Wheel
-          </button>
+          <>
+            <button
+              onClick={wrap(onSpin)}
+              disabled={isBusy}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                bg-sky-600 hover:bg-sky-700 disabled:opacity-40 text-white font-bold text-sm transition-colors shadow-sm"
+            >
+              <Dices className="w-4 h-4" />Spin the Wheel
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowManual(v => !v)}
+              className="w-full text-center text-xs text-slate-400 hover:text-slate-600 font-medium py-1 transition-colors"
+            >
+              {showManual ? 'Hide manual selection ▲' : 'Choose manually ▼'}
+            </button>
+
+            {showManual && (
+              <div className="grid grid-cols-4 gap-2 pt-1">
+                {EVENT_TYPES.map(type => {
+                  const cfg = EVENT_CONFIG[type]
+                  return (
+                    <button
+                      key={type}
+                      type="button"
+                      disabled={isBusy}
+                      onClick={async () => {
+                        setShowManual(false)
+                        await wrap(() => onSpinWithType(type))()
+                      }}
+                      className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-slate-200
+                        hover:border-sky-300 hover:bg-sky-50 disabled:opacity-40 transition-colors text-center"
+                    >
+                      <span className="text-xl">{cfg.emoji}</span>
+                      <span className="text-[10px] font-semibold text-slate-600 leading-tight">{cfg.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
 
         {state.spinState === 'done' && (

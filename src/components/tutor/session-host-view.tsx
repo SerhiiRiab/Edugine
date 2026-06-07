@@ -40,7 +40,7 @@ import { TUTOR_PARTICIPANT_ID } from '@/lib/mechanics/hidden-role/types'
 import { HiddenRoleHostPanel } from '@/lib/mechanics/hidden-role/HostComponent'
 import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
 import { MissionBriefingHostPanel } from '@/lib/mechanics/mission-briefing/HostComponent'
-import type { DramaEventState } from '@/lib/mechanics/drama-event/types'
+import type { DramaEventState, EventType } from '@/lib/mechanics/drama-event/types'
 import { EVENT_TYPES, BUILT_IN_EVENTS } from '@/lib/mechanics/drama-event/types'
 import { DramaEventHostPanel } from '@/lib/mechanics/drama-event/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
@@ -2049,6 +2049,27 @@ export function SessionHostView({ session, lesson }: Props) {
     }, 3600)
   }
 
+  async function handleDESpinWithType(eventType: EventType) {
+    const cur = dramaEventStateRef.current
+    if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
+    const targetIndex = EVENT_TYPES.indexOf(eventType)
+    const builtInPool = BUILT_IN_EVENTS[eventType]
+    const customPool = cur.customCards.filter(c => c.eventType === eventType).map(c => c.text)
+    const pool = [...builtInPool, ...customPool]
+    const eventText = pool[Math.floor(Math.random() * pool.length)]
+    const done: DramaEventState = {
+      ...cur,
+      spinState: 'done',
+      spinTargetIndex: targetIndex,
+      currentEventType: eventType,
+      currentEventText: eventText,
+      timerRunning: cur.timerDuration > 0,
+      timerStartedAt: cur.timerDuration > 0 ? new Date().toISOString() : null,
+      timeLeftAtStart: cur.timerDuration,
+    }
+    await deStateUpdate(done)
+  }
+
   async function handleDETimerStart() {
     const cur = dramaEventStateRef.current
     if (!cur || cur.timerRunning) return
@@ -3021,6 +3042,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onEndGame={handleEndGame}
                 onStart={handleDEStart}
                 onSpin={handleDESpin}
+                onSpinWithType={handleDESpinWithType}
                 onTimerStart={handleDETimerStart}
                 onTimerPause={handleDETimerPause}
                 onTimerReset={handleDETimerReset}

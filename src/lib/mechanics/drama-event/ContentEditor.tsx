@@ -36,6 +36,21 @@ function rawToRow(item: RawItem): CardRow {
 
 interface Props { set: ContentSet; initialItems: RawItem[] }
 
+const SCENARIO_TEMPLATES = [
+  {
+    label: 'Job Interview Gone Wrong',
+    text: 'You are in a job interview for your dream position. Three people are interviewing you. Halfway through, something unexpected happens that changes the dynamic of the interview completely.',
+  },
+  {
+    label: 'Travel Crisis',
+    text: 'Your group is travelling abroad when something goes wrong at the worst possible moment. You must work together to solve the problem using only what you have available.',
+  },
+  {
+    label: 'Business Negotiation',
+    text: 'Two companies are negotiating an important deal. Both sides want an agreement but have different priorities. Something happens that threatens to end the negotiation before a deal is reached.',
+  },
+]
+
 export function DramaEventContentEditor({ set, initialItems }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(set.title)
@@ -190,8 +205,15 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
           <span className="text-xs text-slate-400 font-normal">· Simulations</span>
         </div>
 
+        {/* Tutor instructions */}
+        <div className="bg-sky-50 border border-sky-200 rounded-2xl px-5 py-4">
+          <p className="text-sm text-sky-800 leading-relaxed">
+            <span className="font-semibold">Drama Event</span> is a real-time simulation engine. Set a scenario, then spin the wheel to trigger dramatic events. Students react, discuss, and make decisions together. Each event card is a universal dramatic prompt — students interpret it in the context of your scenario.
+          </p>
+        </div>
+
         {/* Scenario */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
           <p className="text-sm font-semibold text-slate-700">Scenario</p>
           <p className="text-xs text-slate-400">Describe the situation. Shown to all students throughout the session.</p>
           <textarea
@@ -203,6 +225,23 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
               focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20
               resize-none transition-colors placeholder:text-slate-300"
           />
+          {/* Scenario templates */}
+          <div className="space-y-2">
+            <p className="text-xs text-slate-400 font-medium">Quick start templates:</p>
+            <div className="flex flex-wrap gap-2">
+              {SCENARIO_TEMPLATES.map(tpl => (
+                <button
+                  key={tpl.label}
+                  type="button"
+                  onClick={() => handleScenarioChange(tpl.text)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-medium text-slate-600
+                    hover:border-sky-300 hover:text-sky-700 hover:bg-sky-50 transition-colors"
+                >
+                  {tpl.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Custom event cards */}
