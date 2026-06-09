@@ -31,8 +31,10 @@ export async function updateSession(request: NextRequest) {
     },
   )
 
-  // Refresh session — do not remove this line
-  const { data: { user } } = await supabase.auth.getUser()
+  // Read session from cookie — no network round-trip, safe for routing decisions.
+  // Page/layout components call getUser() for secure DB access.
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   const { pathname } = request.nextUrl
 
