@@ -72,7 +72,7 @@ export default async function EditContentSetPage({
       .from('lessons')
       .select('id, title')
       .eq('owner_id', user!.id)
-      .order('title'),
+      .order('created_at', { ascending: false }),
   ])
 
   const lessonInfo = lessonResult.data as { id: string; title: string } | null

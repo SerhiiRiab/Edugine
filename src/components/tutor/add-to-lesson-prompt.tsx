@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
-import { GraduationCap, X, ChevronDown } from 'lucide-react'
+import { useState, useTransition, useRef } from 'react'
+import { GraduationCap, X, Search } from 'lucide-react'
 import { addContentSetToLesson } from '@/lib/actions/lessons'
 import { useRouter } from 'next/navigation'
 
@@ -20,7 +20,10 @@ export function AddToLessonPrompt({
   const router = useRouter()
   const [open, setOpen] = useState(true)
   const [selectedId, setSelectedId] = useState('')
+  const [lessonSearch, setLessonSearch] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const searchRef = useRef<HTMLInputElement>(null)
 
   if (!open) return null
 
@@ -59,18 +62,47 @@ export function AddToLessonPrompt({
           <p className="text-sm text-slate-400 text-center py-2">No lessons yet — create one first</p>
         ) : (
           <div className="relative">
-            <select
-              value={selectedId}
-              onChange={e => setSelectedId(e.target.value)}
-              className="w-full appearance-none rounded-xl border-2 border-slate-200 focus:border-violet-400
-                outline-none px-3 py-2.5 pr-8 text-sm font-medium text-slate-700 bg-white transition-colors"
-            >
-              <option value="" disabled>Select a lesson…</option>
-              {lessons.map(l => (
-                <option key={l.id} value={l.id}>{l.title}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+            <input
+              ref={searchRef}
+              type="text"
+              value={lessonSearch}
+              onChange={e => {
+                setLessonSearch(e.target.value)
+                setSelectedId('')
+                setShowDropdown(true)
+              }}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              placeholder="Search lessons…"
+              className="w-full rounded-xl border-2 border-slate-200 focus:border-violet-400
+                outline-none pl-8 pr-3 py-2.5 text-sm font-medium text-slate-700 bg-white transition-colors"
+            />
+            {showDropdown && lessons.filter(l => l.title.toLowerCase().includes(lessonSearch.toLowerCase())).length > 0 && (
+              <div className="absolute top-full mt-1 left-0 right-0 bg-white border border-slate-200
+                rounded-xl shadow-lg max-h-52 overflow-y-auto z-10">
+                {lessons
+                  .filter(l => l.title.toLowerCase().includes(lessonSearch.toLowerCase()))
+                  .map(l => (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onMouseDown={e => e.preventDefault()}
+                      onClick={() => {
+                        setSelectedId(l.id)
+                        setLessonSearch(l.title)
+                        setShowDropdown(false)
+                        searchRef.current?.blur()
+                      }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-slate-700
+                        hover:bg-violet-50 hover:text-violet-700
+                        first:rounded-t-xl last:rounded-b-xl transition-colors"
+                    >
+                      {l.title}
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
         )}
 

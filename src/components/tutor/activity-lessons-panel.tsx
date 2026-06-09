@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useRef } from 'react'
 import Link from 'next/link'
 import {
   GraduationCap, ChevronUp, ChevronDown,
-  X, Trash2, Plus, ChevronRight,
+  Trash2, Plus, ChevronRight, Search,
 } from 'lucide-react'
 import { linkContentSetToLesson, unlinkContentSetFromLesson } from '@/lib/actions/lessons'
 import { useRouter } from 'next/navigation'
@@ -32,11 +32,17 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
   const [expanded, setExpanded] = useState(false)
   const [linked, setLinked] = useState<LinkedLesson[]>(initialLinked)
   const [selectedId, setSelectedId] = useState('')
+  const [lessonSearch, setLessonSearch] = useState('')
+  const [showDropdown, setShowDropdown] = useState(false)
   const [isAdding, startAdd] = useTransition()
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const linkedIds = new Set(linked.map(l => l.lessonId))
   const available = allLessons.filter(l => !linkedIds.has(l.id))
+  const filteredAvailable = available.filter(l =>
+    l.title.toLowerCase().includes(lessonSearch.toLowerCase())
+  )
 
   async function handleAdd() {
     if (!selectedId) return
@@ -47,6 +53,7 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
     const optimisticId = `temp-${Date.now()}`
     setLinked(prev => [...prev, { activityId: optimisticId, lessonId: lesson.id, lessonTitle: lesson.title }])
     setSelectedId('')
+    setLessonSearch('')
 
     startAdd(async () => {
       try {
@@ -133,22 +140,47 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
               {/* Add to lesson */}
               <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
                 <div className="relative flex-1">
-                  <select
-                    value={selectedId}
-                    onChange={e => setSelectedId(e.target.value)}
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                  <input
+                    ref={searchRef}
+                    type="text"
+                    value={lessonSearch}
+                    onChange={e => {
+                      setLessonSearch(e.target.value)
+                      setSelectedId('')
+                      setShowDropdown(true)
+                    }}
+                    onFocus={() => setShowDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                    placeholder={available.length === 0 ? 'Already in all lessons' : 'Search lessons…'}
                     disabled={available.length === 0}
-                    className="w-full appearance-none rounded-xl border-2 border-slate-200 focus:border-violet-400
-                      outline-none px-3 py-2 pr-8 text-sm text-slate-700 bg-white transition-colors
+                    className="w-full rounded-xl border-2 border-slate-200 focus:border-violet-400
+                      outline-none pl-8 pr-3 py-2 text-sm text-slate-700 bg-white transition-colors
                       disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <option value="" disabled>
-                      {available.length === 0 ? 'Already in all lessons' : 'Select a lesson…'}
-                    </option>
-                    {available.map(l => (
-                      <option key={l.id} value={l.id}>{l.title}</option>
-                    ))}
-                  </select>
-                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  />
+                  {showDropdown && filteredAvailable.length > 0 && (
+                    <div className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-slate-200
+                      rounded-xl shadow-lg max-h-52 overflow-y-auto z-10">
+                      {filteredAvailable.map(l => (
+                        <button
+                          key={l.id}
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            setSelectedId(l.id)
+                            setLessonSearch(l.title)
+                            setShowDropdown(false)
+                            searchRef.current?.blur()
+                          }}
+                          className="w-full text-left px-3 py-2 text-sm text-slate-700
+                            hover:bg-violet-50 hover:text-violet-700
+                            first:rounded-t-xl last:rounded-b-xl transition-colors"
+                        >
+                          {l.title}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
