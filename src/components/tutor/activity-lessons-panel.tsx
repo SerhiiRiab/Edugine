@@ -138,60 +138,61 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
               )}
 
               {/* Add to lesson */}
-              <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                  <input
-                    ref={searchRef}
-                    type="text"
-                    value={lessonSearch}
-                    onChange={e => {
-                      setLessonSearch(e.target.value)
-                      setSelectedId('')
-                      setShowDropdown(true)
-                    }}
-                    onFocus={() => setShowDropdown(true)}
-                    onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-                    placeholder={available.length === 0 ? 'Already in all lessons' : 'Search lessons…'}
-                    disabled={available.length === 0}
-                    className="w-full rounded-xl border-2 border-slate-200 focus:border-violet-400
-                      outline-none pl-8 pr-3 py-2 text-sm text-slate-700 bg-white transition-colors
-                      disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
-                  {showDropdown && filteredAvailable.length > 0 && (
-                    <div className="absolute bottom-full mb-1 left-0 right-0 bg-white border border-slate-200
-                      rounded-xl shadow-lg max-h-52 overflow-y-auto z-10">
-                      {filteredAvailable.map(l => (
-                        <button
-                          key={l.id}
-                          type="button"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={() => {
-                            setSelectedId(l.id)
-                            setLessonSearch(l.title)
-                            setShowDropdown(false)
-                            searchRef.current?.blur()
-                          }}
-                          className="w-full text-left px-3 py-2 text-sm text-slate-700
-                            hover:bg-violet-50 hover:text-violet-700
-                            first:rounded-t-xl last:rounded-b-xl transition-colors"
-                        >
-                          {l.title}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              <div className="pt-1 border-t border-slate-100 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                    <input
+                      ref={searchRef}
+                      type="text"
+                      value={lessonSearch}
+                      onChange={e => {
+                        setLessonSearch(e.target.value)
+                        setSelectedId('')
+                        setShowDropdown(true)
+                      }}
+                      onFocus={() => setShowDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+                      placeholder={available.length === 0 ? 'Already in all lessons' : 'Search lessons…'}
+                      disabled={available.length === 0}
+                      className="w-full rounded-xl border-2 border-slate-200 focus:border-violet-400
+                        outline-none pl-8 pr-3 py-2 text-sm text-slate-700 bg-white transition-colors
+                        disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAdd}
+                    disabled={!selectedId || isAdding}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700
+                      text-white text-sm font-semibold disabled:opacity-40 transition-colors shrink-0"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {isAdding ? 'Adding…' : 'Add'}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAdd}
-                  disabled={!selectedId || isAdding}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600 hover:bg-violet-700
-                    text-white text-sm font-semibold disabled:opacity-40 transition-colors shrink-0"
-                >
-                  <Plus className="w-4 h-4" />
-                  {isAdding ? 'Adding…' : 'Add'}
-                </button>
+                {showDropdown && filteredAvailable.length > 0 && (
+                  <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+                    {filteredAvailable.map(l => (
+                      <button
+                        key={l.id}
+                        type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setSelectedId(l.id)
+                          setLessonSearch(l.title)
+                          setShowDropdown(false)
+                          searchRef.current?.blur()
+                        }}
+                        className="w-full text-left px-3 py-2 text-sm text-slate-700
+                          hover:bg-violet-50 hover:text-violet-700 border-b border-slate-100
+                          last:border-b-0 transition-colors"
+                      >
+                        {l.title}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
