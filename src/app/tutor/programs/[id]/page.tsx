@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
 import { ProgramDetail } from '@/components/tutor/program-detail'
 import { DeleteProgramButton } from './delete-program-button'
+import { ProgramShareButton } from '@/components/tutor/program-share-button'
 
 export default async function ProgramDetailPage({
   params,
@@ -17,7 +18,7 @@ export default async function ProgramDetailPage({
   // Fetch program
   const { data: program } = await supabase
     .from('programs')
-    .select('id, title, description')
+    .select('id, title, description, share_token')
     .eq('id', id)
     .eq('tutor_id', user!.id)
     .single()
@@ -64,7 +65,10 @@ export default async function ProgramDetailPage({
           >
             <ArrowLeft className="w-4 h-4" />My Programs
           </Link>
-          <DeleteProgramButton programId={id} />
+          <div className="flex items-center gap-2">
+            {program.share_token && <ProgramShareButton shareToken={program.share_token} />}
+            <DeleteProgramButton programId={id} />
+          </div>
         </div>
       </div>
 
