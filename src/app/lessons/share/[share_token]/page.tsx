@@ -80,7 +80,7 @@ export default async function LessonSharePage({
           <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
         </div>
         <Link
-          href="/login"
+          href={`/login?redirect=/lessons/share/${share_token}`}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
         >
           Open in Edugine
@@ -155,7 +155,7 @@ export default async function LessonSharePage({
           <div className="mt-6 text-center">
             <p className="text-slate-400 text-sm mb-3">Want to use this lesson with your students?</p>
             <Link
-              href="/signup"
+              href={`/signup?redirect=/lessons/share/${share_token}`}
               className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
             >
               Get started with Edugine — it&apos;s free
