@@ -58,13 +58,19 @@ export default async function ProgramSharePage({ params }: Props) {
   const { share_token } = await params
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data: program } = await supabase
     .from('programs')
-    .select('id, title, description')
+    .select('id, title, description, tutor_id')
     .eq('share_token', share_token)
     .single()
 
   if (!program) notFound()
+
+  const openInEdugineHref = user
+    ? (user.id === program.tutor_id ? `/tutor/programs/${program.id}` : '/tutor/dashboard')
+    : `/login?redirect=/programs/share/${share_token}`
 
   type RawPL = {
     lesson_id: string
@@ -105,7 +111,7 @@ export default async function ProgramSharePage({ params }: Props) {
           <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
         </div>
         <Link
-          href={`/login?redirect=/programs/share/${share_token}`}
+          href={openInEdugineHref}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
         >
           Open in Edugine

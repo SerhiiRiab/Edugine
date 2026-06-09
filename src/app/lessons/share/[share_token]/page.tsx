@@ -45,10 +45,12 @@ export default async function LessonSharePage({
   const { share_token } = await params
   const supabase = await createClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data: lesson } = await supabase
     .from('lessons')
     .select(`
-      id, title, description, visibility,
+      id, title, description, visibility, owner_id,
       lesson_activities(
         id, mechanic_id, mode, position,
         content_sets(id, title)
@@ -59,6 +61,10 @@ export default async function LessonSharePage({
     .single()
 
   if (!lesson) notFound()
+
+  const openInEdugineHref = user
+    ? (user.id === lesson.owner_id ? `/tutor/lessons/${lesson.id}/edit` : '/tutor/dashboard')
+    : `/login?redirect=/lessons/share/${share_token}`
 
   type RawActivity = {
     id: string
@@ -80,7 +86,7 @@ export default async function LessonSharePage({
           <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
         </div>
         <Link
-          href={`/login?redirect=/lessons/share/${share_token}`}
+          href={openInEdugineHref}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
         >
           Open in Edugine
