@@ -2043,7 +2043,7 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
     const targetIndex = Math.floor(Math.random() * 8)
     const eventType = EVENT_TYPES[targetIndex]
-    const builtInPool = BUILT_IN_EVENTS[eventType]
+    const builtInPool = cur.builtInDisabled?.[eventType] ? [] : BUILT_IN_EVENTS[eventType]
     const customPool = cur.customCards.filter(c => c.eventType === eventType).map(c => c.text)
     const pool = [...builtInPool, ...customPool]
     const eventText = pool[Math.floor(Math.random() * pool.length)]
@@ -2075,7 +2075,7 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = dramaEventStateRef.current
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
     const targetIndex = EVENT_TYPES.indexOf(eventType)
-    const builtInPool = BUILT_IN_EVENTS[eventType]
+    const builtInPool = cur.builtInDisabled?.[eventType] ? [] : BUILT_IN_EVENTS[eventType]
     const customPool = cur.customCards.filter(c => c.eventType === eventType).map(c => c.text)
     const pool = [...builtInPool, ...customPool]
     const eventText = pool[Math.floor(Math.random() * pool.length)]

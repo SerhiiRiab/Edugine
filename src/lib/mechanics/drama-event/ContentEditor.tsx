@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2, Rocket, Dices } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2, Rocket, Dices, EyeOff, Eye } from 'lucide-react'
 import {
   updateContentSet,
   createContentItem,
@@ -69,6 +69,13 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
   const wordlistRaw = initialItems.find(it => it.data.eventType === 'wordlist')
   const [wordlistItemId, setWordlistItemId] = useState<string | null>(wordlistRaw?.id ?? null)
   const [wordlistText, setWordlistText] = useState((wordlistRaw?.data.text as string) ?? '')
+  const settingsRaw = initialItems.find(it => it.data.eventType === 'settings')
+  const initialDisabled = new Set<EventType>(
+    (Array.isArray(settingsRaw?.data.builtInDisabled) ? settingsRaw!.data.builtInDisabled as string[] : [])
+      .filter(t => EVENT_TYPES.includes(t as EventType)) as EventType[]
+  )
+  const [builtInDisabled, setBuiltInDisabled] = useState<Set<EventType>>(initialDisabled)
+  const settingsItemIdRef = useRef<string | null>(settingsRaw?.id ?? null)
   const [bulkImporting, setBulkImporting] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
 
@@ -165,6 +172,30 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
     setRows(prev => prev.filter(r => r.id !== id))
     try { await deleteContentItem(id) }
     catch { toast.error('Failed to delete'); router.refresh() }
+  }
+
+  async function handleToggleBuiltIn(type: EventType) {
+    const newDisabled = new Set(builtInDisabled)
+    if (newDisabled.has(type)) {
+      newDisabled.delete(type)
+    } else {
+      newDisabled.add(type)
+    }
+    setBuiltInDisabled(newDisabled)
+    const disabledArr = Array.from(newDisabled)
+    const existingId = settingsItemIdRef.current
+    setSaveStatus('saving')
+    try {
+      if (existingId) {
+        await deleteContentItem(existingId)
+        settingsItemIdRef.current = null
+      }
+      if (disabledArr.length > 0) {
+        const created = await createContentItem(set.id, { eventType: 'settings', builtInDisabled: disabledArr })
+        settingsItemIdRef.current = created.id
+      }
+      markSaved()
+    } catch { setSaveStatus('error') }
   }
 
   function handleStartSession() {
@@ -375,18 +406,46 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
             const cfg = EVENT_CONFIG[type]
             const typeCards = rows.filter(r => r.eventType === type)
             const builtInCount = BUILT_IN_EVENTS[type].length
+            const isDisabled = builtInDisabled.has(type)
+            const hasCustom = customByType[type] > 0
+            const noCardsAtAll = isDisabled && !hasCustom
             return (
-              <div key={type} className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+              <div key={type} className={`bg-white rounded-2xl border overflow-hidden transition-colors ${noCardsAtAll ? 'border-amber-300' : 'border-slate-200'}`}>
                 <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
                   <span className="text-lg">{cfg.emoji}</span>
                   <span className="font-semibold text-slate-700 text-sm">{cfg.label}</span>
-                  <span className="ml-auto text-xs text-slate-400">
-                    {builtInCount} built-in{customByType[type] ? ` + ${customByType[type]} custom` : ''}
-                  </span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleBuiltIn(type)}
+                      title={isDisabled ? 'Built-in cards disabled — click to re-enable' : 'Built-in cards active — click to disable'}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
+                        isDisabled
+                          ? 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {isDisabled
+                        ? <><EyeOff className="w-3 h-3" />{builtInCount} built-in</>
+                        : <><Eye className="w-3 h-3" />{builtInCount} built-in</>
+                      }
+                    </button>
+                    {hasCustom && (
+                      <span className="text-xs text-slate-400">+ {customByType[type]} custom</span>
+                    )}
+                  </div>
                 </div>
 
+                {noCardsAtAll && (
+                  <div className="px-4 py-2.5 bg-amber-50 border-b border-amber-100 flex items-center gap-1.5 text-xs text-amber-700 font-medium">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    No cards available — built-in disabled and no custom cards added
+                  </div>
+                )}
+
                 {typeCards.length === 0 ? (
-                  <div className="px-4 py-3 text-xs text-slate-400 italic">No custom cards — using built-in pool only</div>
+                  <div className="px-4 py-3 text-xs text-slate-400 italic">
+                    {isDisabled ? 'Built-in cards disabled — add custom cards above' : 'No custom cards — using built-in pool only'}
+                  </div>
                 ) : (
                   <div className="divide-y divide-slate-50">
                     {typeCards.map(card => (

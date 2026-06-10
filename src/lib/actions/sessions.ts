@@ -1104,6 +1104,14 @@ export async function initDramaEventState(
     ? ((wordlistItem.data.text as string) ?? '').split('\n').map(s => s.trim()).filter(Boolean)
     : []
 
+  const settingsItem = allItems.find(item => item.data.eventType === 'settings')
+  const disabledArr: string[] = Array.isArray(settingsItem?.data.builtInDisabled)
+    ? (settingsItem!.data.builtInDisabled as string[])
+    : []
+  const builtInDisabled: Partial<Record<DramaEventType, boolean>> = Object.fromEntries(
+    disabledArr.filter(t => DRAMA_EVENT_TYPES.includes(t as DramaEventType)).map(t => [t, true])
+  )
+
   const state: DramaEventState = {
     scenario,
     spinState: 'idle',
@@ -1116,6 +1124,7 @@ export async function initDramaEventState(
     timerDuration,
     customCards,
     wordlist,
+    builtInDisabled,
     timerExpired: false,
     eventHistory: [],
     status: 'waiting',

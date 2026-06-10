@@ -127,6 +127,7 @@ export interface DramaEventState {
   timerExpired: boolean             // true when discussion timer reached 0
   customCards: DramaEventItem[]     // tutor's custom event cards
   wordlist: string[]                // key words/phrases students must use
+  builtInDisabled: Partial<Record<EventType, boolean>>  // per-type opt-out of built-in cards
   eventHistory: EventHistoryEntry[]
   status: 'waiting' | 'active' | 'finished'
   debriefNote: string
