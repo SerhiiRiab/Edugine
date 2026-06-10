@@ -323,6 +323,63 @@ export async function unlinkContentSetFromLesson(lessonActivityId: string, conte
   revalidatePath(`/tutor/lessons/${row.lesson_id}/edit`)
 }
 
+// ── Paginated list ───────────────────────────────────────────────────────────
+
+export type LessonListItem = {
+  id: string
+  title: string
+  description: string | null
+  language: string | null
+  activity_count: number
+  updated_at: string
+  visibility: string | null
+  level: string | null
+}
+
+export async function fetchLessons({
+  search = '',
+  level = '',
+  visibility = '',
+  offset = 0,
+  limit = 20,
+}: {
+  search?: string
+  level?: string
+  visibility?: string
+  offset?: number
+  limit?: number
+} = {}): Promise<{ items: LessonListItem[]; hasMore: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  let query = supabase
+    .from('lessons')
+    .select('id, title, description, language, updated_at, visibility, level, lesson_activities(id)')
+    .eq('owner_id', user.id)
+    .order('updated_at', { ascending: false })
+    .range(offset, offset + limit)
+
+  if (search.trim()) query = query.ilike('title', `%${search.trim()}%`)
+  if (level) query = query.eq('level', level)
+  if (visibility) query = query.eq('visibility', visibility)
+
+  const { data } = await query
+  const rows = data ?? []
+  const hasMore = rows.length > limit
+  const items = rows.slice(0, limit).map(l => ({
+    id: l.id,
+    title: l.title,
+    description: l.description,
+    language: l.language,
+    updated_at: l.updated_at,
+    visibility: l.visibility,
+    level: l.level,
+    activity_count: ((l.lesson_activities ?? []) as { id: string }[]).length,
+  }))
+  return { items, hasMore }
+}
+
 export async function reorderActivities(lessonId: string, orderedIds: string[]) {
   const supabase = await createClient()
   // Two-pass to avoid UNIQUE(lesson_id, position) violations during reorder

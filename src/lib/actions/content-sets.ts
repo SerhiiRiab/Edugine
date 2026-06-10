@@ -239,6 +239,57 @@ export async function reorderContentItems(orderedIds: string[]) {
   )
 }
 
+// ── Paginated list ───────────────────────────────────────────────────────────
+
+export type ContentSetListItem = {
+  id: string
+  title: string
+  description: string | null
+  mechanic_id: string
+  item_count: number
+  updated_at: string
+}
+
+export async function fetchContentSets({
+  search = '',
+  mechanicId = '',
+  offset = 0,
+  limit = 20,
+}: {
+  search?: string
+  mechanicId?: string
+  offset?: number
+  limit?: number
+} = {}): Promise<{ items: ContentSetListItem[]; hasMore: boolean }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  // fetch limit+1 to detect hasMore (.range end is inclusive)
+  let query = supabase
+    .from('content_sets')
+    .select('id, title, description, mechanic_id, updated_at, content_items(id)')
+    .eq('owner_id', user.id)
+    .order('updated_at', { ascending: false })
+    .range(offset, offset + limit)
+
+  if (search.trim()) query = query.ilike('title', `%${search.trim()}%`)
+  if (mechanicId) query = query.eq('mechanic_id', mechanicId)
+
+  const { data } = await query
+  const rows = data ?? []
+  const hasMore = rows.length > limit
+  const items = rows.slice(0, limit).map(s => ({
+    id: s.id,
+    title: s.title,
+    description: s.description,
+    mechanic_id: s.mechanic_id,
+    updated_at: s.updated_at,
+    item_count: ((s.content_items ?? []) as { id: string }[]).length,
+  }))
+  return { items, hasMore }
+}
+
 // ── Search ───────────────────────────────────────────────────────────────────
 
 export async function searchContentSets(
