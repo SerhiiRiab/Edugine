@@ -85,6 +85,7 @@ export default async function HostPage({
             playerLabel: i.data.playerLabel as string | undefined,
             briefing: i.data.briefing as string | undefined,
             forbiddenWords: i.data.forbiddenWords as string[] | undefined,
+            context: i.data.context as string | undefined,
           })),
       }))
 
@@ -139,6 +140,8 @@ export default async function HostPage({
     playerLabel: (i.data as { playerLabel?: string }).playerLabel,
     briefing: (i.data as { briefing?: string }).briefing,
     forbiddenWords: (i.data as { forbiddenWords?: string[] }).forbiddenWords,
+    topic: (i.data as { topic?: string }).topic,
+    context: (i.data as { context?: string }).context,
   }))
 
   return (

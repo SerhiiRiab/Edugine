@@ -98,6 +98,7 @@ export default async function PlayPage({ params }: Props) {
             playerLabel: i.data.playerLabel as string | undefined,
             briefing: i.data.briefing as string | undefined,
             forbiddenWords: i.data.forbiddenWords as string[] | undefined,
+            context: i.data.context as string | undefined,
           })),
       }))
 
@@ -154,6 +155,7 @@ export default async function PlayPage({ params }: Props) {
       playerLabel: d.playerLabel as string | undefined,
       briefing: d.briefing as string | undefined,
       forbiddenWords: d.forbiddenWords as string[] | undefined,
+      context: d.context as string | undefined,
     }
   })
 

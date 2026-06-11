@@ -18,6 +18,7 @@ import { hiddenRoleDefinition } from './hidden-role'
 import { missionBriefingDefinition } from './mission-briefing'
 import { dramaEventDefinition } from './drama-event'
 import { tabooDefinition } from './taboo'
+import { elevatorPitchDefinition } from './elevator-pitch'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -40,6 +41,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   mission_briefing:   missionBriefingDefinition   as MechanicDefinition,
   drama_event:        dramaEventDefinition        as MechanicDefinition,
   taboo:              tabooDefinition             as MechanicDefinition,
+  elevator_pitch:     elevatorPitchDefinition     as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {

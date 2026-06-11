@@ -76,6 +76,7 @@ export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
   mission_briefing:      ['simulations'],
   drama_event:           ['simulations'],
   taboo:                 ['speaking', 'vocabulary'],
+  elevator_pitch:        ['speaking'],
 }
 
 // Derived single-category map (first/primary) — kept for badge display and legacy compat.

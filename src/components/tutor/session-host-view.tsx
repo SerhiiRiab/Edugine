@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -45,6 +45,8 @@ import { EVENT_TYPES, BUILT_IN_EVENTS } from '@/lib/mechanics/drama-event/types'
 import { DramaEventHostPanel } from '@/lib/mechanics/drama-event/HostComponent'
 import type { TabooState } from '@/lib/mechanics/taboo/types'
 import { TabooHostPanel } from '@/lib/mechanics/taboo/HostComponent'
+import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
+import { ElevatorPitchHostPanel } from '@/lib/mechanics/elevator-pitch/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -87,6 +89,8 @@ interface CardItem {
   languageConstraints?: string[]
   // Taboo
   forbiddenWords?: string[]
+  // Elevator Pitch
+  context?: string
 }
 
 interface SwipeRecord {
@@ -182,6 +186,7 @@ const MECHANIC_NAMES: Record<string, string> = {
   mission_briefing:   'Mission Briefing',
   drama_event:        'Drama Event',
   taboo:              'Taboo',
+  elevator_pitch:     'Elevator Pitch',
 }
 
 const AVATAR_COLORS = [
@@ -252,6 +257,8 @@ export function SessionHostView({ session, lesson }: Props) {
 
   // Taboo state
   const [tabooState, setTabooState] = useState<TabooState | null>(null)
+  // ── Elevator Pitch ────────────────────────────────────────────────────────────
+  const [elevatorPitchState, setElevatorPitchState] = useState<ElevatorPitchState | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -294,6 +301,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const missionBriefingStateRef = useRef<MissionBriefingState | null>(null)
   const dramaEventStateRef = useRef<DramaEventState | null>(null)
   const tabooStateRef = useRef<TabooState | null>(null)
+  const elevatorPitchStateRef = useRef<ElevatorPitchState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -312,6 +320,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { missionBriefingStateRef.current = missionBriefingState }, [missionBriefingState])
   useEffect(() => { dramaEventStateRef.current = dramaEventState }, [dramaEventState])
   useEffect(() => { tabooStateRef.current = tabooState }, [tabooState])
+  useEffect(() => { elevatorPitchStateRef.current = elevatorPitchState }, [elevatorPitchState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -556,6 +565,21 @@ export function SessionHostView({ session, lesson }: Props) {
             const restored = stateRow.state as unknown as TabooState
             setTabooState(restored)
             tabooStateRef.current = restored
+          }
+        }
+
+        // Restore elevator_pitch state from DB on tab restore / reconnect
+        if (currentMechanic === 'elevator_pitch' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'topicOrder' in (stateRow.state as Record<string, unknown>)) {
+            const restored = stateRow.state as unknown as ElevatorPitchState
+            setElevatorPitchState(restored)
+            elevatorPitchStateRef.current = restored
           }
         }
 
@@ -958,6 +982,10 @@ export function SessionHostView({ session, lesson }: Props) {
         if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
         handleTabooSkip()
       })
+      .on('broadcast', { event: 'elevator_pitch_state_update' }, ({ payload }) => {
+        const p = payload as { state: ElevatorPitchState }
+        if (p.state) { setElevatorPitchState(p.state); elevatorPitchStateRef.current = p.state }
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -1154,6 +1182,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newMissionBriefingState: MissionBriefingState | undefined
         let newDramaEventState: DramaEventState | undefined
         let newTabooState: TabooState | undefined
+        let newElevatorPitchState: ElevatorPitchState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1255,7 +1284,12 @@ export function SessionHostView({ session, lesson }: Props) {
         } else if (firstActivity?.mechanic_id === 'speaking_challenge') {
           newSpeakingChallengeState = await initSpeakingChallengeState(session.id, currentActivityIndex)
           setSpeakingChallengeState(newSpeakingChallengeState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setElevatorPitchState(null)
+        } else if (firstActivity?.mechanic_id === 'elevator_pitch') {
+          newElevatorPitchState = await initElevatorPitchState(session.id, currentActivityIndex)
+          setElevatorPitchState(newElevatorPitchState)
+          elevatorPitchStateRef.current = newElevatorPitchState
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
@@ -1269,6 +1303,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setMissionBriefingState(null)
           setDramaEventState(null)
           setTabooState(null)
+          setElevatorPitchState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -1294,6 +1329,7 @@ export function SessionHostView({ session, lesson }: Props) {
             missionBriefingState: newMissionBriefingState,
             dramaEventState: newDramaEventState,
             tabooState: newTabooState,
+            elevatorPitchState: newElevatorPitchState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -1347,6 +1383,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newMissionBriefingState: MissionBriefingState | undefined
       let newDramaEventState: DramaEventState | undefined
       let newTabooState: TabooState | undefined
+      let newElevatorPitchState: ElevatorPitchState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1451,7 +1488,12 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null)
+      } else if (nextActivity?.mechanic_id === 'elevator_pitch') {
+        newElevatorPitchState = await initElevatorPitchState(session.id, nextIndex)
+        setElevatorPitchState(newElevatorPitchState)
+        elevatorPitchStateRef.current = newElevatorPitchState
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -1465,6 +1507,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setMissionBriefingState(null)
         setDramaEventState(null)
         setTabooState(null)
+        setElevatorPitchState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1488,6 +1531,7 @@ export function SessionHostView({ session, lesson }: Props) {
           missionBriefingState: newMissionBriefingState,
           dramaEventState: newDramaEventState,
           tabooState: newTabooState,
+          elevatorPitchState: newElevatorPitchState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -2358,6 +2402,68 @@ export function SessionHostView({ session, lesson }: Props) {
       .then(() => {
         if (isLesson) { handleEndLesson() } else { handleEndGame() }
       })
+      .catch(() => {})
+  }
+
+  // ── Elevator Pitch handlers ───────────────────────────────────────────────────
+  async function elevatorPitchStateUpdate(newState: ElevatorPitchState) {
+    setElevatorPitchState(newState)
+    elevatorPitchStateRef.current = newState
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id).eq('activity_index', currentActivityIndexRef.current)
+    channelRef.current?.send({ type: 'broadcast', event: 'elevator_pitch_state_update', payload: { state: newState } })
+  }
+
+  async function handleElevatorPitchStart() {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    await elevatorPitchStateUpdate({ ...cur, phase: 'active' })
+  }
+
+  async function handleElevatorPitchStartPitch() {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    await elevatorPitchStateUpdate({
+      ...cur,
+      timerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      timeLeftAtStart: cur.turnDuration,
+    })
+  }
+
+  async function handleElevatorPitchNextTurn() {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    const nextSpeakerIndex = (cur.currentSpeakerIndex + 1) % Math.max(cur.turnOrder.length, 1)
+    const nextTopicPosition = (cur.currentTopicPosition + 1) % Math.max(cur.topicOrder.length, 1)
+    await elevatorPitchStateUpdate({
+      ...cur,
+      currentSpeakerIndex: nextSpeakerIndex,
+      currentTopicPosition: nextTopicPosition,
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: cur.turnDuration,
+    })
+  }
+
+  async function handleElevatorPitchSetDuration(seconds: number) {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    await elevatorPitchStateUpdate({ ...cur, turnDuration: seconds, timeLeftAtStart: seconds, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleElevatorPitchTimerExpired() {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    await elevatorPitchStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null })
+  }
+
+  function handleElevatorPitchEndGame() {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    elevatorPitchStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
       .catch(() => {})
   }
 
@@ -3307,6 +3413,27 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── ELEVATOR PITCH ───────────────────────────────────────── */}
+            {currentMechanicId === 'elevator_pitch' && elevatorPitchState && (
+              <ElevatorPitchHostPanel
+                state={elevatorPitchState}
+                items={currentActivityItems as unknown as import('@/lib/mechanics/elevator-pitch/types').ElevatorPitchItem[]}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleElevatorPitchEndGame}
+                onStart={handleElevatorPitchStart}
+                onStartPitch={handleElevatorPitchStartPitch}
+                onNextTurn={handleElevatorPitchNextTurn}
+                onSetDuration={handleElevatorPitchSetDuration}
+                onTimerExpired={handleElevatorPitchTimerExpired}
+                onFinish={handleEndGame}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -3387,7 +3514,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

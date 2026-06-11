@@ -24,6 +24,7 @@ export type MechanicId =
   | 'mission_briefing'
   | 'drama_event'
   | 'taboo'
+  | 'elevator_pitch'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 
