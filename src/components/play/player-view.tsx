@@ -755,9 +755,7 @@ export function PlayerView({ session, lesson }: Props) {
       })
       .on('broadcast', { event: 'game_ended' }, () => {
         setHostEnded(true)
-        // Each panel handles hostEnded via its own prop — SwipeBattle and SpeedMatch
-        // call onComplete/onFinish which transitions the phase. Story Builder has no
-        // host-end concept so no action is needed for it here.
+        setPhase('finished')
       })
       .subscribe()
 
