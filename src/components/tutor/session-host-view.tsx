@@ -2476,6 +2476,9 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = elevatorPitchStateRef.current
     if (!cur) return
     elevatorPitchStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
+      .then(() => {
+        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+      })
       .catch(() => {})
   }
 
