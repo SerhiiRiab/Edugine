@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import {
   Play, Pause, RotateCcw, StopCircle, PartyPopper,
   Users, MessageSquare, ChevronDown, ChevronUp, Eye, Lock, Timer,
@@ -60,16 +61,12 @@ export function RoleplayQuestHostPanel({
   onStartRoleplay, onFinish,
 }: RoleplayQuestHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
+  )
   const [showPhrases, setShowPhrases] = useState(false)
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    if (!state.timerRunning) return
-    const interval = setInterval(() => setDisplayTime(computeTimeLeft(state)), 200)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
 
   async function busy(fn: () => Promise<void>) {
     if (isBusy) return

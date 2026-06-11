@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play, ChevronRight, StopCircle, PartyPopper, Users,
@@ -49,44 +50,18 @@ export function SpeakingChallengeHostPanel({
   onStart, onNextWord, onNextSpeaker, onFinish,
 }: SpeakingChallengeHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [turnTime, setTurnTime] = useState(() => computeTurnTimeLeft(state))
-  const [wordTime, setWordTime] = useState(() => computeWordTimeLeft(state))
-  const wordExpiredRef = useRef(false)
-  const turnExpiredRef = useRef(false)
-
-  // Word interval timer
-  useEffect(() => {
-    if (state.status !== 'active' || state.wordInterval === 0 || !state.wordChangedAt) return
-    wordExpiredRef.current = false
-    setWordTime(computeWordTimeLeft(state))
-    const iv = setInterval(() => {
-      const t = computeWordTimeLeft(state)
-      setWordTime(t)
-      if (t <= 0 && !wordExpiredRef.current) {
-        wordExpiredRef.current = true
-        busy(onNextWord)
-      }
-    }, 200)
-    return () => clearInterval(iv)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status, state.wordInterval, state.wordChangedAt])
-
-  // Turn duration timer
-  useEffect(() => {
-    if (state.status !== 'active' || state.turnDuration === 0 || !state.turnStartedAt) return
-    turnExpiredRef.current = false
-    setTurnTime(computeTurnTimeLeft(state))
-    const iv = setInterval(() => {
-      const t = computeTurnTimeLeft(state)
-      setTurnTime(t)
-      if (t <= 0 && !turnExpiredRef.current) {
-        turnExpiredRef.current = true
-        busy(onNextSpeaker)
-      }
-    }, 200)
-    return () => clearInterval(iv)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status, state.turnDuration, state.turnStartedAt])
+  const wordTime = useRafTimer(
+    () => computeWordTimeLeft(state),
+    state.status === 'active' && state.wordInterval !== 0 && !!state.wordChangedAt,
+    [state.status, state.wordInterval, state.wordChangedAt],
+    () => busy(onNextWord),
+  )
+  const turnTime = useRafTimer(
+    () => computeTurnTimeLeft(state),
+    state.status === 'active' && state.turnDuration !== 0 && !!state.turnStartedAt,
+    [state.status, state.turnDuration, state.turnStartedAt],
+    () => busy(onNextSpeaker),
+  )
 
   async function busy(fn: () => Promise<void>) {
     if (isBusy) return

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
@@ -39,18 +40,13 @@ export interface HiddenRolePlayerPanelProps {
 }
 
 export function HiddenRolePlayerPanel({ participantId, state, items, participants, channelRef }: HiddenRolePlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+  )
   const [myVote, setMyVote] = useState<string | null>(null)
   const [votePending, setVotePending] = useState(false)
-
-  useEffect(() => { setDisplayTime(computeTimeLeft(state)) }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   // Reset my vote when phase changes
   useEffect(() => { if (state.phase !== 3) setMyVote(null) }, [state.phase])

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play, Pause, RotateCcw, ChevronRight, ChevronLeft,
@@ -74,28 +75,13 @@ export function SpeedDebateHostPanel({
   onNextStatement, onFinish,
 }: SpeedDebateHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
   const [showPhrases, setShowPhrases] = useState(true)
-  const expiredRef = useRef(false)
-  const autoAdvancedRef = useRef(false)
-
-  useEffect(() => {
-    expiredRef.current = false
-    autoAdvancedRef.current = false
-    setDisplayTime(computeTimeLeft(state))
-    if (!state.timerRunning) return
-
-    const interval = setInterval(() => {
-      const tl = computeTimeLeft(state)
-      setDisplayTime(tl)
-      if (tl <= 0 && !expiredRef.current) {
-        expiredRef.current = true
-        busy(onNextTurn)
-      }
-    }, 200)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
+    () => busy(onNextTurn),
+  )
 
   async function busy(fn: () => Promise<void>) {
     if (isBusy) return

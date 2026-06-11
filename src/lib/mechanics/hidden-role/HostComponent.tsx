@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { Play, Pause, RotateCcw, StopCircle, Shield, Eye, ChevronRight, Users, UserPlus, X } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
@@ -75,18 +76,14 @@ export function HiddenRoleHostPanel({
   onTutorTakeRole, onTutorDropRole, onTutorVote,
 }: HiddenRoleHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+  )
   const [tutorHasVoted, setTutorHasVoted] = useState(false)
 
-  useEffect(() => { setDisplayTime(computeTimeLeft(state)) }, [state])
   useEffect(() => { if (state.phase !== 3) setTutorHasVoted(false) }, [state.phase])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   function wrap(fn: () => Promise<void>) {
     return async () => {

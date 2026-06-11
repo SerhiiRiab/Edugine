@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, PartyPopper } from 'lucide-react'
 import type { SpeedDebateState, DebatePosition } from './types'
@@ -65,15 +66,11 @@ export interface SpeedDebatePlayerPanelProps {
 export function SpeedDebatePlayerPanel({
   participantId, state, participants,
 }: SpeedDebatePlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    if (!state.timerRunning) return
-    const interval = setInterval(() => { setDisplayTime(computeTimeLeft(state)) }, 200)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
+  )
 
   const myPosition = state.turnOrder.indexOf(participantId)
   const isMyTurn = state.currentTurnIndex === myPosition && myPosition >= 0

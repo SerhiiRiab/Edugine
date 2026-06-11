@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion } from 'framer-motion'
 import { Play, Pause, RotateCcw, Plus, StopCircle, Dices, Timer, ChevronDown, ChevronUp, History } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
@@ -239,32 +240,16 @@ export function DramaEventHostPanel({
   onSetDuration, onNextEvent, onEndScenario, onSetDebriefNote, onFinish,
 }: DramaEventHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.timerDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.timerDuration],
+    onTimerExpired,
+  )
   const [outcomeNote, setOutcomeNote] = useState('')
   const [showHistory, setShowHistory] = useState(false)
   const [showManual, setShowManual] = useState(false)
   const [debriefNote, setDebriefNote] = useState(state.debriefNote ?? '')
-  const expiredRef = useRef(false)
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    expiredRef.current = false
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.timerDuration === 0) return
-    const id = setInterval(() => {
-      const t = computeTimeLeft(state)
-      setDisplayTime(t)
-      if (t <= 0 && !expiredRef.current) {
-        expiredRef.current = true
-        clearInterval(id)
-        onTimerExpired()
-      }
-    }, 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.timerDuration])
 
   function wrap(fn: () => Promise<void>) {
     return async () => {

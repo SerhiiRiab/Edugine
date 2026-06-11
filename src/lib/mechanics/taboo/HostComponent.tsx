@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { Play, Pause, RotateCcw, SkipForward, ChevronRight, StopCircle, Timer, Trophy } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { TabooState, TabooItem } from './types'
@@ -67,28 +68,12 @@ export function TabooHostPanel({
   onStart, onSkip, onNextTurn, onSetDuration, onTimerExpired, onFinish,
 }: TabooHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
-  const expiredRef = useRef(false)
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    expiredRef.current = false
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => {
-      const t = computeTimeLeft(state)
-      setDisplayTime(t)
-      if (t <= 0 && !expiredRef.current) {
-        expiredRef.current = true
-        clearInterval(id)
-        onTimerExpired()
-      }
-    }, 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+    onTimerExpired,
+  )
 
   function wrap(fn: () => Promise<void>) {
     return async () => {

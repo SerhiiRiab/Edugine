@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { DramaEventState } from './types'
 import { EVENT_CONFIG, computeTimeLeft } from './types'
@@ -43,18 +44,11 @@ export interface DramaEventPlayerPanelProps {
 }
 
 export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.timerDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.timerDuration])
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.timerDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.timerDuration],
+  )
 
   function requestSpin() {
     channelRef.current?.send({

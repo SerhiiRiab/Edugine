@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { Play, ChevronRight, StopCircle, Timer, ChevronDown, ChevronUp } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { ElevatorPitchState, ElevatorPitchItem } from './types'
@@ -68,32 +69,16 @@ export function ElevatorPitchHostPanel({
   onStart, onStartPitch, onNextTurn, onSetDuration, onTimerExpired, onFinish,
 }: ElevatorPitchHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
   const [timeUp, setTimeUp] = useState(false)
   const [phrasesOpen, setPhrasesOpen] = useState(false)
-  const expiredRef = useRef(false)
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+    () => { setTimeUp(true); onTimerExpired() },
+  )
 
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    expiredRef.current = false
-    setTimeUp(false)
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => {
-      const t = computeTimeLeft(state)
-      setDisplayTime(t)
-      if (t <= 0 && !expiredRef.current) {
-        expiredRef.current = true
-        clearInterval(id)
-        setTimeUp(true)
-        onTimerExpired()
-      }
-    }, 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
+  useEffect(() => { setTimeUp(false) }, [state.timerStartedAt])
 
   function wrap(fn: () => Promise<void>) {
     return async () => {

@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Mic, Play, Pause, RotateCcw, ChevronRight, SkipForward, Star,
@@ -86,26 +87,12 @@ export function TalkTimeHostPanel({
   onFinish,
 }: TalkTimeHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
-  const expiredRef = useRef(false)
-
-  // Local timer display — syncs to state, no DB writes per tick
-  useEffect(() => {
-    expiredRef.current = false
-    setDisplayTime(computeTimeLeft(state))
-    if (!state.timerRunning) return
-
-    const interval = setInterval(() => {
-      const tl = computeTimeLeft(state)
-      setDisplayTime(tl)
-      if (tl <= 0 && !expiredRef.current) {
-        expiredRef.current = true
-        busy(onTimerPause)
-      }
-    }, 200)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
+    () => busy(onTimerPause),
+  )
 
   async function busy(fn: () => Promise<void>) {
     if (isBusy) return

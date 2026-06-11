@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { Play, Pause, RotateCcw, StopCircle, ChevronRight, CheckCircle2, XCircle, FileText, Users, Zap } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
@@ -80,19 +81,14 @@ export function MissionBriefingHostPanel({
   onSetDuration, onTimeUp, onMissionComplete, onMissionFailed, onSetDebriefNote, onInjectEvent, onFinish,
 }: MissionBriefingHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+  )
   const [localDebriefNote, setLocalDebriefNote] = useState(state.debriefNote ?? '')
   const [showEventPanel, setShowEventPanel] = useState(false)
   const [eventText, setEventText] = useState('')
-
-  useEffect(() => { setDisplayTime(computeTimeLeft(state)) }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   function wrap(fn: () => Promise<void>) {
     return async () => {

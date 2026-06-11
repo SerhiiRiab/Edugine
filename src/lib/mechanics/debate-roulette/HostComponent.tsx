@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion } from 'framer-motion'
 import { Play, Pause, RotateCcw, ChevronRight, StopCircle, Dices, Timer, Users, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
@@ -248,34 +249,13 @@ export function DebateRouletteHostPanel({
   onNextTurn, onSetDuration, onStart, onFinish,
 }: DebateRouletteHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+    () => wrap(onNextTurn)(),
+  )
   const [showPhrases, setShowPhrases] = useState(false)
-  const expiredRef = useRef(false)
-  const autoAdvancedRef = useRef(false)
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    expiredRef.current = false
-    autoAdvancedRef.current = false
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => {
-      const t = computeTimeLeft(state)
-      setDisplayTime(t)
-      if (t <= 0 && !expiredRef.current) {
-        expiredRef.current = true
-        clearInterval(id)
-        if (!autoAdvancedRef.current) {
-          autoAdvancedRef.current = true
-          wrap(onNextTurn)()
-        }
-      }
-    }, 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   function wrap(fn: () => Promise<void>) {
     return async () => {

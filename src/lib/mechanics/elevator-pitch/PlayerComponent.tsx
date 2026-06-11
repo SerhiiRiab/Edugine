@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { ElevatorPitchState, ElevatorPitchItem } from './types'
@@ -49,19 +50,12 @@ export interface ElevatorPitchPlayerPanelProps {
 export function ElevatorPitchPlayerPanel({
   participantId, state, items, participants,
 }: ElevatorPitchPlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+  )
   const [phrasesOpen, setPhrasesOpen] = useState(false)
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   const isPitcher = state.turnOrder[state.currentSpeakerIndex] === participantId
   const currentItem = items[state.topicOrder?.[state.currentTopicPosition] ?? 0]

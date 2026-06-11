@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { PartyPopper } from 'lucide-react'
 import type { SpeakingChallengeState } from './types'
@@ -18,24 +19,16 @@ export interface SpeakingChallengePlayerPanelProps {
 export function SpeakingChallengePlayerPanel({
   participantId, state, participants,
 }: SpeakingChallengePlayerPanelProps) {
-  const [turnTime, setTurnTime] = useState(() => computeTurnTimeLeft(state))
-  const [wordTime, setWordTime] = useState(() => computeWordTimeLeft(state))
-
-  useEffect(() => {
-    setTurnTime(computeTurnTimeLeft(state))
-    if (state.status !== 'active' || state.turnDuration === 0) return
-    const iv = setInterval(() => setTurnTime(computeTurnTimeLeft(state)), 200)
-    return () => clearInterval(iv)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status, state.turnDuration, state.turnStartedAt])
-
-  useEffect(() => {
-    setWordTime(computeWordTimeLeft(state))
-    if (state.status !== 'active' || state.wordInterval === 0) return
-    const iv = setInterval(() => setWordTime(computeWordTimeLeft(state)), 200)
-    return () => clearInterval(iv)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.status, state.wordInterval, state.wordChangedAt])
+  const turnTime = useRafTimer(
+    () => computeTurnTimeLeft(state),
+    state.status === 'active' && state.turnDuration !== 0,
+    [state.status, state.turnDuration, state.turnStartedAt],
+  )
+  const wordTime = useRafTimer(
+    () => computeWordTimeLeft(state),
+    state.status === 'active' && state.wordInterval !== 0,
+    [state.status, state.wordInterval, state.wordChangedAt],
+  )
 
   const currentSpeakerId = state.turnOrder[state.currentSpeakerIndex]
   const isMyTurn = currentSpeakerId === participantId

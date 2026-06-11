@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Lock, PartyPopper, Users } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -50,7 +51,11 @@ export function RoleplayQuestPlayerPanel({
   sessionId, activityIndex, participantId, state, participants, channelRef,
 }: RoleplayQuestPlayerPanelProps) {
   const [claiming, setClaiming] = useState<number | null>(null)
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
+  )
 
   const myClaimedIndex = Object.entries(state.claims).find(([, pid]) => pid === participantId)?.[0]
   const myRole = myClaimedIndex !== undefined ? state.roles[Number(myClaimedIndex)] : null
@@ -63,14 +68,6 @@ export function RoleplayQuestPlayerPanel({
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.claims])
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    if (!state.timerRunning) return
-    const interval = setInterval(() => setDisplayTime(computeTimeLeft(state)), 200)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
 
   const myPhrases = myRole?.usefulPhrases ?? []
 

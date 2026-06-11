@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { TabooState, TabooItem } from './types'
 import { computeTimeLeft } from './types'
@@ -49,22 +50,15 @@ export interface TabooPlayerPanelProps {
 export function TabooPlayerPanel({
   participantId, nickname, state, items, participants, channelRef, activityIndex,
 }: TabooPlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+  )
   const [guessText, setGuessText] = useState('')
   const [justCorrect, setJustCorrect] = useState(false)
   const prevGuessIdRef = useRef<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-  }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   // Detect when this player guessed correctly
   useEffect(() => {

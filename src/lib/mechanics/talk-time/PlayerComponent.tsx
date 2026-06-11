@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trophy, PartyPopper, Headphones } from 'lucide-react'
 import type { TalkTimeState } from './types'
@@ -59,19 +60,11 @@ export function TalkTimePlayerPanel({
   participants,
   instructions,
 }: TalkTimePlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
-
-  // Local timer display — self-syncing from state timestamps
-  useEffect(() => {
-    setDisplayTime(computeTimeLeft(state))
-    if (!state.timerRunning) return
-
-    const interval = setInterval(() => {
-      setDisplayTime(computeTimeLeft(state))
-    }, 200)
-    return () => clearInterval(interval)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart])
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
+  )
 
   const myPosition = state.turnOrder.indexOf(participantId)
   const isMyTurn = state.currentTurnIndex === myPosition && myPosition >= 0

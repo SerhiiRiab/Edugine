@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
 import { computeTimeLeft } from './types'
@@ -48,18 +49,13 @@ export interface MissionBriefingPlayerPanelProps {
 }
 
 export function MissionBriefingPlayerPanel({ participantId, state, items, participants }: MissionBriefingPlayerPanelProps) {
-  const [displayTime, setDisplayTime] = useState(() => computeTimeLeft(state))
+  const displayTime = useRafTimer(
+    () => computeTimeLeft(state),
+    state.timerRunning && state.turnDuration !== 0,
+    [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration],
+  )
   const [briefingCollapsed, setBriefingCollapsed] = useState(false)
   const [, setTick] = useState(0)
-
-  useEffect(() => { setDisplayTime(computeTimeLeft(state)) }, [state])
-
-  useEffect(() => {
-    if (!state.timerRunning || state.turnDuration === 0) return
-    const id = setInterval(() => setDisplayTime(computeTimeLeft(state)), 250)
-    return () => clearInterval(id)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, state.turnDuration])
 
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30_000)
