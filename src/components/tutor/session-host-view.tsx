@@ -2801,12 +2801,12 @@ export function SessionHostView({ session, lesson }: Props) {
   function handleEndGame() {
     endTransition(async () => {
       try {
-        await endSession(session.id)
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_ended',
           payload: {},
         })
+        await endSession(session.id)
         setPhase('finished')
         if (elapsedRef.current) clearInterval(elapsedRef.current)
         if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current)
