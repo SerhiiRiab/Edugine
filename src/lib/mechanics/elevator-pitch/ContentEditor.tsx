@@ -242,18 +242,18 @@ export function ElevatorPitchContentEditor({ set, initialItems }: Props) {
             {instructionsOpen ? <ChevronUp className="w-4 h-4 text-amber-600" /> : <ChevronDown className="w-4 h-4 text-amber-600" />}
           </button>
           {instructionsOpen && (
-            <div className="px-5 pb-5 border-t border-amber-200 pt-4 space-y-2">
+            <div className="px-5 pb-5 border-t border-amber-200 pt-4 space-y-1.5">
               {[
-                ['A product or service', '"Pitch a sustainable coffee cup"'],
-                ['A business idea', '"Pitch an app for language learners"'],
-                ['Yourself', '"Pitch yourself for a dream job"'],
-                ['A solution', '"Pitch a solution to traffic in your city"'],
-                ['A concept', '"Pitch the idea of universal basic income"'],
-                ['Anything!', 'The more creative the topic, the better the pitch.'],
-              ].map(([type, example]) => (
-                <div key={type} className="flex gap-2 text-sm">
-                  <span className="font-semibold text-amber-800 shrink-0">·</span>
-                  <span className="text-amber-900"><span className="font-semibold">{type}</span> — <span className="text-amber-700 italic">{example}</span></span>
+                'A product, service or business idea',
+                'Yourself for a job or role',
+                'A solution to a problem',
+                'A book, film or hobby',
+                'A place, person or concept',
+                'Anything creative — the more unexpected, the better!',
+              ].map(item => (
+                <div key={item} className="flex gap-2 text-sm text-amber-900">
+                  <span className="shrink-0">·</span>
+                  <span>{item}</span>
                 </div>
               ))}
             </div>
