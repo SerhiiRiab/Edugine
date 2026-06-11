@@ -23,6 +23,7 @@ export type MechanicId =
   | 'hidden_role'
   | 'mission_briefing'
   | 'drama_event'
+  | 'taboo'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 

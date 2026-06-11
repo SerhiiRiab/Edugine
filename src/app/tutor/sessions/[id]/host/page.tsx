@@ -84,6 +84,7 @@ export default async function HostPage({
             languageConstraints: i.data.languageConstraints as string[] | undefined,
             playerLabel: i.data.playerLabel as string | undefined,
             briefing: i.data.briefing as string | undefined,
+            forbiddenWords: i.data.forbiddenWords as string[] | undefined,
           })),
       }))
 
@@ -137,6 +138,7 @@ export default async function HostPage({
     languageConstraints: (i.data as { languageConstraints?: string[] }).languageConstraints,
     playerLabel: (i.data as { playerLabel?: string }).playerLabel,
     briefing: (i.data as { briefing?: string }).briefing,
+    forbiddenWords: (i.data as { forbiddenWords?: string[] }).forbiddenWords,
   }))
 
   return (

@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -43,6 +43,8 @@ import { MissionBriefingHostPanel } from '@/lib/mechanics/mission-briefing/HostC
 import type { DramaEventState, EventType } from '@/lib/mechanics/drama-event/types'
 import { EVENT_TYPES, BUILT_IN_EVENTS } from '@/lib/mechanics/drama-event/types'
 import { DramaEventHostPanel } from '@/lib/mechanics/drama-event/HostComponent'
+import type { TabooState } from '@/lib/mechanics/taboo/types'
+import { TabooHostPanel } from '@/lib/mechanics/taboo/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -83,6 +85,8 @@ interface CardItem {
   secretGoal?: string
   isSpy?: boolean
   languageConstraints?: string[]
+  // Taboo
+  forbiddenWords?: string[]
 }
 
 interface SwipeRecord {
@@ -177,6 +181,7 @@ const MECHANIC_NAMES: Record<string, string> = {
   hidden_role:        'Hidden Role',
   mission_briefing:   'Mission Briefing',
   drama_event:        'Drama Event',
+  taboo:              'Taboo',
 }
 
 const AVATAR_COLORS = [
@@ -245,6 +250,9 @@ export function SessionHostView({ session, lesson }: Props) {
   // Drama Event state
   const [dramaEventState, setDramaEventState] = useState<DramaEventState | null>(null)
 
+  // Taboo state
+  const [tabooState, setTabooState] = useState<TabooState | null>(null)
+
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
 
@@ -285,6 +293,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const hiddenRoleStateRef = useRef<HiddenRoleState | null>(null)
   const missionBriefingStateRef = useRef<MissionBriefingState | null>(null)
   const dramaEventStateRef = useRef<DramaEventState | null>(null)
+  const tabooStateRef = useRef<TabooState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -302,6 +311,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { hiddenRoleStateRef.current = hiddenRoleState }, [hiddenRoleState])
   useEffect(() => { missionBriefingStateRef.current = missionBriefingState }, [missionBriefingState])
   useEffect(() => { dramaEventStateRef.current = dramaEventState }, [dramaEventState])
+  useEffect(() => { tabooStateRef.current = tabooState }, [tabooState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -531,6 +541,21 @@ export function SessionHostView({ session, lesson }: Props) {
             const restored = stateRow.state as unknown as DramaEventState
             setDramaEventState(restored)
             dramaEventStateRef.current = restored
+          }
+        }
+
+        // Restore taboo state from DB on tab restore / reconnect
+        if (currentMechanic === 'taboo' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'cardOrder' in (stateRow.state as Record<string, unknown>)) {
+            const restored = stateRow.state as unknown as TabooState
+            setTabooState(restored)
+            tabooStateRef.current = restored
           }
         }
 
@@ -882,6 +907,57 @@ export function SessionHostView({ session, lesson }: Props) {
         if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
         handleDESpin()
       })
+      .on('broadcast', { event: 'taboo_state_update' }, ({ payload }) => {
+        const p = payload as { state: TabooState }
+        if (p.state) { setTabooState(p.state); tabooStateRef.current = p.state }
+      })
+      .on('broadcast', { event: 'taboo_guess' }, ({ payload }) => {
+        const p = payload as { guesserId: string; guesserNickname: string; text: string; activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        const cur = tabooStateRef.current
+        if (!cur || cur.phase !== 'active') return
+        const items = lesson?.activities[currentActivityIndexRef.current]?.items ?? []
+        const currentItemIndex = cur.cardOrder?.[cur.currentCardPosition] ?? 0
+        const currentItem = items[currentItemIndex]
+        if (!currentItem) return
+        const guessNorm = p.text.trim().toLowerCase()
+        const wordNorm = (currentItem.word ?? '').trim().toLowerCase()
+        if (guessNorm !== wordNorm) return
+        // Correct guess
+        const currentSpeakerId = cur.turnOrder[cur.currentSpeakerIndex] ?? ''
+        const newScores = { ...cur.scores }
+        newScores[p.guesserId] = (newScores[p.guesserId] ?? 0) + 1
+        if (currentSpeakerId) newScores[currentSpeakerId] = (newScores[currentSpeakerId] ?? 0) + 1
+        const newGuess = { guesserId: p.guesserId, guesserNickname: p.guesserNickname, cardWord: currentItem.word ?? '' }
+        let newPosition = cur.currentCardPosition + 1
+        let newCardOrder = cur.cardOrder
+        if (newPosition >= (cur.cardOrder?.length ?? 0)) {
+          newCardOrder = [...Array(items.length).keys()].sort(() => Math.random() - 0.5)
+          newPosition = 0
+        }
+        const newState: TabooState = {
+          ...cur,
+          cardOrder: newCardOrder,
+          currentCardPosition: newPosition,
+          scores: newScores,
+          lastCorrectGuesserId: p.guesserId,
+          recentGuesses: [newGuess, ...cur.recentGuesses].slice(0, 10),
+        }
+        setTabooState(newState)
+        tabooStateRef.current = newState
+        const supabase = createClient()
+        supabase.from('shared_activity_state')
+          .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+          .eq('session_id', session.id)
+          .eq('activity_index', currentActivityIndexRef.current)
+          .then(undefined, () => {})
+        channelRef.current?.send({ type: 'broadcast', event: 'taboo_state_update', payload: { state: newState } })
+      })
+      .on('broadcast', { event: 'taboo_skip' }, ({ payload }) => {
+        const p = payload as { activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        handleTabooSkip()
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -1077,6 +1153,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newHiddenRoleState: HiddenRoleState | undefined
         let newMissionBriefingState: MissionBriefingState | undefined
         let newDramaEventState: DramaEventState | undefined
+        let newTabooState: TabooState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1161,7 +1238,12 @@ export function SessionHostView({ session, lesson }: Props) {
           newDramaEventState = await initDramaEventState(session.id, currentActivityIndex)
           setDramaEventState(newDramaEventState)
           dramaEventStateRef.current = newDramaEventState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null); setTabooState(null)
+        } else if (firstActivity?.mechanic_id === 'taboo') {
+          newTabooState = await initTabooState(session.id, currentActivityIndex)
+          setTabooState(newTabooState)
+          tabooStateRef.current = newTabooState
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setRoleplayQuestState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
@@ -1186,6 +1268,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setHiddenRoleState(null)
           setMissionBriefingState(null)
           setDramaEventState(null)
+          setTabooState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -1210,6 +1293,7 @@ export function SessionHostView({ session, lesson }: Props) {
             hiddenRoleState: newHiddenRoleState,
             missionBriefingState: newMissionBriefingState,
             dramaEventState: newDramaEventState,
+            tabooState: newTabooState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -1262,6 +1346,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newHiddenRoleState: HiddenRoleState | undefined
       let newMissionBriefingState: MissionBriefingState | undefined
       let newDramaEventState: DramaEventState | undefined
+      let newTabooState: TabooState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1349,19 +1434,24 @@ export function SessionHostView({ session, lesson }: Props) {
         newDramaEventState = await initDramaEventState(session.id, nextIndex)
         setDramaEventState(newDramaEventState)
         dramaEventStateRef.current = newDramaEventState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null); setTabooState(null)
+      } else if (nextActivity?.mechanic_id === 'taboo') {
+        newTabooState = await initTabooState(session.id, nextIndex)
+        setTabooState(newTabooState)
+        tabooStateRef.current = newTabooState
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setRoleplayQuestState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
       } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
         newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
         setRoleplayQuestState(newRoleplayQuestState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -1374,6 +1464,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setHiddenRoleState(null)
         setMissionBriefingState(null)
         setDramaEventState(null)
+        setTabooState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1396,6 +1487,7 @@ export function SessionHostView({ session, lesson }: Props) {
           hiddenRoleState: newHiddenRoleState,
           missionBriefingState: newMissionBriefingState,
           dramaEventState: newDramaEventState,
+          tabooState: newTabooState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -2181,6 +2273,92 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = dramaEventStateRef.current
     if (!cur) return
     await deStateUpdate({ ...cur, debriefNote: note })
+  }
+
+  // ── Taboo handlers ────────────────────────────────────────────────────────────
+  async function tabooStateUpdate(newState: TabooState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setTabooState(newState)
+    tabooStateRef.current = newState
+    channelRef.current?.send({ type: 'broadcast', event: 'taboo_state_update', payload: { state: newState } })
+  }
+
+  async function handleTabooStart() {
+    const cur = tabooStateRef.current
+    if (!cur) return
+    await tabooStateUpdate({
+      ...cur,
+      phase: 'active',
+      timerRunning: cur.turnDuration > 0,
+      timerStartedAt: cur.turnDuration > 0 ? new Date().toISOString() : null,
+      timeLeftAtStart: cur.turnDuration,
+    })
+  }
+
+  async function handleTabooSkip() {
+    const cur = tabooStateRef.current
+    if (!cur || cur.phase !== 'active') return
+    const items = lesson?.activities[currentActivityIndex]?.items ?? []
+    let newPosition = cur.currentCardPosition + 1
+    let newCardOrder = cur.cardOrder
+    if (newPosition >= (cur.cardOrder?.length ?? 0)) {
+      newCardOrder = [...Array(items.length).keys()].sort(() => Math.random() - 0.5)
+      newPosition = 0
+    }
+    await tabooStateUpdate({
+      ...cur,
+      cardOrder: newCardOrder,
+      currentCardPosition: newPosition,
+      lastCorrectGuesserId: null,
+    })
+  }
+
+  async function handleTabooNextTurn() {
+    const cur = tabooStateRef.current
+    if (!cur || cur.phase !== 'active') return
+    const nextSpeaker = (cur.currentSpeakerIndex + 1) % Math.max(cur.turnOrder.length, 1)
+    await tabooStateUpdate({
+      ...cur,
+      currentSpeakerIndex: nextSpeaker,
+      timerRunning: cur.turnDuration > 0,
+      timerStartedAt: cur.turnDuration > 0 ? new Date().toISOString() : null,
+      timeLeftAtStart: cur.turnDuration,
+      lastCorrectGuesserId: null,
+    })
+  }
+
+  async function handleTabooSetDuration(seconds: number) {
+    const cur = tabooStateRef.current
+    if (!cur) return
+    await tabooStateUpdate({ ...cur, turnDuration: seconds, timeLeftAtStart: seconds, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleTabooTimerExpired() {
+    const cur = tabooStateRef.current
+    if (!cur || cur.phase !== 'active') return
+    const nextSpeaker = (cur.currentSpeakerIndex + 1) % Math.max(cur.turnOrder.length, 1)
+    await tabooStateUpdate({
+      ...cur,
+      currentSpeakerIndex: nextSpeaker,
+      timerRunning: cur.turnDuration > 0,
+      timerStartedAt: cur.turnDuration > 0 ? new Date().toISOString() : null,
+      timeLeftAtStart: cur.turnDuration,
+      lastCorrectGuesserId: null,
+    })
+  }
+
+  function handleTabooEndGame() {
+    const cur = tabooStateRef.current
+    if (!cur) return
+    tabooStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
+      .then(() => {
+        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+      })
+      .catch(() => {})
   }
 
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
@@ -3108,6 +3286,27 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── TABOO ───────────────────────────────────────────────── */}
+            {currentMechanicId === 'taboo' && tabooState && (
+              <TabooHostPanel
+                state={tabooState}
+                items={currentActivityItems as unknown as import('@/lib/mechanics/taboo/types').TabooItem[]}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleTabooEndGame}
+                onStart={handleTabooStart}
+                onSkip={handleTabooSkip}
+                onNextTurn={handleTabooNextTurn}
+                onSetDuration={handleTabooSetDuration}
+                onTimerExpired={handleTabooTimerExpired}
+                onFinish={handleEndGame}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -3188,7 +3387,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}
