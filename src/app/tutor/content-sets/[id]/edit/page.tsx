@@ -18,6 +18,7 @@ import { DebateRouletteContentEditor } from '@/lib/mechanics/debate-roulette/Con
 import { HiddenRoleContentEditor } from '@/lib/mechanics/hidden-role/ContentEditor'
 import { MissionBriefingContentEditor } from '@/lib/mechanics/mission-briefing/ContentEditor'
 import { DramaEventContentEditor } from '@/lib/mechanics/drama-event/ContentEditor'
+import { TabooContentEditor } from '@/lib/mechanics/taboo/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -104,6 +105,7 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'hidden_role')          return <HiddenRoleContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'mission_briefing')     return <MissionBriefingContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'drama_event')          return <DramaEventContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'taboo')                return <TabooContentEditor set={set} initialItems={items ?? []} />
     return <ContentSetEditor set={set} initialItems={items ?? []} />
   }
 
