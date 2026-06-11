@@ -12,7 +12,6 @@ import {
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
-import { getServerTimestamp } from '@/lib/actions/server-time'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -1669,7 +1668,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleTalkTimeTimerStart() {
     if (!talkTimeState) return
     const timeLeft = computeTimeLeft(talkTimeState)
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await talkTimeStateUpdate({
       ...talkTimeState,
       timerRunning: true,
@@ -1877,7 +1876,7 @@ export function SessionHostView({ session, lesson }: Props) {
     setTimeout(async () => {
       const latest = debateRouletteStateRef.current
       if (!latest || latest.spinState !== 'spinning') return
-      const now = latest.turnDuration > 0 ? await getServerTimestamp() : null
+      const now = latest.turnDuration > 0 ? new Date().toISOString() : null
       const done: DebateRouletteState = {
         ...latest,
         spinState: 'done',
@@ -1892,7 +1891,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDebateRouletteTimerStart() {
     const cur = debateRouletteStateRef.current
     if (!cur || cur.timerRunning) return
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await drStateUpdate({ ...cur, timerRunning: true, timerStartedAt: now })
   }
 
@@ -1980,7 +1979,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleHiddenRoleTimerStart() {
     const cur = hiddenRoleStateRef.current
     if (!cur || cur.timerRunning) return
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await hrStateUpdate({ ...cur, timerRunning: true, timerStartedAt: now })
   }
 
@@ -2099,7 +2098,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleMBTimerStart() {
     const cur = missionBriefingStateRef.current
     if (!cur || cur.timerRunning) return
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await mbStateUpdate({ ...cur, timerRunning: true, timerStartedAt: now })
   }
 
@@ -2202,7 +2201,7 @@ export function SessionHostView({ session, lesson }: Props) {
     setTimeout(async () => {
       const latest = dramaEventStateRef.current
       if (!latest || latest.spinState !== 'spinning') return
-      const now = latest.timerDuration > 0 ? await getServerTimestamp() : null
+      const now = latest.timerDuration > 0 ? new Date().toISOString() : null
       const done: DramaEventState = {
         ...latest,
         spinState: 'done',
@@ -2259,7 +2258,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDETimerStart() {
     const cur = dramaEventStateRef.current
     if (!cur || cur.timerRunning) return
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await deStateUpdate({ ...cur, timerRunning: true, timerStartedAt: now })
   }
 
@@ -2282,7 +2281,7 @@ export function SessionHostView({ session, lesson }: Props) {
     const remaining = cur.timerRunning && cur.timerStartedAt
       ? Math.max(0, cur.timeLeftAtStart - Math.floor((Date.now() - new Date(cur.timerStartedAt).getTime()) / 1000))
       : cur.timeLeftAtStart
-    const now = cur.timerRunning ? await getServerTimestamp() : null
+    const now = cur.timerRunning ? new Date().toISOString() : null
     await deStateUpdate({
       ...cur,
       timeLeftAtStart: remaining + 60,
@@ -2343,7 +2342,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleTabooStart() {
     const cur = tabooStateRef.current
     if (!cur) return
-    const now = cur.turnDuration > 0 ? await getServerTimestamp() : null
+    const now = cur.turnDuration > 0 ? new Date().toISOString() : null
     await tabooStateUpdate({
       ...cur,
       phase: 'active',
@@ -2375,7 +2374,7 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = tabooStateRef.current
     if (!cur || cur.phase !== 'active') return
     const nextSpeaker = (cur.currentSpeakerIndex + 1) % Math.max(cur.turnOrder.length, 1)
-    const now = cur.turnDuration > 0 ? await getServerTimestamp() : null
+    const now = cur.turnDuration > 0 ? new Date().toISOString() : null
     await tabooStateUpdate({
       ...cur,
       currentSpeakerIndex: nextSpeaker,
@@ -2396,7 +2395,7 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = tabooStateRef.current
     if (!cur || cur.phase !== 'active') return
     const nextSpeaker = (cur.currentSpeakerIndex + 1) % Math.max(cur.turnOrder.length, 1)
-    const now = cur.turnDuration > 0 ? await getServerTimestamp() : null
+    const now = cur.turnDuration > 0 ? new Date().toISOString() : null
     await tabooStateUpdate({
       ...cur,
       currentSpeakerIndex: nextSpeaker,
@@ -2437,7 +2436,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleElevatorPitchStartPitch() {
     const cur = elevatorPitchStateRef.current
     if (!cur) return
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await elevatorPitchStateUpdate({
       ...cur,
       timerRunning: true,
@@ -2498,7 +2497,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleSpeedDebateTimerStart() {
     if (!speedDebateState) return
     const timeLeft = computeSpeedDebateTimeLeft(speedDebateState)
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await speedDebateStateUpdate({
       ...speedDebateState,
       timerRunning: true,
@@ -2531,7 +2530,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleSpeedDebateNextTurn() {
     if (!speedDebateState) return
     const next = (speedDebateState.currentTurnIndex + 1) % Math.max(speedDebateState.turnOrder.length, 1)
-    const now = speedDebateState.timerRunning ? await getServerTimestamp() : null
+    const now = speedDebateState.timerRunning ? new Date().toISOString() : null
     await speedDebateStateUpdate({
       ...speedDebateState,
       currentTurnIndex: next,
@@ -2545,7 +2544,7 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!speedDebateState) return
     const idx = speedDebateState.turnOrder.indexOf(participantId)
     if (idx === -1 || idx === speedDebateState.currentTurnIndex) return
-    const now = speedDebateState.timerRunning ? await getServerTimestamp() : null
+    const now = speedDebateState.timerRunning ? new Date().toISOString() : null
     await speedDebateStateUpdate({
       ...speedDebateState,
       currentTurnIndex: idx,
@@ -2589,7 +2588,7 @@ export function SessionHostView({ session, lesson }: Props) {
 
   async function handleSpeedDebateStart() {
     if (!speedDebateState) return
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await speedDebateStateUpdate({
       ...speedDebateState,
       status: 'active',
@@ -2640,7 +2639,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleRoleplayQuestTimerStart() {
     if (!roleplayQuestState) return
     const timeLeft = computeRoleplayTimeLeft(roleplayQuestState)
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await roleplayQuestStateUpdate({
       ...roleplayQuestState,
       timerRunning: true,
@@ -2683,7 +2682,7 @@ export function SessionHostView({ session, lesson }: Props) {
 
   async function handleRoleplayQuestStartRoleplay() {
     if (!roleplayQuestState) return
-    const now = roleplayQuestState.timerDuration > 0 ? await getServerTimestamp() : null
+    const now = roleplayQuestState.timerDuration > 0 ? new Date().toISOString() : null
     await roleplayQuestStateUpdate({
       ...roleplayQuestState,
       status: 'active',
@@ -2721,7 +2720,7 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleSpeakingChallengeStart() {
     if (!speakingChallengeState) return
     const { word, shuffleQueue } = pickSpeakingWord(speakingChallengeState)
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await speakingChallengeStateUpdate({
       ...speakingChallengeState,
       status: 'active',
@@ -2739,7 +2738,7 @@ export function SessionHostView({ session, lesson }: Props) {
     const { word, shuffleQueue } = pickSpeakingWord(speakingChallengeState)
     const wordHistory = [speakingChallengeState.currentWord, ...speakingChallengeState.wordHistory]
       .filter(Boolean).slice(0, 4)
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await speakingChallengeStateUpdate({
       ...speakingChallengeState,
       currentWord: word,
@@ -2764,7 +2763,7 @@ export function SessionHostView({ session, lesson }: Props) {
     const { word, shuffleQueue } = pickSpeakingWord(speakingChallengeState)
     const wordHistory = [speakingChallengeState.currentWord, ...speakingChallengeState.wordHistory]
       .filter(Boolean).slice(0, 4)
-    const now = await getServerTimestamp()
+    const now = new Date().toISOString()
     await speakingChallengeStateUpdate({
       ...speakingChallengeState,
       currentSpeakerIndex: nextIdx,
