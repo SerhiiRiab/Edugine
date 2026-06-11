@@ -26,7 +26,7 @@ export interface SpeedDebateState {
 
 export function computeTimeLeft(state: SpeedDebateState): number {
   if (!state.timerRunning || !state.timerStartedAt) return state.timeLeftAtStart
-  const elapsed = Math.floor((Date.now() - new Date(state.timerStartedAt).getTime()) / 1000)
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(state.timerStartedAt).getTime()) / 1000))
   return Math.max(0, state.timeLeftAtStart - elapsed)
 }
 

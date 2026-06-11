@@ -48,12 +48,12 @@ export function pickNextWord(state: SpeakingChallengeState): { word: string; shu
 
 export function computeTurnTimeLeft(state: SpeakingChallengeState): number {
   if (state.turnDuration === 0 || !state.turnStartedAt) return state.turnDuration
-  const elapsed = Math.floor((Date.now() - new Date(state.turnStartedAt).getTime()) / 1000)
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(state.turnStartedAt).getTime()) / 1000))
   return Math.max(0, state.turnDuration - elapsed)
 }
 
 export function computeWordTimeLeft(state: SpeakingChallengeState): number {
   if (state.wordInterval === 0 || !state.wordChangedAt) return state.wordInterval
-  const elapsed = Math.floor((Date.now() - new Date(state.wordChangedAt).getTime()) / 1000)
+  const elapsed = Math.max(0, Math.floor((Date.now() - new Date(state.wordChangedAt).getTime()) / 1000))
   return Math.max(0, state.wordInterval - elapsed)
 }
