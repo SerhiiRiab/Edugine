@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -47,6 +47,8 @@ import type { TabooState } from '@/lib/mechanics/taboo/types'
 import { TabooHostPanel } from '@/lib/mechanics/taboo/HostComponent'
 import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
 import { ElevatorPitchHostPanel } from '@/lib/mechanics/elevator-pitch/HostComponent'
+import type { JigsawReadingState, JigsawReadingItem } from '@/lib/mechanics/jigsaw-reading/types'
+import { JigsawReadingHostPanel } from '@/lib/mechanics/jigsaw-reading/HostComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -187,6 +189,7 @@ const MECHANIC_NAMES: Record<string, string> = {
   drama_event:        'Drama Event',
   taboo:              'Taboo',
   elevator_pitch:     'Elevator Pitch',
+  jigsaw_reading:     'Jigsaw Reading',
 }
 
 const AVATAR_COLORS = [
@@ -259,6 +262,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const [tabooState, setTabooState] = useState<TabooState | null>(null)
   // ── Elevator Pitch ────────────────────────────────────────────────────────────
   const [elevatorPitchState, setElevatorPitchState] = useState<ElevatorPitchState | null>(null)
+  // ── Jigsaw Reading ────────────────────────────────────────────────────────────
+  const [jigsawReadingState, setJigsawReadingState] = useState<JigsawReadingState | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -302,6 +307,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const dramaEventStateRef = useRef<DramaEventState | null>(null)
   const tabooStateRef = useRef<TabooState | null>(null)
   const elevatorPitchStateRef = useRef<ElevatorPitchState | null>(null)
+  const jigsawReadingStateRef = useRef<JigsawReadingState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -321,6 +327,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { dramaEventStateRef.current = dramaEventState }, [dramaEventState])
   useEffect(() => { tabooStateRef.current = tabooState }, [tabooState])
   useEffect(() => { elevatorPitchStateRef.current = elevatorPitchState }, [elevatorPitchState])
+  useEffect(() => { jigsawReadingStateRef.current = jigsawReadingState }, [jigsawReadingState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -580,6 +587,21 @@ export function SessionHostView({ session, lesson }: Props) {
             const restored = stateRow.state as unknown as ElevatorPitchState
             setElevatorPitchState(restored)
             elevatorPitchStateRef.current = restored
+          }
+        }
+
+        // Restore jigsaw_reading state from DB on tab restore / reconnect
+        if (currentMechanic === 'jigsaw_reading' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'phase' in (stateRow.state as Record<string, unknown>)) {
+            const restored = stateRow.state as unknown as JigsawReadingState
+            setJigsawReadingState(restored)
+            jigsawReadingStateRef.current = restored
           }
         }
 
@@ -986,6 +1008,10 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as { state: ElevatorPitchState }
         if (p.state) { setElevatorPitchState(p.state); elevatorPitchStateRef.current = p.state }
       })
+      .on('broadcast', { event: 'jigsaw_reading_state_update' }, ({ payload }) => {
+        const p = payload as { state: JigsawReadingState }
+        if (p.state) { setJigsawReadingState(p.state); jigsawReadingStateRef.current = p.state }
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -1183,6 +1209,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newDramaEventState: DramaEventState | undefined
         let newTabooState: TabooState | undefined
         let newElevatorPitchState: ElevatorPitchState | undefined
+        let newJigsawReadingState: JigsawReadingState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1289,7 +1316,12 @@ export function SessionHostView({ session, lesson }: Props) {
           newElevatorPitchState = await initElevatorPitchState(session.id, currentActivityIndex)
           setElevatorPitchState(newElevatorPitchState)
           elevatorPitchStateRef.current = newElevatorPitchState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setJigsawReadingState(null)
+        } else if (firstActivity?.mechanic_id === 'jigsaw_reading') {
+          newJigsawReadingState = await initJigsawReadingState(session.id, currentActivityIndex)
+          setJigsawReadingState(newJigsawReadingState)
+          jigsawReadingStateRef.current = newJigsawReadingState
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
@@ -1304,6 +1336,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setDramaEventState(null)
           setTabooState(null)
           setElevatorPitchState(null)
+          setJigsawReadingState(null)
           setSpeedDebateState(null)
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
@@ -1330,6 +1363,7 @@ export function SessionHostView({ session, lesson }: Props) {
             dramaEventState: newDramaEventState,
             tabooState: newTabooState,
             elevatorPitchState: newElevatorPitchState,
+            jigsawReadingState: newJigsawReadingState,
             speedDebateState: newSpeedDebateState,
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
@@ -1384,6 +1418,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newDramaEventState: DramaEventState | undefined
       let newTabooState: TabooState | undefined
       let newElevatorPitchState: ElevatorPitchState | undefined
+      let newJigsawReadingState: JigsawReadingState | undefined
       let newSpeedDebateState: SpeedDebateState | undefined
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1493,7 +1528,12 @@ export function SessionHostView({ session, lesson }: Props) {
         newElevatorPitchState = await initElevatorPitchState(session.id, nextIndex)
         setElevatorPitchState(newElevatorPitchState)
         elevatorPitchStateRef.current = newElevatorPitchState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setJigsawReadingState(null)
+      } else if (nextActivity?.mechanic_id === 'jigsaw_reading') {
+        newJigsawReadingState = await initJigsawReadingState(session.id, nextIndex)
+        setJigsawReadingState(newJigsawReadingState)
+        jigsawReadingStateRef.current = newJigsawReadingState
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -1508,6 +1548,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setDramaEventState(null)
         setTabooState(null)
         setElevatorPitchState(null)
+        setJigsawReadingState(null)
         setSpeedDebateState(null)
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
@@ -1532,6 +1573,7 @@ export function SessionHostView({ session, lesson }: Props) {
           dramaEventState: newDramaEventState,
           tabooState: newTabooState,
           elevatorPitchState: newElevatorPitchState,
+          jigsawReadingState: newJigsawReadingState,
           speedDebateState: newSpeedDebateState,
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
@@ -2476,6 +2518,91 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = elevatorPitchStateRef.current
     if (!cur) return
     elevatorPitchStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
+      .then(() => {
+        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+      })
+      .catch(() => {})
+  }
+
+  // ── Jigsaw Reading handlers ───────────────────────────────────────────────────
+  async function jigsawReadingStateUpdate(newState: JigsawReadingState) {
+    setJigsawReadingState(newState)
+    jigsawReadingStateRef.current = newState
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id).eq('activity_index', currentActivityIndexRef.current)
+    channelRef.current?.send({ type: 'broadcast', event: 'jigsaw_reading_state_update', payload: { state: newState } })
+  }
+
+  async function handleJigsawStartTimer() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    const duration = cur.phase === 'read' ? cur.readTimerDuration : cur.shareTimerDuration
+    if (duration === 0) return
+    await jigsawReadingStateUpdate({
+      ...cur,
+      timerRunning: true,
+      timerStartedAt: new Date().toISOString(),
+      timeLeftAtStart: duration,
+    })
+  }
+
+  async function handleJigsawStartSharing() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({
+      ...cur,
+      phase: 'share',
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: cur.shareTimerDuration,
+    })
+  }
+
+  async function handleJigsawStartQuestions() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({
+      ...cur,
+      phase: 'questions',
+      timerRunning: false,
+      timerStartedAt: null,
+      currentQuestionIndex: 0,
+    })
+  }
+
+  async function handleJigsawNextQuestion() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({
+      ...cur,
+      currentQuestionIndex: cur.currentQuestionIndex + 1,
+    })
+  }
+
+  async function handleJigsawSetReadTimer(seconds: number) {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({ ...cur, readTimerDuration: seconds, timeLeftAtStart: cur.phase === 'read' ? seconds : cur.timeLeftAtStart, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleJigsawSetShareTimer(seconds: number) {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({ ...cur, shareTimerDuration: seconds, timeLeftAtStart: cur.phase === 'share' ? seconds : cur.timeLeftAtStart, timerRunning: false, timerStartedAt: null })
+  }
+
+  async function handleJigsawTimerExpired() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null })
+  }
+
+  function handleJigsawEndGame() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    jigsawReadingStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null })
       .then(() => {
         if (isLesson) { handleEndLesson() } else { handleEndGame() }
       })
@@ -3458,6 +3585,29 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── JIGSAW READING ───────────────────────────────────────── */}
+            {currentMechanicId === 'jigsaw_reading' && jigsawReadingState && (
+              <JigsawReadingHostPanel
+                state={jigsawReadingState}
+                items={currentActivityItems as unknown as JigsawReadingItem[]}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleJigsawEndGame}
+                onStartSharing={handleJigsawStartSharing}
+                onStartTimer={handleJigsawStartTimer}
+                onStartQuestions={handleJigsawStartQuestions}
+                onNextQuestion={handleJigsawNextQuestion}
+                onSetReadTimer={handleJigsawSetReadTimer}
+                onSetShareTimer={handleJigsawSetShareTimer}
+                onTimerExpired={handleJigsawTimerExpired}
+                onFinish={handleEndGame}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -3538,7 +3688,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

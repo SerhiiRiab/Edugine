@@ -37,6 +37,8 @@ import type { TabooState, TabooItem } from '@/lib/mechanics/taboo/types'
 import { TabooPlayerPanel } from '@/lib/mechanics/taboo/PlayerComponent'
 import type { ElevatorPitchState, ElevatorPitchItem } from '@/lib/mechanics/elevator-pitch/types'
 import { ElevatorPitchPlayerPanel } from '@/lib/mechanics/elevator-pitch/PlayerComponent'
+import type { JigsawReadingState, JigsawReadingItem } from '@/lib/mechanics/jigsaw-reading/types'
+import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
@@ -178,6 +180,8 @@ export function PlayerView({ session, lesson }: Props) {
   const [tabooState, setTabooState] = useState<TabooState | null>(null)
   // ── Elevator Pitch ────────────────────────────────────────────────────────────
   const [elevatorPitchState, setElevatorPitchState] = useState<ElevatorPitchState | null>(null)
+  // ── Jigsaw Reading ────────────────────────────────────────────────────────────
+  const [jigsawReadingState, setJigsawReadingState] = useState<JigsawReadingState | null>(null)
 
   // ── Speed Debate ──────────────────────────────────────────────────────────────
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -440,6 +444,24 @@ export function PlayerView({ session, lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, elevatorPitchState])
 
+  // ── Jigsaw Reading: fetch from DB on reconnect ────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'jigsaw_reading' || jigsawReadingState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'phase' in (data.state as Record<string, unknown>)) {
+          setJigsawReadingState(data.state as unknown as JigsawReadingState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, jigsawReadingState])
+
   // ── Speed Debate: fetch from DB on reconnect ──────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || currentMechanicId !== 'speed_debate' || speedDebateState) return
@@ -624,7 +646,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -645,6 +667,7 @@ export function PlayerView({ session, lesson }: Props) {
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
         setTabooState(p.tabooState ?? null)
         setElevatorPitchState(p.elevatorPitchState ?? null)
+        setJigsawReadingState(p.jigsawReadingState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -668,7 +691,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -687,6 +710,7 @@ export function PlayerView({ session, lesson }: Props) {
         setSpeakingChallengeState(p.speakingChallengeState ?? null)
         setTabooState(p.tabooState ?? null)
         setElevatorPitchState(p.elevatorPitchState ?? null)
+        setJigsawReadingState(p.jigsawReadingState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setPhase('playing')
       })
@@ -725,6 +749,10 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'elevator_pitch_state_update' }, ({ payload }) => {
         const p = payload as { state: ElevatorPitchState }
         if (p.state) setElevatorPitchState(p.state)
+      })
+      .on('broadcast', { event: 'jigsaw_reading_state_update' }, ({ payload }) => {
+        const p = payload as { state: JigsawReadingState }
+        if (p.state) setJigsawReadingState(p.state)
       })
       .on('broadcast', { event: 'drama_event_ended' }, ({ payload }) => {
         const p = payload as { state: DramaEventState }
@@ -1530,6 +1558,24 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* Jigsaw Reading */}
+          {currentMechanicId === 'jigsaw_reading' && participantId && (
+            jigsawReadingState
+              ? (
+                <JigsawReadingPlayerPanel
+                  participantId={participantId}
+                  state={jigsawReadingState}
+                  items={currentItems as unknown as JigsawReadingItem[]}
+                  participants={waitingParticipants}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading…</p>
+                </div>
+              )
+          )}
+
           {/* Taboo */}
           {currentMechanicId === 'taboo' && participantId && (
             tabooState
@@ -1552,7 +1598,7 @@ export function PlayerView({ session, lesson }: Props) {
           )}
 
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

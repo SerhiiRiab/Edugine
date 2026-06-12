@@ -18,6 +18,7 @@ import type { DramaEventState, DramaEventItem, EventType as DramaEventType } fro
 import { EVENT_TYPES as DRAMA_EVENT_TYPES } from '@/lib/mechanics/drama-event/types'
 import type { TabooState } from '@/lib/mechanics/taboo/types'
 import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
+import type { JigsawReadingState } from '@/lib/mechanics/jigsaw-reading/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -1304,6 +1305,98 @@ export async function initElevatorPitchState(
     timerStartedAt: null,
     timeLeftAtStart: turnDuration,
     usefulPhrases,
+  }
+
+  const { data: existing } = await supabase
+    .from('shared_activity_state')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('activity_index', activityIndex)
+    .single()
+
+  if (existing) {
+    await supabase.from('shared_activity_state')
+      .update({ state: state as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId).eq('activity_index', activityIndex)
+  } else {
+    await supabase.from('shared_activity_state')
+      .insert({ session_id: sessionId, activity_index: activityIndex, state: state as unknown as Record<string, unknown> })
+  }
+
+  return state
+}
+
+export async function initJigsawReadingState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<JigsawReadingState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+  if (!session) throw new Error('Session not found')
+
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const turnOrder = (participantRows ?? []).map(p => p.id)
+
+  let contentSetId: string
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description')
+    .eq('id', contentSetId)
+    .single()
+
+  const rawQuestions = (contentSet?.description ?? '').trim()
+  const questions: string[] = []
+  const suggestedAnswers: (string | null)[] = []
+  for (const line of rawQuestions.split('\n')) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    const pipeIdx = trimmed.indexOf('|')
+    if (pipeIdx >= 0) {
+      questions.push(trimmed.slice(0, pipeIdx).trim())
+      const answer = trimmed.slice(pipeIdx + 1).trim()
+      suggestedAnswers.push(answer || null)
+    } else {
+      questions.push(trimmed)
+      suggestedAnswers.push(null)
+    }
+  }
+
+  const state: JigsawReadingState = {
+    phase: 'read',
+    turnOrder,
+    currentQuestionIndex: 0,
+    readTimerDuration: 180,
+    shareTimerDuration: 300,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: 180,
+    questions,
+    suggestedAnswers,
   }
 
   const { data: existing } = await supabase
