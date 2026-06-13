@@ -99,6 +99,7 @@ export default async function PlayPage({ params }: Props) {
             briefing: i.data.briefing as string | undefined,
             forbiddenWords: i.data.forbiddenWords as string[] | undefined,
             context: i.data.context as string | undefined,
+            headline: i.data.headline as string | undefined,
           })),
       }))
 

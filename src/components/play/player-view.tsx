@@ -90,6 +90,8 @@ interface CardItem {
   forbiddenWords?: string[]
   // Elevator Pitch
   context?: string
+  // Predict & Verify / Jigsaw Reading
+  headline?: string
 }
 
 interface LessonActivity {
