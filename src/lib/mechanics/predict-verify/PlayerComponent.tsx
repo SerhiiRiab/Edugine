@@ -166,18 +166,16 @@ export function PredictVerifyPlayerPanel({
   }
 
   // ── Predict phase ────────────────────────────────────────────────────────────
+  const hasSubmitted = submitted || !!myPrediction
+
   return (
     <div className="flex-1 flex flex-col overflow-y-auto p-4 gap-4">
-      {showTimer && (
-        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
-          <TimerBar timeLeft={displayTime} total={currentDuration} running={state.timerRunning} />
-        </div>
-      )}
-
-      {/* Headline */}
+      {/* Headline — always first so students see it immediately */}
       {currentItem && (
         <div className="bg-slate-800 border-2 border-violet-500/40 rounded-2xl p-5 space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-400">What&apos;s this about?</p>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-violet-400">
+            Article {state.currentArticleIndex + 1} — what&apos;s this about?
+          </p>
           <p className="text-2xl font-black text-white leading-snug">{currentItem.headline}</p>
           {currentItem.imageUrl && (
             // eslint-disable-next-line @next/next/no-img-element
@@ -186,10 +184,16 @@ export function PredictVerifyPlayerPanel({
         </div>
       )}
 
+      {showTimer && (
+        <div className="bg-slate-800 border border-slate-700 rounded-2xl p-4">
+          <TimerBar timeLeft={displayTime} total={currentDuration} running={state.timerRunning} />
+        </div>
+      )}
+
       {/* Prediction input */}
       {showWriting && (
         <div className="space-y-3">
-          {!submitted ? (
+          {!hasSubmitted ? (
             <>
               <div className="space-y-1">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Your prediction</p>
@@ -212,18 +216,16 @@ export function PredictVerifyPlayerPanel({
             <div className="bg-violet-900/30 border border-violet-500/40 rounded-2xl p-4 space-y-1.5">
               <p className="text-[10px] font-bold uppercase tracking-wide text-violet-400">Your prediction</p>
               <p className="text-sm text-slate-200 leading-relaxed">{draftPrediction || myPrediction}</p>
-              {state.predictionsRevealed
-                ? <p className="text-xs text-emerald-400 font-medium mt-1">✓ Predictions revealed</p>
-                : <p className="text-xs text-slate-500 font-medium mt-1 animate-pulse">Waiting for others…</p>
-              }
+              <p className="text-xs text-emerald-400 font-medium mt-1">✓ Submitted</p>
             </div>
           )}
 
-          {/* Revealed predictions */}
-          {state.predictionsRevealed && Object.keys(state.predictions).length > 0 && (
+          {/* Live predictions — visible to a student as soon as they've submitted */}
+          {hasSubmitted && Object.keys(state.predictions).length > 0 && (
             <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-700">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">All predictions</p>
+              <div className="px-4 py-3 border-b border-slate-700 flex items-center justify-between">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Predictions so far</p>
+                <span className="text-xs text-slate-500 tabular-nums">{Object.keys(state.predictions).length}</span>
               </div>
               <div className="divide-y divide-slate-700">
                 {Object.entries(state.predictions).map(([pid, text]) => {
