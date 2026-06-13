@@ -157,6 +157,7 @@ export default async function PlayPage({ params }: Props) {
       briefing: d.briefing as string | undefined,
       forbiddenWords: d.forbiddenWords as string[] | undefined,
       context: d.context as string | undefined,
+      headline: d.headline as string | undefined,
     }
   })
 
