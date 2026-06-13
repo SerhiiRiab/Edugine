@@ -26,6 +26,7 @@ export type MechanicId =
   | 'taboo'
   | 'elevator_pitch'
   | 'jigsaw_reading'
+  | 'predict_verify'
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 

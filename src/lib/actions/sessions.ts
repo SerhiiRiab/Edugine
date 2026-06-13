@@ -19,6 +19,8 @@ import { EVENT_TYPES as DRAMA_EVENT_TYPES } from '@/lib/mechanics/drama-event/ty
 import type { TabooState } from '@/lib/mechanics/taboo/types'
 import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
 import type { JigsawReadingState } from '@/lib/mechanics/jigsaw-reading/types'
+import type { PredictVerifyState } from '@/lib/mechanics/predict-verify/types'
+import { parsePredictVerifyDescription } from '@/lib/mechanics/predict-verify/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -1398,6 +1400,97 @@ export async function initJigsawReadingState(
     questions,
     suggestedAnswers,
   }
+
+  const { data: existing } = await supabase
+    .from('shared_activity_state')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('activity_index', activityIndex)
+    .single()
+
+  if (existing) {
+    await supabase.from('shared_activity_state')
+      .update({ state: state as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', sessionId).eq('activity_index', activityIndex)
+  } else {
+    await supabase.from('shared_activity_state')
+      .insert({ session_id: sessionId, activity_index: activityIndex, state: state as unknown as Record<string, unknown> })
+  }
+
+  return state
+}
+
+export async function initPredictVerifyState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<PredictVerifyState> {
+  const supabase = await createClient()
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('lesson_id, set_id')
+    .eq('id', sessionId)
+    .single()
+  if (!session) throw new Error('Session not found')
+
+  const { data: participantRows } = await supabase
+    .from('session_participants')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('is_host', false)
+    .order('joined_at', { ascending: true })
+  const turnOrder = (participantRows ?? []).map(p => p.id)
+
+  let contentSetId: string
+
+  if (session.lesson_id) {
+    const { data: activities } = await supabase
+      .from('lesson_activities')
+      .select('content_set_id, position')
+      .eq('lesson_id', session.lesson_id)
+      .order('position', { ascending: true })
+    const activity = activities?.[activityIndex]
+    if (!activity) throw new Error('Activity not found at index ' + activityIndex)
+    contentSetId = activity.content_set_id
+  } else {
+    if (!session.set_id) throw new Error('No set_id for single session')
+    contentSetId = session.set_id
+  }
+
+  const { data: contentSet } = await supabase
+    .from('content_sets')
+    .select('description')
+    .eq('id', contentSetId)
+    .single()
+
+  const { mode, questions: rawQuestions } = parsePredictVerifyDescription(contentSet?.description ?? '')
+
+  const questions: string[] = []
+  for (const line of rawQuestions.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed) questions.push(trimmed)
+  }
+
+  const state: PredictVerifyState = {
+    phase: 'predict',
+    currentArticleIndex: 0,
+    predictionMode: mode,
+    predictTimerDuration: 120,
+    readTimerDuration: 180,
+    timerRunning: false,
+    timerStartedAt: null,
+    timeLeftAtStart: 120,
+    currentQuestionIndex: 0,
+    questions,
+    predictions: {},
+    predictionsRevealed: false,
+    // turnOrder stored in sessions.config but not needed in state for this mechanic
+    // (no turn-based logic; all students participate simultaneously)
+  }
+
+  // Suppress unused variable — turnOrder is fetched to maintain participant ordering
+  // in potential future features but not used in the initial state.
+  void turnOrder
 
   const { data: existing } = await supabase
     .from('shared_activity_state')
