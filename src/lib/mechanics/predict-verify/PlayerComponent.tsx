@@ -49,6 +49,10 @@ export function PredictVerifyPlayerPanel({
   const currentItem = items[state.currentArticleIndex] ?? null
   const myPrediction = state.predictions[participantId] ?? null
 
+  console.log('[PredictVerify] items:', items)
+  console.log('[PredictVerify] currentItem:', currentItem)
+  console.log('[PredictVerify] currentArticleIndex:', state.currentArticleIndex)
+
   const currentDuration = state.phase === 'predict' ? state.predictTimerDuration : state.readTimerDuration
   const showTimer = (state.phase === 'predict' || state.phase === 'read') && currentDuration > 0
   const displayTime = useRafTimer(
