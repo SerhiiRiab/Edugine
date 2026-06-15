@@ -1341,14 +1341,6 @@ export async function initJigsawReadingState(
     .single()
   if (!session) throw new Error('Session not found')
 
-  const { data: participantRows } = await supabase
-    .from('session_participants')
-    .select('id')
-    .eq('session_id', sessionId)
-    .eq('is_host', false)
-    .order('joined_at', { ascending: true })
-  const turnOrder = (participantRows ?? []).map(p => p.id)
-
   let contentSetId: string
 
   if (session.lesson_id) {
@@ -1389,8 +1381,8 @@ export async function initJigsawReadingState(
   }
 
   const state: JigsawReadingState = {
-    phase: 'read',
-    turnOrder,
+    phase: 'claim',
+    claims: {},
     currentQuestionIndex: 0,
     readTimerDuration: 180,
     shareTimerDuration: 300,

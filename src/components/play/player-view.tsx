@@ -90,6 +90,8 @@ interface CardItem {
   forbiddenWords?: string[]
   // Elevator Pitch
   context?: string
+  // Jigsaw Reading
+  title?: string
   // Predict & Verify / Jigsaw Reading
   headline?: string
 }
@@ -1597,6 +1599,8 @@ export function PlayerView({ session, lesson }: Props) {
                   state={jigsawReadingState}
                   items={currentItems as unknown as JigsawReadingItem[]}
                   participants={waitingParticipants}
+                  channelRef={channelRef}
+                  activityIndex={currentActivityIndex}
                 />
               )
               : (

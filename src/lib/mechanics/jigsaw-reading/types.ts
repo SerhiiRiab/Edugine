@@ -6,8 +6,8 @@ export interface JigsawReadingItem {
 }
 
 export interface JigsawReadingState {
-  phase: 'read' | 'share' | 'questions'
-  turnOrder: string[]
+  phase: 'claim' | 'read' | 'share' | 'questions'
+  claims: Record<string, string>  // fragmentIndex (string key) → participantId
   currentQuestionIndex: number
   readTimerDuration: number    // seconds; 0 = manual
   shareTimerDuration: number   // seconds; 0 = manual
@@ -24,7 +24,9 @@ export function computeTimeLeft(state: JigsawReadingState): number {
   return Math.max(0, state.timeLeftAtStart - elapsed)
 }
 
-export function getFragmentForParticipant(participantIndex: number, totalFragments: number): number {
-  if (totalFragments === 0) return 0
-  return Math.min(participantIndex, totalFragments - 1)
+export function getClaimedFragmentIndices(participantId: string, claims: Record<string, string>): number[] {
+  return Object.entries(claims)
+    .filter(([, pid]) => pid === participantId)
+    .map(([idx]) => Number(idx))
+    .sort((a, b) => a - b)
 }

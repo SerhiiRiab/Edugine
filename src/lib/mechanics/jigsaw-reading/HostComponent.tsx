@@ -25,11 +25,12 @@ const SHARE_TIMER_OPTIONS = [
   { label: 'Manual', value: 0 },
 ]
 
-function PhaseBar({ phase }: { phase: 'read' | 'share' | 'questions' }) {
+function PhaseBar({ phase }: { phase: 'claim' | 'read' | 'share' | 'questions' }) {
   const phases: Array<{ id: typeof phase; label: string }> = [
-    { id: 'read', label: '1. Read' },
-    { id: 'share', label: '2. Share' },
-    { id: 'questions', label: '3. Questions' },
+    { id: 'claim',     label: '1. Claim' },
+    { id: 'read',      label: '2. Read' },
+    { id: 'share',     label: '3. Share' },
+    { id: 'questions', label: '4. Questions' },
   ]
   return (
     <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs font-semibold">
@@ -72,6 +73,7 @@ export interface JigsawReadingHostPanelProps {
   onNextActivity: () => void
   onEndLesson: () => void
   onEndGame: () => void
+  onStartReading: () => Promise<void>
   onStartSharing: () => Promise<void>
   onStartTimer: () => Promise<void>
   onStartQuestions: () => Promise<void>
@@ -86,7 +88,7 @@ export function JigsawReadingHostPanel({
   state, items, participants,
   isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
-  onStartSharing, onStartTimer, onStartQuestions, onNextQuestion,
+  onStartReading, onStartSharing, onStartTimer, onStartQuestions, onNextQuestion,
   onSetReadTimer, onSetShareTimer, onTimerExpired, onFinish,
 }: JigsawReadingHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
@@ -94,9 +96,10 @@ export function JigsawReadingHostPanel({
   const [revealedAnswers, setRevealedAnswers] = useState<Set<number>>(new Set())
 
   const currentDuration = state.phase === 'read' ? state.readTimerDuration : state.shareTimerDuration
+  const timerActive = (state.phase === 'read' || state.phase === 'share') && state.timerRunning && currentDuration !== 0
   const displayTime = useRafTimer(
     () => computeTimeLeft(state),
-    state.timerRunning && currentDuration !== 0,
+    timerActive,
     [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart, currentDuration],
     () => { setTimeUp(true); onTimerExpired() },
   )
@@ -114,6 +117,7 @@ export function JigsawReadingHostPanel({
 
   const currentQuestion = state.questions[state.currentQuestionIndex] ?? null
   const currentAnswer = state.suggestedAnswers[state.currentQuestionIndex] ?? null
+  const claimedCount = Object.keys(state.claims).length
 
   // ── Questions phase ──────────────────────────────────────────────────────────
   if (state.phase === 'questions') {
@@ -122,7 +126,6 @@ export function JigsawReadingHostPanel({
       <div className="space-y-4">
         <PhaseBar phase="questions" />
 
-        {/* Current question */}
         {currentQuestion ? (
           <div className="bg-white rounded-2xl border-2 border-violet-200 p-5 space-y-3">
             <p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">
@@ -152,7 +155,6 @@ export function JigsawReadingHostPanel({
           </div>
         )}
 
-        {/* Controls */}
         <div className="space-y-2">
           {!isLastQuestion && (
             <button onClick={wrap(onNextQuestion)} disabled={isBusy}
@@ -166,8 +168,7 @@ export function JigsawReadingHostPanel({
           </button>
         </div>
 
-        {/* All fragments — always visible for host */}
-        <FragmentList items={items} participants={participants} turnOrder={state.turnOrder} />
+        <FragmentList items={items} participants={participants} claims={state.claims} />
       </div>
     )
   }
@@ -178,17 +179,13 @@ export function JigsawReadingHostPanel({
       <div className="space-y-4">
         <PhaseBar phase="share" />
 
-        {/* Timer */}
         {currentDuration > 0 && (
           <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
             <CountdownBar timeLeft={displayTime} total={currentDuration} running={state.timerRunning} />
-            {timeUp && (
-              <p className="text-amber-600 text-xs font-semibold text-center">⏰ Time&apos;s up!</p>
-            )}
+            {timeUp && <p className="text-amber-600 text-xs font-semibold text-center">⏰ Time&apos;s up!</p>}
           </div>
         )}
 
-        {/* Timer controls */}
         <div className="space-y-2">
           {currentDuration > 0 && !state.timerRunning && !timeUp && (
             <button onClick={wrap(onStartTimer)} disabled={isBusy}
@@ -202,7 +199,6 @@ export function JigsawReadingHostPanel({
           </button>
         </div>
 
-        {/* Timer picker */}
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-slate-400 font-medium flex items-center gap-1"><Timer className="w-3 h-3" />Share timer:</span>
           {SHARE_TIMER_OPTIONS.map(opt => (
@@ -217,8 +213,7 @@ export function JigsawReadingHostPanel({
           ))}
         </div>
 
-        {/* All fragments */}
-        <FragmentList items={items} participants={participants} turnOrder={state.turnOrder} />
+        <FragmentList items={items} participants={participants} claims={state.claims} />
 
         <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
           className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
@@ -229,66 +224,91 @@ export function JigsawReadingHostPanel({
   }
 
   // ── Read phase ───────────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-4">
-      <PhaseBar phase="read" />
+  if (state.phase === 'read') {
+    return (
+      <div className="space-y-4">
+        <PhaseBar phase="read" />
 
-      {/* Timer */}
-      {currentDuration > 0 && (
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
-          <CountdownBar timeLeft={displayTime} total={currentDuration} running={state.timerRunning} />
-          {timeUp && (
-            <p className="text-amber-600 text-xs font-semibold text-center">⏰ Reading time up!</p>
-          )}
-        </div>
-      )}
-
-      {/* Controls */}
-      <div className="space-y-2">
-        {currentDuration > 0 && !state.timerRunning && !timeUp && (
-          <button onClick={wrap(onStartTimer)} disabled={isBusy}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm transition-colors disabled:opacity-40">
-            <Play className="w-4 h-4" />Start reading timer
-          </button>
+        {currentDuration > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 p-4 space-y-3">
+            <CountdownBar timeLeft={displayTime} total={currentDuration} running={state.timerRunning} />
+            {timeUp && <p className="text-amber-600 text-xs font-semibold text-center">⏰ Reading time up!</p>}
+          </div>
         )}
-        <button onClick={wrap(onStartSharing)} disabled={isBusy}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm transition-colors disabled:opacity-40">
-          <ChevronRight className="w-4 h-4" />Start Sharing
+
+        <div className="space-y-2">
+          {currentDuration > 0 && !state.timerRunning && !timeUp && (
+            <button onClick={wrap(onStartTimer)} disabled={isBusy}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm transition-colors disabled:opacity-40">
+              <Play className="w-4 h-4" />Start reading timer
+            </button>
+          )}
+          <button onClick={wrap(onStartSharing)} disabled={isBusy}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm transition-colors disabled:opacity-40">
+            <ChevronRight className="w-4 h-4" />Start Sharing
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-slate-400 font-medium flex items-center gap-1"><Timer className="w-3 h-3" />Read timer:</span>
+          {READ_TIMER_OPTIONS.map(opt => (
+            <button key={opt.value} type="button" onClick={wrap(() => onSetReadTimer(opt.value))}
+              className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
+                state.readTimerDuration === opt.value
+                  ? 'border-violet-500 bg-violet-50 text-violet-700'
+                  : 'border-slate-200 text-slate-400 hover:border-violet-300'
+              }`}>
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <FragmentList items={items} participants={participants} claims={state.claims} />
+
+        <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
+          className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
+          <StopCircle className="w-4 h-4" />End Game
         </button>
       </div>
+    )
+  }
 
-      {/* Read timer picker */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-slate-400 font-medium flex items-center gap-1"><Timer className="w-3 h-3" />Read timer:</span>
-        {READ_TIMER_OPTIONS.map(opt => (
-          <button key={opt.value} type="button" onClick={wrap(() => onSetReadTimer(opt.value))}
-            className={`px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all ${
-              state.readTimerDuration === opt.value
-                ? 'border-violet-500 bg-violet-50 text-violet-700'
-                : 'border-slate-200 text-slate-400 hover:border-violet-300'
-            }`}>
-            {opt.label}
-          </button>
-        ))}
+  // ── Claim phase (initial) ────────────────────────────────────────────────────
+  return (
+    <div className="space-y-4">
+      <PhaseBar phase="claim" />
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-4">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-400 mb-1">Students are claiming fragments</p>
+        <p className="text-sm text-slate-600">
+          {claimedCount === 0
+            ? 'No fragments claimed yet'
+            : `${claimedCount} of ${items.length} fragment${items.length !== 1 ? 's' : ''} claimed`}
+        </p>
       </div>
 
-      {/* All fragments — visible for tutor */}
-      <FragmentList items={items} participants={participants} turnOrder={state.turnOrder} />
+      <button onClick={wrap(onStartReading)} disabled={isBusy}
+        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm transition-colors disabled:opacity-40">
+        <ChevronRight className="w-4 h-4" />Start Reading
+      </button>
+
+      {/* Fragment cards — tutor sees titles + full text expandable */}
+      <FragmentList items={items} participants={participants} claims={state.claims} />
 
       <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
-        <StopCircle className="w-4 h-4" />End Game
+        <StopCircle className="w-4 h-4" />End Activity
       </button>
     </div>
   )
 }
 
 function FragmentList({
-  items, participants, turnOrder,
+  items, participants, claims,
 }: {
   items: JigsawReadingItem[]
   participants: Array<{ id: string; nickname: string; online: boolean }>
-  turnOrder: string[]
+  claims: Record<string, string>
 }) {
   const [expanded, setExpanded] = useState<number | null>(null)
 
@@ -301,12 +321,8 @@ function FragmentList({
       </div>
       <div className="divide-y divide-slate-100">
         {items.map((item, i) => {
-          const assignedPid = turnOrder[i] ?? null
-          const assignedTo = assignedPid ? participants.find(p => p.id === assignedPid) : null
-          // Extra students beyond fragments share the last one
-          const alsoAssigned = i === items.length - 1
-            ? turnOrder.slice(i + 1).map(pid => participants.find(p => p.id === pid)).filter(Boolean)
-            : []
+          const claimerPid = claims[String(i)] ?? null
+          const claimer = claimerPid ? participants.find(p => p.id === claimerPid) : null
           const isOpen = expanded === i
           return (
             <div key={i}>
@@ -315,9 +331,7 @@ function FragmentList({
                 <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">{item.title}</p>
-                  {assignedTo && (
-                    <p className="text-xs text-slate-400">{assignedTo.nickname}{alsoAssigned.length > 0 ? ` + ${alsoAssigned.map(p => p?.nickname).join(', ')}` : ''}</p>
-                  )}
+                  <p className="text-xs text-slate-400">{claimer ? claimer.nickname : 'Unclaimed'}</p>
                 </div>
                 {isOpen ? <EyeOff className="w-3.5 h-3.5 text-slate-300 shrink-0" /> : <Eye className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
               </button>

@@ -95,6 +95,8 @@ interface CardItem {
   forbiddenWords?: string[]
   // Elevator Pitch
   context?: string
+  // Jigsaw Reading
+  title?: string
   // Predict & Verify / Jigsaw Reading
   headline?: string
 }
@@ -1035,6 +1037,25 @@ export function SessionHostView({ session, lesson }: Props) {
       .on('broadcast', { event: 'jigsaw_reading_state_update' }, ({ payload }) => {
         const p = payload as { state: JigsawReadingState }
         if (p.state) { setJigsawReadingState(p.state); jigsawReadingStateRef.current = p.state }
+      })
+      .on('broadcast', { event: 'jigsaw_reading_claim' }, ({ payload }) => {
+        const p = payload as { fragmentIndex: number; participantId: string; activityIndex: number }
+        if (p.activityIndex !== currentActivityIndexRef.current) return
+        setJigsawReadingState(prev => {
+          if (!prev) return prev
+          const key = String(p.fragmentIndex)
+          if (prev.claims[key]) return prev  // already claimed by someone
+          const newState: JigsawReadingState = { ...prev, claims: { ...prev.claims, [key]: p.participantId } }
+          jigsawReadingStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({ type: 'broadcast', event: 'jigsaw_reading_state_update', payload: { state: newState } })
+          return newState
+        })
       })
       .on('broadcast', { event: 'predict_verify_state_update' }, ({ payload }) => {
         const p = payload as { state: PredictVerifyState }
@@ -2603,6 +2624,18 @@ export function SessionHostView({ session, lesson }: Props) {
     channelRef.current?.send({ type: 'broadcast', event: 'jigsaw_reading_state_update', payload: { state: newState } })
   }
 
+  async function handleJigsawStartReading() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({
+      ...cur,
+      phase: 'read',
+      timerRunning: false,
+      timerStartedAt: null,
+      timeLeftAtStart: cur.readTimerDuration,
+    })
+  }
+
   async function handleJigsawStartTimer() {
     const cur = jigsawReadingStateRef.current
     if (!cur) return
@@ -3756,6 +3789,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onEndGame={handleJigsawEndGame}
+                onStartReading={handleJigsawStartReading}
                 onStartSharing={handleJigsawStartSharing}
                 onStartTimer={handleJigsawStartTimer}
                 onStartQuestions={handleJigsawStartQuestions}

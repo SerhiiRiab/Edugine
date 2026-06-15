@@ -143,6 +143,7 @@ export default async function PlayPage({ params }: Props) {
       correctIndex: d.correctIndex as number | undefined,
       sentence: d.sentence as string | undefined,
       blanks: d.blanks as Array<{ answer: string; options?: string[] }> | undefined,
+      title: d.title as string | undefined,
       text: d.text as string | undefined,
       wordBank: d.wordBank as string[] | undefined,
       incorrect: d.incorrect as string | undefined,
