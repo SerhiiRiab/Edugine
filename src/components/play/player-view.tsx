@@ -758,6 +758,10 @@ export function PlayerView({ session, lesson }: Props) {
         const p = payload as { state: DebateRouletteState }
         if (p.state) setDebateRouletteState(p.state)
       })
+      .on('broadcast', { event: 'content_block_state_update' }, ({ payload }) => {
+        const p = payload as { state: ContentBlockState }
+        if (p.state) setContentBlockState(p.state)
+      })
       .on('broadcast', { event: 'hidden_role_state_update' }, ({ payload }) => {
         const p = payload as { state: HiddenRoleState }
         if (p.state) setHiddenRoleState(p.state)
@@ -1175,6 +1179,7 @@ export function PlayerView({ session, lesson }: Props) {
                       payload: { participantId },
                     })
                   }}
+                  channelRef={channelRef}
                 />
               )
               : (

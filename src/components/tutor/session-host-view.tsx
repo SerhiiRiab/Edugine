@@ -311,6 +311,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
   const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
   const debateRouletteStateRef = useRef<DebateRouletteState | null>(null)
+  const contentBlockStateRef = useRef<ContentBlockState | null>(null)
   const hiddenRoleStateRef = useRef<HiddenRoleState | null>(null)
   const missionBriefingStateRef = useRef<MissionBriefingState | null>(null)
   const dramaEventStateRef = useRef<DramaEventState | null>(null)
@@ -332,6 +333,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { wordChoiceSharedStateRef.current = wordChoiceSharedState }, [wordChoiceSharedState])
   useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
   useEffect(() => { debateRouletteStateRef.current = debateRouletteState }, [debateRouletteState])
+  useEffect(() => { contentBlockStateRef.current = contentBlockState }, [contentBlockState])
   useEffect(() => { hiddenRoleStateRef.current = hiddenRoleState }, [hiddenRoleState])
   useEffect(() => { missionBriefingStateRef.current = missionBriefingState }, [missionBriefingState])
   useEffect(() => { dramaEventStateRef.current = dramaEventState }, [dramaEventState])
@@ -1169,8 +1171,30 @@ export function SessionHostView({ session, lesson }: Props) {
         setContentBlockState(prev => {
           if (!prev) return prev
           if (prev.viewedByParticipantIds.includes(p.participantId)) return prev
-          return { ...prev, viewedByParticipantIds: [...prev.viewedByParticipantIds, p.participantId] }
+          const next = { ...prev, viewedByParticipantIds: [...prev.viewedByParticipantIds, p.participantId] }
+          contentBlockStateRef.current = next
+          return next
         })
+      })
+      .on('broadcast', { event: 'content_block_tf_vote' }, ({ payload }) => {
+        const p = payload as { participantId: string; vote: boolean }
+        if (!p.participantId || p.vote === undefined) return
+        setContentBlockState(prev => {
+          if (!prev || prev.tfIndex === null) return prev
+          const next = { ...prev, tfVotes: { ...prev.tfVotes, [p.participantId]: p.vote } }
+          contentBlockStateRef.current = next
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: next as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          return next
+        })
+      })
+      .on('broadcast', { event: 'content_block_state_update' }, ({ payload }) => {
+        const p = payload as { state: ContentBlockState }
+        if (p.state) { setContentBlockState(p.state); contentBlockStateRef.current = p.state }
       })
       .on('broadcast', { event: 'typing_indicator' }, ({ payload }) => {
         const p = payload as { participantId: string; name: string; isTyping: boolean }
@@ -2128,6 +2152,55 @@ export function SessionHostView({ session, lesson }: Props) {
     const cur = debateRouletteStateRef.current
     if (!cur) return
     await drStateUpdate({ ...cur, status: 'finished', timerRunning: false })
+  }
+
+  // ── Content Block handlers ────────────────────────────────────────────────────
+
+  async function cbStateUpdate(newState: ContentBlockState) {
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setContentBlockState(newState)
+    contentBlockStateRef.current = newState
+    channelRef.current?.send({ type: 'broadcast', event: 'content_block_state_update', payload: { state: newState } })
+  }
+
+  async function handleCBStartDiscussion() {
+    const cur = contentBlockStateRef.current
+    if (!cur) return
+    await cbStateUpdate({ ...cur, discussionIndex: 0 })
+  }
+
+  async function handleCBNextQuestion() {
+    const cur = contentBlockStateRef.current
+    if (!cur || cur.discussionIndex === null) return
+    await cbStateUpdate({ ...cur, discussionIndex: cur.discussionIndex + 1 })
+  }
+
+  async function handleCBEndDiscussion() {
+    const cur = contentBlockStateRef.current
+    if (!cur) return
+    await cbStateUpdate({ ...cur, discussionIndex: null })
+  }
+
+  async function handleCBStartTF() {
+    const cur = contentBlockStateRef.current
+    if (!cur) return
+    await cbStateUpdate({ ...cur, tfIndex: 0, tfRevealed: false, tfVotes: {} })
+  }
+
+  async function handleCBRevealTF() {
+    const cur = contentBlockStateRef.current
+    if (!cur) return
+    await cbStateUpdate({ ...cur, tfRevealed: true })
+  }
+
+  async function handleCBNextTFCard() {
+    const cur = contentBlockStateRef.current
+    if (!cur || cur.tfIndex === null) return
+    await cbStateUpdate({ ...cur, tfIndex: cur.tfIndex + 1, tfRevealed: false, tfVotes: {} })
   }
 
   // ── Hidden Role handlers ──────────────────────────────────────────────────────
@@ -3478,6 +3551,12 @@ export function SessionHostView({ session, lesson }: Props) {
                 isLesson={isLesson}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onStartDiscussion={handleCBStartDiscussion}
+                onNextQuestion={handleCBNextQuestion}
+                onEndDiscussion={handleCBEndDiscussion}
+                onStartTF={handleCBStartTF}
+                onRevealTF={handleCBRevealTF}
+                onNextTFCard={handleCBNextTFCard}
               />
             )}
 

@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
-import type { ContentBlockState, ContentBlockItem } from '@/lib/mechanics/content-block/types'
+import type { ContentBlockState, ContentBlockItem, ContentBlockTFCard } from '@/lib/mechanics/content-block/types'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
@@ -375,12 +375,18 @@ export async function initContentBlockState(
     videoUrl: (rawItem.videoUrl as string) ?? '',
     images: (rawItem.images as unknown[]) ?? [],
     imageLayout: null,
+    discussionQuestions: (rawItem.discussionQuestions as string[]) ?? [],
+    trueFalseCards: (rawItem.trueFalseCards as ContentBlockTFCard[]) ?? [],
   }
 
   const initialState: ContentBlockState = {
     status: 'active',
     viewedByParticipantIds: [],
     content,
+    discussionIndex: null,
+    tfIndex: null,
+    tfRevealed: false,
+    tfVotes: {},
   }
 
   await supabase.from('shared_activity_state').upsert(
