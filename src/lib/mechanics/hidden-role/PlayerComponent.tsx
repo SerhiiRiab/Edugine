@@ -62,6 +62,10 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
   const votableParticipants = [...otherParticipants, ...(tutorParticipant ? [tutorParticipant] : [])]
   const totalPlayers = participants.length + (tutorParticipant ? 1 : 0)
 
+  function claimRole(itemIndex: number) {
+    channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_claim', payload: { participantId, itemIndex } })
+  }
+
   function sendReady() {
     channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_ready', payload: { participantId } })
   }
@@ -92,6 +96,83 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
+
+      {/* ── Phase 0: Role Selection ── */}
+      {state.phase === 0 && (
+        <div className="flex-1 flex flex-col gap-4 px-4 py-4">
+          <p className="text-center text-white font-bold text-lg">Choose your role</p>
+          <p className="text-center text-slate-400 text-xs">Tap a role to claim it. Your full card is revealed after claiming.</p>
+
+          <div className="space-y-2">
+            {items.map((item, idx) => {
+              const claimedByMe = state.assignments[participantId] === idx
+              const claimedByOther = !claimedByMe && Object.entries(state.assignments).some(([pid, i]) => i === idx && pid !== participantId)
+              const claimerName = claimedByOther
+                ? (otherParticipants.find(p => state.assignments[p.id] === idx)?.nickname ?? 'Someone')
+                : null
+              return (
+                <button key={idx}
+                  onClick={() => { if (!claimedByOther) claimRole(idx) }}
+                  disabled={claimedByOther}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-colors text-left ${
+                    claimedByMe ? 'bg-pink-900/30 border-pink-500' : claimedByOther ? 'bg-slate-800/30 border-slate-700/40 opacity-50 cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-pink-400 hover:bg-pink-900/20 active:scale-[0.98]'
+                  }`}
+                >
+                  <div className={`w-9 h-12 rounded-xl flex items-center justify-center shrink-0 ${claimedByMe ? 'bg-pink-600' : claimedByOther ? 'bg-slate-700' : 'bg-slate-600'}`}>
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-sm ${claimedByMe ? 'text-pink-300' : claimedByOther ? 'text-slate-500' : 'text-white'}`}>{item.roleName}</p>
+                    <p className="text-xs text-slate-500">
+                      {claimedByMe ? 'Your role' : claimedByOther ? `Claimed by ${claimerName}` : 'Tap to claim'}
+                    </p>
+                  </div>
+                  {claimedByMe && <Check className="w-4 h-4 text-pink-400 shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Full card revealed after claiming */}
+          {myItem && state.assignments[participantId] !== undefined && (
+            <div className={`rounded-3xl border-2 p-6 space-y-4 ${myItem.isSpy ? 'bg-rose-900/30 border-rose-600/60' : 'bg-slate-800 border-pink-600/60'}`}>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Your role card</p>
+              <div className="flex items-center gap-3">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${myItem.isSpy ? 'bg-rose-600' : 'bg-pink-600'}`}>
+                  {myItem.isSpy ? <Shield className="w-6 h-6 text-white" /> : <Gamepad2 className="w-6 h-6 text-white" />}
+                </div>
+                <div>
+                  <p className={`text-xl font-extrabold ${myItem.isSpy ? 'text-rose-300' : 'text-white'}`}>{myItem.roleName}</p>
+                  {myItem.isSpy && <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wide">You are the spy</span>}
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Your role</p>
+                  <p className="text-sm text-slate-200 leading-relaxed">{myItem.roleDescription}</p>
+                </div>
+                <div className={`rounded-xl px-4 py-3 ${myItem.isSpy ? 'bg-rose-900/40 border border-rose-700/40' : 'bg-pink-900/30 border border-pink-700/40'}`}>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Secret goal</p>
+                  <p className={`text-sm font-semibold leading-relaxed ${myItem.isSpy ? 'text-rose-300' : 'text-pink-300'}`}>{myItem.secretGoal}</p>
+                </div>
+                {myItem.languageConstraints?.length > 0 && (
+                  <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
+                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                      <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {state.assignments[participantId] !== undefined
+            ? <div className="text-center text-emerald-400 text-sm font-semibold py-2">✓ Role claimed — waiting for host to start…</div>
+            : <div className="text-center text-slate-500 text-sm py-2">Select a role above to continue</div>
+          }
+        </div>
+      )}
 
       {/* ── Phase 1: Role Reveal ── */}
       {state.phase === 1 && (

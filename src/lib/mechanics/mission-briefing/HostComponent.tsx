@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
-import { Play, Pause, RotateCcw, StopCircle, ChevronRight, CheckCircle2, XCircle, FileText, Users, Zap } from 'lucide-react'
+import { Play, Pause, RotateCcw, StopCircle, ChevronRight, CheckCircle2, XCircle, FileText, Users, Zap, Check } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
 import { computeTimeLeft } from './types'
@@ -19,7 +19,7 @@ function relativeTime(sentAt: number): string {
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
-const PHASE_LABELS: Record<number, string> = { 1: 'Briefing', 2: 'Communication', 3: 'Decision', 4: 'Debrief' }
+const PHASE_LABELS: Record<number, string> = { 0: 'Selection', 1: 'Briefing', 2: 'Communication', 3: 'Decision', 4: 'Debrief' }
 
 const DURATION_OPTIONS = [
   { label: '3 min',  value: 180 },
@@ -61,6 +61,7 @@ export interface MissionBriefingHostPanelProps {
   onNextActivity: () => void
   onEndLesson: () => void
   onEndGame: () => void
+  onStartBriefing: () => Promise<void>
   onStartMission: () => Promise<void>
   onTimerStart: () => Promise<void>
   onTimerPause: () => Promise<void>
@@ -77,7 +78,7 @@ export interface MissionBriefingHostPanelProps {
 export function MissionBriefingHostPanel({
   state, participants, items, isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
-  onStartMission, onTimerStart, onTimerPause, onTimerReset,
+  onStartBriefing, onStartMission, onTimerStart, onTimerPause, onTimerReset,
   onSetDuration, onTimeUp, onMissionComplete, onMissionFailed, onSetDebriefNote, onInjectEvent, onFinish,
 }: MissionBriefingHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
@@ -142,7 +143,7 @@ export function MissionBriefingHostPanel({
     <div className="space-y-4">
       {/* Phase indicator */}
       <div className="flex items-center gap-2 flex-wrap">
-        {[1, 2, 3, 4].map(p => (
+        {[0, 1, 2, 3, 4].map(p => (
           <div key={p} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
             state.phase === p ? 'bg-violet-600 text-white' : state.phase > p ? 'bg-violet-100 text-violet-600' : 'bg-slate-100 text-slate-400'
           }`}>
@@ -150,6 +151,56 @@ export function MissionBriefingHostPanel({
           </div>
         ))}
       </div>
+
+      {/* ── Phase 0: Role Selection ── */}
+      {state.phase === 0 && (
+        <div className="space-y-4">
+          {state.scenario && (
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Mission scenario (visible to all)</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{state.scenario || <span className="text-slate-400 italic">No scenario set</span>}</p>
+            </div>
+          )}
+
+          {/* Briefing cards — show who claimed each */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Available briefing cards</p>
+            {items.map((item, idx) => {
+              const claimerEntry = Object.entries(state.assignments).find(([, i]) => i === idx)
+              const claimer = claimerEntry ? participants.find(p => p.id === claimerEntry[0]) : null
+              return (
+                <div key={idx} className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${claimer ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-violet-500">
+                    <FileText className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-800 truncate">{item.playerLabel}</p>
+                    {claimer
+                      ? <p className="text-xs text-emerald-600 font-medium">Claimed by {claimer.nickname}</p>
+                      : <p className="text-xs text-slate-400">Available</p>
+                    }
+                  </div>
+                  {claimer && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Progress */}
+          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3">
+            <Users className="w-4 h-4 text-slate-400 shrink-0" />
+            <p className="text-sm text-slate-600 flex-1">
+              <span className="font-bold text-slate-800">{Object.keys(state.assignments).length}</span>
+              {' / '}{participants.length} participants have chosen a briefing
+            </p>
+          </div>
+
+          <button onClick={wrap(onStartBriefing)} disabled={isBusy}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-40 text-white font-bold text-sm transition-colors">
+            <ChevronRight className="w-4 h-4" />Start (Everyone Ready?)
+          </button>
+        </div>
+      )}
 
       {/* ── Phase 1: Briefing ── */}
       {state.phase === 1 && (

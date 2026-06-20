@@ -13,7 +13,7 @@ import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/
 import { makeInitialShuffleQueue } from '@/lib/mechanics/speaking-challenge/types'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import type { HiddenRoleState } from '@/lib/mechanics/hidden-role/types'
-import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
+import type { MissionBriefingState } from '@/lib/mechanics/mission-briefing/types'
 import type { DramaEventState, DramaEventItem, EventType as DramaEventType } from '@/lib/mechanics/drama-event/types'
 import { EVENT_TYPES as DRAMA_EVENT_TYPES } from '@/lib/mechanics/drama-event/types'
 import type { TabooState } from '@/lib/mechanics/taboo/types'
@@ -871,14 +871,6 @@ export async function initHiddenRoleState(
     .single()
   if (!session) throw new Error('Session not found')
 
-  const { data: participantRows } = await supabase
-    .from('session_participants')
-    .select('id')
-    .eq('session_id', sessionId)
-    .eq('is_host', false)
-    .order('joined_at', { ascending: true })
-  const participants = (participantRows ?? []).map(p => p.id)
-
   let contentSetId: string
   let timerDuration = 300  // 5 minutes default
 
@@ -902,36 +894,16 @@ export async function initHiddenRoleState(
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('description, content_items(id, position, data)')
+    .select('description')
     .eq('id', contentSetId)
     .single()
 
   const scenario = contentSet?.description ?? ''
-  const items = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
-    .sort((a, b) => a.position - b.position)
-
-  // Shuffle item indices, then guarantee the spy role lands in the first N slots
-  const shuffled = [...items.keys()].sort(() => Math.random() - 0.5)
-  if (participants.length > 0 && participants.length <= items.length) {
-    const spyIndex = items.findIndex(item => item.data.isSpy === true)
-    if (spyIndex >= 0) {
-      const posInShuffled = shuffled.indexOf(spyIndex)
-      if (posInShuffled >= participants.length) {
-        const swapWith = Math.floor(Math.random() * participants.length)
-        ;[shuffled[posInShuffled], shuffled[swapWith]] = [shuffled[swapWith], shuffled[posInShuffled]]
-      }
-    }
-  }
-  const assignments: Record<string, number> = {}
-  participants.forEach((pid, i) => { assignments[pid] = shuffled[i % Math.max(shuffled.length, 1)] })
-
-  // The tutor's pre-determined slot: next item in the shuffled order after all participants
-  const tutorCandidateIndex = participants.length < items.length ? shuffled[participants.length] : null
 
   const state: HiddenRoleState = {
     scenario,
-    phase: 1,
-    assignments,
+    phase: 0,
+    assignments: {},
     readyParticipants: [],
     timerRunning: false,
     timerStartedAt: null,
@@ -944,7 +916,7 @@ export async function initHiddenRoleState(
     revealed: false,
     status: 'active',
     tutorNickname: null,
-    tutorCandidateIndex,
+    tutorCandidateIndex: null,
   }
 
   const { data: existing } = await supabase
@@ -979,14 +951,6 @@ export async function initMissionBriefingState(
     .single()
   if (!session) throw new Error('Session not found')
 
-  const { data: participantRows } = await supabase
-    .from('session_participants')
-    .select('id')
-    .eq('session_id', sessionId)
-    .eq('is_host', false)
-    .order('joined_at', { ascending: true })
-  const participants = (participantRows ?? []).map(p => p.id)
-
   let contentSetId: string
   let timerDuration = 300  // 5 minutes default
 
@@ -1010,24 +974,16 @@ export async function initMissionBriefingState(
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('description, content_items(id, position, data)')
+    .select('description')
     .eq('id', contentSetId)
     .single()
 
   const scenario = contentSet?.description ?? ''
-  const items = ((contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>)
-    .sort((a, b) => a.position - b.position) as unknown as MissionBriefingItem[]
-
-  // Assign items to participants in order; extra players share the last card
-  const assignments: Record<string, number> = {}
-  participants.forEach((pid, i) => {
-    assignments[pid] = Math.min(i, Math.max(0, items.length - 1))
-  })
 
   const state: MissionBriefingState = {
     scenario,
-    phase: 1,
-    assignments,
+    phase: 0,
+    assignments: {},
     timerRunning: false,
     timerStartedAt: null,
     timeLeftAtStart: timerDuration,

@@ -15,7 +15,7 @@ export const TUTOR_PARTICIPANT_ID = '__tutor__'
 
 export interface HiddenRoleState {
   scenario: string                     // from content_set.description
-  phase: 1 | 2 | 3 | 4
+  phase: 0 | 1 | 2 | 3 | 4           // 0 = role selection
   assignments: Record<string, number>  // participantId → item index; "__tutor__" key when host plays
   readyParticipants: string[]          // Phase 1: who confirmed reading their role
   timerRunning: boolean

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
-import { Play, Pause, RotateCcw, StopCircle, Shield, Eye, ChevronRight, Users, UserPlus, X } from 'lucide-react'
+import { Play, Pause, RotateCcw, StopCircle, Shield, Eye, ChevronRight, Users, UserPlus, X, Check } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
 import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
@@ -12,7 +12,7 @@ export function HiddenRoleHostComponent(_props: MechanicHostProps<HiddenRoleStat
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
-const PHASE_LABELS: Record<number, string> = { 1: 'Role Reveal', 2: 'Discussion', 3: 'Voting', 4: 'Reveal' }
+const PHASE_LABELS: Record<number, string> = { 0: 'Selection', 1: 'Role Reveal', 2: 'Discussion', 3: 'Voting', 4: 'Reveal' }
 
 const DURATION_OPTIONS = [
   { label: '3 min',  value: 180  },
@@ -55,6 +55,7 @@ export interface HiddenRoleHostPanelProps {
   onNextActivity: () => void
   onEndLesson: () => void
   onEndGame: () => void
+  onStartReading: () => Promise<void>
   onStartDiscussion: () => Promise<void>
   onTimerStart: () => Promise<void>
   onTimerPause: () => Promise<void>
@@ -71,7 +72,7 @@ export interface HiddenRoleHostPanelProps {
 export function HiddenRoleHostPanel({
   state, participants, items, tutorNickname, isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
-  onStartDiscussion, onTimerStart, onTimerPause, onTimerReset,
+  onStartReading, onStartDiscussion, onTimerStart, onTimerPause, onTimerReset,
   onSetDuration, onGoToVote, onReveal, onFinish,
   onTutorTakeRole, onTutorDropRole, onTutorVote,
 }: HiddenRoleHostPanelProps) {
@@ -135,7 +136,7 @@ export function HiddenRoleHostPanel({
     <div className="space-y-4">
       {/* Phase indicator */}
       <div className="flex items-center gap-2 flex-wrap">
-        {[1, 2, 3, 4].map(p => (
+        {[0, 1, 2, 3, 4].map(p => (
           <div key={p} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-colors ${
             state.phase === p ? 'bg-pink-600 text-white' : state.phase > p ? 'bg-pink-100 text-pink-600' : 'bg-slate-100 text-slate-400'
           }`}>
@@ -143,6 +144,78 @@ export function HiddenRoleHostPanel({
           </div>
         ))}
       </div>
+
+      {/* ── Phase 0: Role Selection ── */}
+      {state.phase === 0 && (
+        <div className="space-y-4">
+          {state.scenario && (
+            <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Scenario (visible to all)</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{state.scenario || <span className="text-slate-400 italic">No scenario set</span>}</p>
+            </div>
+          )}
+
+          {/* Role cards — all visible to host, showing who claimed what */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Available roles</p>
+            {items.map((item, idx) => {
+              const claimerEntry = Object.entries(state.assignments).find(([, i]) => i === idx)
+              const claimer = claimerEntry
+                ? claimerEntry[0] === TUTOR_PARTICIPANT_ID
+                  ? { nickname: tutorNickname + ' (you)' }
+                  : participants.find(p => p.id === claimerEntry[0])
+                : null
+              const tutorHasThis = state.assignments[TUTOR_PARTICIPANT_ID] === idx
+              return (
+                <div key={idx} className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${
+                  tutorHasThis ? 'bg-pink-50 border-pink-200' : claimer ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'
+                }`}>
+                  <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${item.isSpy ? 'bg-rose-500' : 'bg-slate-400'}`}>
+                    <Shield className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold truncate ${item.isSpy ? 'text-rose-700' : 'text-slate-800'}`}>
+                      {item.roleName}{item.isSpy && ' 🕵️'}
+                    </p>
+                    {claimer
+                      ? <p className="text-xs text-emerald-600 font-medium">Claimed by {claimer.nickname}</p>
+                      : <p className="text-xs text-slate-400">Available</p>
+                    }
+                  </div>
+                  {/* Tutor claim button — only show for unclaimed roles when tutor has no role */}
+                  {!claimer && state.assignments[TUTOR_PARTICIPANT_ID] === undefined && (
+                    <button onClick={wrap(() => onTutorTakeRole(idx))} disabled={isBusy}
+                      className="text-xs text-pink-600 hover:text-pink-800 font-semibold shrink-0 px-2 py-1 rounded-lg hover:bg-pink-50 transition-colors">
+                      Take →
+                    </button>
+                  )}
+                  {tutorHasThis && (
+                    <button onClick={wrap(onTutorDropRole)} disabled={isBusy}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors shrink-0">
+                      <X className="w-3 h-3" />Drop
+                    </button>
+                  )}
+                  {claimer && !tutorHasThis && <Check className="w-4 h-4 text-emerald-500 shrink-0" />}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Progress */}
+          <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3 flex items-center gap-3">
+            <Users className="w-4 h-4 text-slate-400 shrink-0" />
+            <p className="text-sm text-slate-600 flex-1">
+              <span className="font-bold text-slate-800">{Object.keys(state.assignments).filter(id => id !== TUTOR_PARTICIPANT_ID).length}</span>
+              {' / '}{participants.length} participants have chosen a role
+            </p>
+          </div>
+
+          <button onClick={wrap(onStartReading)} disabled={isBusy}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-pink-600 hover:bg-pink-700 disabled:opacity-40 text-white font-bold text-sm transition-colors">
+            <ChevronRight className="w-4 h-4" />Start (Everyone Ready?)
+          </button>
+        </div>
+      )}
 
       {/* ── Phase 1: Role Reveal ── */}
       {state.phase === 1 && (

@@ -15,7 +15,7 @@ export interface MissionBriefingEvent {
 
 export interface MissionBriefingState {
   scenario: string                     // content_set.description — mission + shared objective
-  phase: 1 | 2 | 3 | 4
+  phase: 0 | 1 | 2 | 3 | 4           // 0 = role selection
   assignments: Record<string, number>  // participantId → item index
   timerRunning: boolean
   timerStartedAt: string | null

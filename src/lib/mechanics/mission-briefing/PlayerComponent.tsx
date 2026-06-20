@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
 import { computeTimeLeft } from './types'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, FileText, Check } from 'lucide-react'
 
 export function MissionBriefingPlayerComponent(_props: MechanicPlayerProps<MissionBriefingState>) { return null }
 
@@ -46,9 +47,10 @@ export interface MissionBriefingPlayerPanelProps {
   state: MissionBriefingState
   items: MissionBriefingItem[]
   participants: { id: string; nickname: string }[]
+  channelRef: { current: RealtimeChannel | null }
 }
 
-export function MissionBriefingPlayerPanel({ participantId, state, items, participants }: MissionBriefingPlayerPanelProps) {
+export function MissionBriefingPlayerPanel({ participantId, state, items, participants, channelRef }: MissionBriefingPlayerPanelProps) {
   const displayTime = useRafTimer(
     () => computeTimeLeft(state),
     state.timerRunning && state.turnDuration !== 0,
@@ -66,6 +68,10 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
   const myItem: MissionBriefingItem | null = myIndex !== undefined ? (items[myIndex] ?? null) : null
   const otherParticipants = participants.filter(p => p.id !== participantId)
 
+  function claimBriefing(itemIndex: number) {
+    channelRef.current?.send({ type: 'broadcast', event: 'mission_briefing_claim', payload: { participantId, itemIndex } })
+  }
+
   if (state.status === 'finished') {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
@@ -82,6 +88,77 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
 
   return (
     <div className="flex-1 flex flex-col overflow-y-auto">
+
+      {/* ── Phase 0: Role Selection ── */}
+      {state.phase === 0 && (
+        <div className="flex-1 flex flex-col gap-4 px-4 py-4">
+          <p className="text-center text-white font-bold text-lg">Choose your briefing</p>
+          <p className="text-center text-slate-400 text-xs">Tap a card to claim it. Your full briefing is revealed after claiming.</p>
+
+          <div className="space-y-2">
+            {items.map((item, idx) => {
+              const claimedByMe = state.assignments[participantId] === idx
+              const claimedByOther = !claimedByMe && Object.entries(state.assignments).some(([pid, i]) => i === idx && pid !== participantId)
+              const claimerName = claimedByOther
+                ? (otherParticipants.find(p => state.assignments[p.id] === idx)?.nickname ?? 'Someone')
+                : null
+              return (
+                <button key={idx}
+                  onClick={() => { if (!claimedByOther) claimBriefing(idx) }}
+                  disabled={claimedByOther}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-colors text-left ${
+                    claimedByMe ? 'bg-violet-900/30 border-violet-500' : claimedByOther ? 'bg-slate-800/30 border-slate-700/40 opacity-50 cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-violet-400 hover:bg-violet-900/20 active:scale-[0.98]'
+                  }`}
+                >
+                  <div className={`w-9 h-12 rounded-xl flex items-center justify-center shrink-0 ${claimedByMe ? 'bg-violet-600' : claimedByOther ? 'bg-slate-700' : 'bg-slate-600'}`}>
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`font-bold text-sm ${claimedByMe ? 'text-violet-300' : claimedByOther ? 'text-slate-500' : 'text-white'}`}>{item.playerLabel}</p>
+                    <p className="text-xs text-slate-500">
+                      {claimedByMe ? 'Your briefing' : claimedByOther ? `Claimed by ${claimerName}` : 'Tap to claim'}
+                    </p>
+                  </div>
+                  {claimedByMe && <Check className="w-4 h-4 text-violet-400 shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+
+          {/* Full briefing card revealed after claiming */}
+          {myItem && state.assignments[participantId] !== undefined && (
+            <div className="rounded-3xl border-2 border-violet-600/60 bg-slate-800 p-6 space-y-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Your briefing card</p>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 bg-violet-600">
+                  <span className="text-white font-extrabold text-lg">{(myItem.playerLabel ?? '?').charAt(0).toUpperCase()}</span>
+                </div>
+                <div>
+                  <p className="text-xl font-extrabold text-white">{myItem.playerLabel}</p>
+                  <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wide">Your role</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Briefing (private)</p>
+                <p className="text-sm text-slate-200 leading-relaxed">{myItem.briefing}</p>
+              </div>
+              {myItem.languageConstraints?.filter(Boolean).length ? (
+                <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
+                  <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
+                  {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                    <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          )}
+
+          {state.assignments[participantId] !== undefined
+            ? <div className="text-center text-emerald-400 text-sm font-semibold py-2">✓ Briefing claimed — waiting for host to start…</div>
+            : <div className="text-center text-slate-500 text-sm py-2">Select a briefing above to continue</div>
+          }
+        </div>
+      )}
 
       {/* ── Phase 1: Briefing ── */}
       {state.phase === 1 && (

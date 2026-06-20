@@ -1544,6 +1544,7 @@ export function PlayerView({ session, lesson }: Props) {
                   state={missionBriefingState}
                   items={currentItems as unknown as MissionBriefingItem[]}
                   participants={waitingParticipants}
+                  channelRef={channelRef}
                 />
               )
               : (

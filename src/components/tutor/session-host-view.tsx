@@ -961,6 +961,48 @@ export function SessionHostView({ session, lesson }: Props) {
           return next
         })
       })
+      .on('broadcast', { event: 'hidden_role_claim' }, ({ payload }) => {
+        const p = payload as { participantId: string; itemIndex: number }
+        if (!p.participantId || p.itemIndex === undefined) return
+        setHiddenRoleState(prev => {
+          if (!prev || prev.phase !== 0) return prev
+          const alreadyClaimedByOther = Object.entries(prev.assignments)
+            .some(([pid, idx]) => idx === p.itemIndex && pid !== p.participantId && pid !== TUTOR_PARTICIPANT_ID)
+          if (alreadyClaimedByOther) return prev
+          const newAssignments = { ...prev.assignments, [p.participantId]: p.itemIndex }
+          const next: HiddenRoleState = { ...prev, assignments: newAssignments }
+          hiddenRoleStateRef.current = next
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: next as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_state_update', payload: { state: next } })
+          return next
+        })
+      })
+      .on('broadcast', { event: 'mission_briefing_claim' }, ({ payload }) => {
+        const p = payload as { participantId: string; itemIndex: number }
+        if (!p.participantId || p.itemIndex === undefined) return
+        setMissionBriefingState(prev => {
+          if (!prev || prev.phase !== 0) return prev
+          const alreadyClaimedByOther = Object.entries(prev.assignments)
+            .some(([pid, idx]) => idx === p.itemIndex && pid !== p.participantId)
+          if (alreadyClaimedByOther) return prev
+          const newAssignments = { ...prev.assignments, [p.participantId]: p.itemIndex }
+          const next: MissionBriefingState = { ...prev, assignments: newAssignments }
+          missionBriefingStateRef.current = next
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: next as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({ type: 'broadcast', event: 'mission_briefing_state_update', payload: { state: next } })
+          return next
+        })
+      })
       .on('broadcast', { event: 'mission_briefing_state_update' }, ({ payload }) => {
         const p = payload as { state: MissionBriefingState }
         if (p.state) { setMissionBriefingState(p.state); missionBriefingStateRef.current = p.state }
@@ -2101,6 +2143,12 @@ export function SessionHostView({ session, lesson }: Props) {
     channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_state_update', payload: { state: newState } })
   }
 
+  async function handleHiddenRoleStartReading() {
+    const cur = hiddenRoleStateRef.current
+    if (!cur) return
+    await hrStateUpdate({ ...cur, phase: 1 })
+  }
+
   async function handleHiddenRoleStartDiscussion() {
     const cur = hiddenRoleStateRef.current
     if (!cur) return
@@ -2218,6 +2266,12 @@ export function SessionHostView({ session, lesson }: Props) {
     setMissionBriefingState(newState)
     missionBriefingStateRef.current = newState
     channelRef.current?.send({ type: 'broadcast', event: 'mission_briefing_state_update', payload: { state: newState } })
+  }
+
+  async function handleMBStartBriefing() {
+    const cur = missionBriefingStateRef.current
+    if (!cur) return
+    await mbStateUpdate({ ...cur, phase: 1 })
   }
 
   async function handleMBStartMission() {
@@ -3669,6 +3723,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onEndGame={handleEndGame}
+                onStartReading={handleHiddenRoleStartReading}
                 onStartDiscussion={handleHiddenRoleStartDiscussion}
                 onTimerStart={handleHiddenRoleTimerStart}
                 onTimerPause={handleHiddenRoleTimerPause}
@@ -3695,6 +3750,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onEndGame={handleEndGame}
+                onStartBriefing={handleMBStartBriefing}
                 onStartMission={handleMBStartMission}
                 onTimerStart={handleMBTimerStart}
                 onTimerPause={handleMBTimerPause}
