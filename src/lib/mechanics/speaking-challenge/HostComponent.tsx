@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -50,23 +50,25 @@ export function SpeakingChallengeHostPanel({
   onStart, onNextWord, onNextSpeaker, onFinish,
 }: SpeakingChallengeHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
+  const isBusyRef = useRef(false)
   const wordTime = useRafTimer(
     () => computeWordTimeLeft(state),
     state.status === 'active' && state.wordInterval !== 0 && !!state.wordChangedAt,
     [state.status, state.wordInterval, state.wordChangedAt],
-    () => busy(onNextWord),
+    () => { if (!isBusyRef.current) { isBusyRef.current = true; setIsBusy(true); onNextWord().finally(() => { isBusyRef.current = false; setIsBusy(false) }) } },
   )
   const turnTime = useRafTimer(
     () => computeTurnTimeLeft(state),
     state.status === 'active' && state.turnDuration !== 0 && !!state.turnStartedAt,
     [state.status, state.turnDuration, state.turnStartedAt],
-    () => busy(onNextSpeaker),
+    () => { if (!isBusyRef.current) { isBusyRef.current = true; setIsBusy(true); onNextSpeaker().finally(() => { isBusyRef.current = false; setIsBusy(false) }) } },
   )
 
   async function busy(fn: () => Promise<void>) {
-    if (isBusy) return
+    if (isBusyRef.current) return
+    isBusyRef.current = true
     setIsBusy(true)
-    try { await fn() } finally { setIsBusy(false) }
+    try { await fn() } finally { isBusyRef.current = false; setIsBusy(false) }
   }
 
   const currentSpeakerId = state.turnOrder[state.currentSpeakerIndex]
