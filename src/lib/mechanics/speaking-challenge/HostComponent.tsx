@@ -212,10 +212,13 @@ export function SpeakingChallengeHostPanel({
       <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-2xl border border-violet-200 px-5 py-5 text-center">
         <AnimatePresence mode="wait">
           <motion.p
-            key={state.currentWord}
+            key={state.wordChangedAt ?? state.currentWord}
             initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }}
             transition={{ duration: 0.22 }}
-            className="text-5xl font-black tracking-tight text-slate-900 mb-4"
+            className={`font-black tracking-tight text-slate-900 mb-4 leading-tight ${
+              (state.currentWord?.length ?? 0) > 30 ? 'text-xl' :
+              (state.currentWord?.length ?? 0) > 15 ? 'text-3xl' : 'text-5xl'
+            }`}
           >
             {state.currentWord || '—'}
           </motion.p>

@@ -153,7 +153,7 @@ export function SpeakingChallengePlayerPanel({
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-4 overflow-hidden">
         <AnimatePresence mode="wait">
           <motion.div
-            key={state.currentWord}
+            key={state.wordChangedAt ?? state.currentWord}
             initial={{ opacity: 0, y: 24, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -24, scale: 0.9 }}
@@ -161,10 +161,16 @@ export function SpeakingChallengePlayerPanel({
             className="text-center"
           >
             <p
-              className={`font-black tracking-tight leading-none ${
+              className={`font-black tracking-tight leading-snug ${
                 isMyTurn ? 'text-white' : 'text-slate-400'
               }`}
-              style={{ fontSize: 'clamp(2.5rem, 12vw, 5rem)' }}
+              style={{
+                fontSize: (state.currentWord?.length ?? 0) > 30
+                  ? 'clamp(1rem, 4vw, 1.5rem)'
+                  : (state.currentWord?.length ?? 0) > 15
+                    ? 'clamp(1.5rem, 7vw, 2.5rem)'
+                    : 'clamp(2.5rem, 12vw, 5rem)',
+              }}
             >
               {state.currentWord || '—'}
             </p>
