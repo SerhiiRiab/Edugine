@@ -5,7 +5,7 @@ import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play, ChevronRight, StopCircle, PartyPopper, Users,
-  SkipForward, RefreshCw, Timer,
+  SkipForward, RefreshCw, Timer, CheckCircle2,
 } from 'lucide-react'
 import type { SpeakingChallengeState } from './types'
 import { computeTurnTimeLeft, computeWordTimeLeft } from './types'
@@ -215,11 +215,20 @@ export function SpeakingChallengeHostPanel({
             key={state.currentWord}
             initial={{ opacity: 0, scale: 0.85 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.1 }}
             transition={{ duration: 0.22 }}
-            className="text-5xl font-black tracking-tight text-slate-900 mb-3"
+            className="text-5xl font-black tracking-tight text-slate-900 mb-4"
           >
             {state.currentWord || '—'}
           </motion.p>
         </AnimatePresence>
+        <button
+          type="button" disabled={isBusy}
+          onClick={() => busy(onNextWord)}
+          className="mx-auto flex items-center gap-2 px-5 py-2.5 rounded-xl
+            bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700
+            text-white text-sm font-bold disabled:opacity-50 transition-colors shadow-sm mb-3"
+        >
+          <CheckCircle2 className="w-4 h-4" />Got it!
+        </button>
         {/* Word history */}
         {state.wordHistory.length > 0 && (
           <div className="flex flex-wrap justify-center gap-1.5">
