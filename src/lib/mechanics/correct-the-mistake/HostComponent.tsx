@@ -5,6 +5,7 @@ import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from './types'
 import { computeWordDiff, type DiffSegment } from './diff'
 import { SentenceDiffView } from './SentenceDiffView'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 export function CorrectTheMistakeHostComponent(_props: MechanicHostProps<CorrectTheMistakeIndividualState>) {
   return null
@@ -122,11 +123,13 @@ export function CorrectTheMistakeIndividualHostPanel({
                   <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
                     {hasResult ? `Sentence ${mirrorIndex! + 1} result` : `Working on sentence ${mirrorIndex + 1}`}
                   </p>
-                  <SentenceMirror
-                    item={mirrorItem}
-                    fixes={hasResult ? p.ctmFixes : undefined}
-                    submitted={hasResult}
-                  />
+                  <ErrorBoundary fallback="Couldn't preview this sentence.">
+                    <SentenceMirror
+                      item={mirrorItem}
+                      fixes={hasResult ? p.ctmFixes : undefined}
+                      submitted={hasResult}
+                    />
+                  </ErrorBoundary>
                 </div>
               )}
 
@@ -217,12 +220,14 @@ export function CorrectTheMistakeSharedHostPanel({
 
           return (
             <div key={item.id} className="bg-slate-800 rounded-2xl border border-slate-700 px-5 py-4 shadow-sm">
-              <SentenceDiffView
-                segments={segments}
-                fixes={indexedFixes}
-                mode={state.revealed ? 'result' : 'edit'}
-                activeIndex={null}
-              />
+              <ErrorBoundary fallback="Couldn't preview this sentence.">
+                <SentenceDiffView
+                  segments={segments}
+                  fixes={indexedFixes}
+                  mode={state.revealed ? 'result' : 'edit'}
+                  activeIndex={null}
+                />
+              </ErrorBoundary>
             </div>
           )
         })}
