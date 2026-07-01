@@ -112,11 +112,29 @@ export function CorrectTheMistakeIndividualHostPanel({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border-2 border-violet-200 p-5 text-center space-y-1">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">
+      <div className="bg-white rounded-2xl border-2 border-violet-200 p-5 space-y-3">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-violet-500 text-center">
           Sentence {currentIndex + 1} of {items.length}
         </p>
-        <p className="text-xl font-black text-slate-900 leading-snug">{item?.incorrect ?? '—'}</p>
+
+        {/* Student view preview — same dark UI + dashed-underline affordance the student sees */}
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1.5">Student sees</p>
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 px-6 py-6 text-center">
+            <span className="inline-block text-base text-slate-100 border-b border-dashed border-slate-500 px-2 py-2">
+              {item?.incorrect ?? '—'}
+            </span>
+          </div>
+        </div>
+
+        {/* Correct answer — visible to the host throughout, not just after check */}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Correct answer</p>
+            <p className="text-sm font-semibold text-emerald-800">{item?.correct ?? '—'}</p>
+          </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
