@@ -113,10 +113,12 @@ export function ElevatorPitchHostPanel({
                   {isAdvancing ? 'Loading...' : 'Next activity →'}
                 </button>
               )}
-              <button onClick={onEndLesson} disabled={isAdvancing}
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold py-3 px-5 rounded-xl text-sm transition-colors">
-                {isLastActivity ? 'Finish lesson!' : 'End lesson'}
-              </button>
+              {isLastActivity && (
+                <button onClick={onEndLesson} disabled={isAdvancing}
+                  className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-bold py-3 px-5 rounded-xl text-sm transition-colors">
+                  Finish lesson!
+                </button>
+              )}
             </>
           ) : (
             <button onClick={onFinish}
