@@ -72,10 +72,18 @@ export function WordChoiceIndividualHostPanel({
 
               {/* Student sees — current sentence this participant is filling in */}
               {currentItem !== undefined && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
-                  <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 text-center">
-                    <p className="text-xs text-slate-100 leading-snug">{currentItem.sentence}</p>
+                <div className="space-y-1.5">
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
+                    <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 text-center">
+                      <p className="text-xs text-slate-100 leading-snug">{currentItem.sentence}</p>
+                    </div>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 flex items-start gap-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0 mt-0.5" />
+                    <p className="text-[10px] font-semibold text-emerald-700 leading-snug">
+                      Correct: {currentItem.blanks.map((b, bi) => `${bi + 1}. ${b.options[b.correctIndex]}`).join('  ')}
+                    </p>
                   </div>
                 </div>
               )}

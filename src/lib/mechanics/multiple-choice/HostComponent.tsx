@@ -93,17 +93,25 @@ export function MultipleChoiceHostPanel({
 
               {/* Student sees — current question this participant is answering */}
               {currentItem !== undefined && (
-                <div>
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
-                  <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 space-y-1.5">
-                    <p className="text-xs text-slate-100 leading-snug text-center">{currentItem.question}</p>
-                    <div className="flex flex-wrap justify-center gap-1 pt-1">
-                      {currentItem.options.map((opt, oi) => (
-                        <span key={oi} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                          {OPTION_LETTERS[oi] ?? oi + 1}. {opt}
-                        </span>
-                      ))}
+                <div className="space-y-1.5">
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
+                    <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 space-y-1.5">
+                      <p className="text-xs text-slate-100 leading-snug text-center">{currentItem.question}</p>
+                      <div className="flex flex-wrap justify-center gap-1 pt-1">
+                        {currentItem.options.map((opt, oi) => (
+                          <span key={oi} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                            {OPTION_LETTERS[oi] ?? oi + 1}. {opt}
+                          </span>
+                        ))}
+                      </div>
                     </div>
+                  </div>
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                    <p className="text-[10px] font-semibold text-emerald-700">
+                      Correct answer: {OPTION_LETTERS[currentItem.correctIndex] ?? currentItem.correctIndex + 1}. {currentItem.options[currentItem.correctIndex]}
+                    </p>
                   </div>
                 </div>
               )}
