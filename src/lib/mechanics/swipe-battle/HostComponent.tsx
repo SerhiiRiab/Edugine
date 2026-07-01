@@ -53,6 +53,7 @@ export interface SwipeBattleHostPanelProps {
   currentActivityItems: SwipeBattleCardItem[]
   elapsed: number
   isEnding: boolean
+  isLesson: boolean
   selectedParticipantId: string | null
   onSelectParticipant: (id: string) => void
   mirrorCardIndex: number
@@ -60,6 +61,7 @@ export interface SwipeBattleHostPanelProps {
   mirrorTimeLeft: number
   mirrorExitDir: 'left' | 'right'
   onEndGame: () => void
+  onEndLesson: () => void
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -105,6 +107,7 @@ export function SwipeBattleHostPanel({
   currentActivityItems,
   elapsed,
   isEnding,
+  isLesson,
   selectedParticipantId,
   onSelectParticipant,
   mirrorCardIndex,
@@ -112,6 +115,7 @@ export function SwipeBattleHostPanel({
   mirrorTimeLeft,
   mirrorExitDir,
   onEndGame,
+  onEndLesson,
 }: SwipeBattleHostPanelProps) {
   const selectedParticipant = participants.find(p => p.id === selectedParticipantId) ?? null
   const selSwipes = selectedParticipant?.recentSwipes ?? []
@@ -509,7 +513,7 @@ export function SwipeBattleHostPanel({
           )}
 
           <button
-            onClick={onEndGame}
+            onClick={isLesson ? onEndLesson : onEndGame}
             disabled={isEnding}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
               border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
@@ -517,7 +521,7 @@ export function SwipeBattleHostPanel({
               disabled:opacity-50 transition-colors"
           >
             <StopCircle className="w-4 h-4" />
-            {isEnding ? 'Ending...' : 'End game'}
+            {isEnding ? 'Ending...' : isLesson ? 'End lesson' : 'End game'}
           </button>
         </div>
       </div>

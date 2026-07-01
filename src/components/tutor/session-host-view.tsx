@@ -4090,6 +4090,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 currentActivityItems={currentActivityItems}
                 elapsed={elapsed}
                 isEnding={isEnding}
+                isLesson={isLesson}
                 selectedParticipantId={selectedParticipantId}
                 onSelectParticipant={setSelectedParticipantId}
                 mirrorCardIndex={mirrorCardIndex}
@@ -4097,6 +4098,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 mirrorTimeLeft={mirrorTimeLeft}
                 mirrorExitDir={mirrorExitDir}
                 onEndGame={handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
               />
             )}
           </div>
