@@ -121,16 +121,16 @@ export function CorrectTheMistakePlayerPanel({
     const item = items[currentIndex]
     if (!item) return
     const segments = computeWordDiff(item.incorrect, item.correct)
-    const changes = changeSegments(segments)
     const newResults: Record<number, 'correct' | 'incorrect'> = {}
     let allFixed = true
-    changes.forEach((seg, i) => {
-      const fix = (fixes[i] ?? '').trim().toLowerCase()
+    segments.forEach((seg, segIdx) => {
+      if (seg.type !== 'change') return
+      const fix = (fixes[segIdx] ?? '').trim().toLowerCase()
       const correctText = seg.cWords.join(' ').toLowerCase()
       if (fix === correctText) {
-        newResults[i] = 'correct'
+        newResults[segIdx] = 'correct'
       } else {
-        newResults[i] = 'incorrect'
+        newResults[segIdx] = 'incorrect'
         allFixed = false
       }
     })
@@ -176,21 +176,21 @@ export function CorrectTheMistakePlayerPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentIndex, items, fixes, submitted])
 
-  function handleActivate(changeIndex: number) {
+  function handleActivate(segIdx: number) {
     if (submitted) return
-    setActiveIndex(changeIndex)
-    setActiveInputValue(fixes[changeIndex] ?? '')
+    setActiveIndex(segIdx)
+    setActiveInputValue(fixes[segIdx] ?? '')
   }
 
-  function handleInputConfirm(changeIndex: number) {
+  function handleInputConfirm(segIdx: number) {
     const trimmed = activeInputValue.trim()
     setFixes(prev => {
       if (!trimmed) {
         const next = { ...prev }
-        delete next[changeIndex]
+        delete next[segIdx]
         return next
       }
-      return { ...prev, [changeIndex]: trimmed }
+      return { ...prev, [segIdx]: trimmed }
     })
     setActiveIndex(null)
     setActiveInputValue('')
@@ -198,8 +198,9 @@ export function CorrectTheMistakePlayerPanel({
 
   const item = items[currentIndex]
   const segments = item ? computeWordDiff(item.incorrect, item.correct) : []
-  const changes = changeSegments(segments)
-  const canSubmit = !submitted && Object.keys(fixes).length > 0
+  // Only count actual mistake segments as required — tapping a correct word shouldn't unlock Check.
+  const canSubmit = !submitted && segments.some((seg, segIdx) =>
+    seg.type === 'change' && fixes[segIdx] !== undefined && fixes[segIdx] !== '')
 
   return (
     <div className="flex-1 flex flex-col">
@@ -271,11 +272,12 @@ export function CorrectTheMistakePlayerPanel({
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Your fixes</p>
                   {Object.entries(fixes).map(([idxStr, fix]) => {
                     const idx = Number(idxStr)
-                    const seg = changes[idx]
+                    const seg = segments[idx]
                     if (!seg) return null
+                    const before = seg.type === 'change' ? (seg.iWords.join(' ') || '(insert)') : seg.word
                     return (
                       <div key={idx} className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="text-slate-500 line-through">{seg.iWords.join(' ') || '(insert)'}</span>
+                        <span className="text-slate-500 line-through">{before}</span>
                         <span className="text-slate-400">→</span>
                         <span className="text-sky-300 font-semibold">{fix}</span>
                       </div>
@@ -299,15 +301,15 @@ export function CorrectTheMistakePlayerPanel({
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                   className="space-y-2"
                 >
-                  {changes.map((seg, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
-                      {results[i] === 'correct'
+                  {segments.map((seg, segIdx) => seg.type === 'change' && (
+                    <div key={segIdx} className="flex items-center gap-3 text-sm bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
+                      {results[segIdx] === 'correct'
                         ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                         : <X className="w-4 h-4 text-red-400 shrink-0" />}
-                      <span className={results[i] === 'correct' ? 'text-emerald-300' : 'text-red-300'}>
+                      <span className={results[segIdx] === 'correct' ? 'text-emerald-300' : 'text-red-300'}>
                         <span className="text-slate-400 line-through mr-1">{seg.iWords.join(' ') || '(insert)'}</span>
-                        {results[i] === 'correct'
-                          ? <span className="font-semibold">→ {fixes[i]}</span>
+                        {results[segIdx] === 'correct'
+                          ? <span className="font-semibold">→ {fixes[segIdx]}</span>
                           : <>→ <span className="font-semibold text-emerald-400">{seg.cWords.join(' ')}</span></>}
                       </span>
                     </div>
@@ -353,33 +355,33 @@ export interface CorrectTheMistakeSharedPlayerPanelProps {
 export function CorrectTheMistakeSharedPlayerPanel({
   activityIndex, items, channelRef, sharedState,
 }: CorrectTheMistakeSharedPlayerPanelProps) {
-  // local state for the change segment currently being edited
-  const [localActive, setLocalActive] = useState<{ itemIndex: number; changeIndex: number } | null>(null)
+  // local state for the segment currently being edited
+  const [localActive, setLocalActive] = useState<{ itemIndex: number; segIdx: number } | null>(null)
   const [localInputValue, setLocalInputValue] = useState('')
 
   const { fixes, revealed } = sharedState
 
-  function fixKey(itemIndex: number, changeIndex: number) {
-    return `${itemIndex}_${changeIndex}`
+  function fixKey(itemIndex: number, segIdx: number) {
+    return `${itemIndex}_${segIdx}`
   }
 
   const itemSegments = items.map(it => computeWordDiff(it.incorrect, it.correct))
   const totalChanges = itemSegments.reduce((s, segs) => s + changeSegments(segs).length, 0)
   const fixedCount = Object.values(fixes).filter(v => v !== '').length
 
-  function handleActivate(itemIndex: number, changeIndex: number) {
+  function handleActivate(itemIndex: number, segIdx: number) {
     if (revealed) return
-    setLocalActive({ itemIndex, changeIndex })
-    setLocalInputValue(fixes[fixKey(itemIndex, changeIndex)] ?? '')
+    setLocalActive({ itemIndex, segIdx })
+    setLocalInputValue(fixes[fixKey(itemIndex, segIdx)] ?? '')
   }
 
-  function handleInputConfirm(itemIndex: number, changeIndex: number) {
+  function handleInputConfirm(itemIndex: number, segIdx: number) {
     const trimmed = localInputValue.trim()
     setLocalActive(null)
     setLocalInputValue('')
     channelRef.current?.send({
       type: 'broadcast', event: 'ctm_fix',
-      payload: { itemIndex, wordIndex: changeIndex, value: trimmed, activityIndex },
+      payload: { itemIndex, wordIndex: segIdx, value: trimmed, activityIndex },
     })
   }
 
@@ -406,9 +408,9 @@ export function CorrectTheMistakeSharedPlayerPanel({
         {items.map((item, itemIdx) => {
           const segments = itemSegments[itemIdx]
           const itemFixes: Record<number, string> = {}
-          changeSegments(segments).forEach((_, changeIdx) => {
-            const v = fixes[fixKey(itemIdx, changeIdx)]
-            if (v !== undefined) itemFixes[changeIdx] = v
+          segments.forEach((_, segIdx) => {
+            const v = fixes[fixKey(itemIdx, segIdx)]
+            if (v !== undefined) itemFixes[segIdx] = v
           })
           const isActiveItem = localActive?.itemIndex === itemIdx
 
@@ -418,11 +420,11 @@ export function CorrectTheMistakeSharedPlayerPanel({
                 segments={segments}
                 fixes={itemFixes}
                 mode={revealed ? 'result' : 'edit'}
-                activeIndex={isActiveItem ? localActive.changeIndex : null}
+                activeIndex={isActiveItem ? localActive.segIdx : null}
                 inputValue={localInputValue}
-                onActivate={changeIndex => handleActivate(itemIdx, changeIndex)}
+                onActivate={segIdx => handleActivate(itemIdx, segIdx)}
                 onInputChange={setLocalInputValue}
-                onConfirm={changeIndex => handleInputConfirm(itemIdx, changeIndex)}
+                onConfirm={segIdx => handleInputConfirm(itemIdx, segIdx)}
                 onCancel={() => { setLocalActive(null); setLocalInputValue('') }}
               />
             </div>

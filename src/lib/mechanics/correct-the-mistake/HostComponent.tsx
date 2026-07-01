@@ -46,9 +46,9 @@ function SentenceMirror({ item, fixes, submitted }: {
 }) {
   const segments = computeWordDiff(item.incorrect, item.correct)
   const indexedFixes: Record<number, string> = {}
-  changeSegments(segments).forEach((_, i) => {
-    const v = fixes?.[String(i)]
-    if (v !== undefined) indexedFixes[i] = v
+  segments.forEach((_, segIdx) => {
+    const v = fixes?.[String(segIdx)]
+    if (v !== undefined) indexedFixes[segIdx] = v
   })
 
   return (
@@ -190,8 +190,8 @@ export function CorrectTheMistakeSharedHostPanel({
   const totalChanges = itemSegments.reduce((s, segs) => s + changeSegments(segs).length, 0)
   const fixedCount = Object.values(state.fixes).filter(v => v !== '').length
 
-  function fixKey(itemIndex: number, changeIndex: number) {
-    return `${itemIndex}_${changeIndex}`
+  function fixKey(itemIndex: number, segIdx: number) {
+    return `${itemIndex}_${segIdx}`
   }
 
   return (
@@ -210,9 +210,9 @@ export function CorrectTheMistakeSharedHostPanel({
         {items.map((item, itemIdx) => {
           const segments = itemSegments[itemIdx]
           const indexedFixes: Record<number, string> = {}
-          changeSegments(segments).forEach((_, changeIdx) => {
-            const v = state.fixes[fixKey(itemIdx, changeIdx)]
-            if (v !== undefined) indexedFixes[changeIdx] = v
+          segments.forEach((_, segIdx) => {
+            const v = state.fixes[fixKey(itemIdx, segIdx)]
+            if (v !== undefined) indexedFixes[segIdx] = v
           })
 
           return (
