@@ -3,26 +3,15 @@
 import { StopCircle, Users, CheckCircle2, XCircle, Eye } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from './types'
+import { computeWordDiff, type DiffSegment } from './diff'
+import { SentenceDiffView } from './SentenceDiffView'
 
 export function CorrectTheMistakeHostComponent(_props: MechanicHostProps<CorrectTheMistakeIndividualState>) {
   return null
 }
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
-
-function getWords(sentence: string): string[] {
-  return sentence.trim().split(/\s+/).filter(Boolean)
-}
-
-function getMistakeIndices(incorrect: string, correct: string): Set<number> {
-  const iWords = getWords(incorrect)
-  const cWords = getWords(correct)
-  const mistakes = new Set<number>()
-  const len = Math.max(iWords.length, cWords.length)
-  for (let i = 0; i < len; i++) {
-    if ((iWords[i] ?? '').toLowerCase() !== (cWords[i] ?? '').toLowerCase()) mistakes.add(i)
-  }
-  return mistakes
+function changeSegments(segments: DiffSegment[]): Extract<DiffSegment, { type: 'change' }>[] {
+  return segments.filter((s): s is Extract<DiffSegment, { type: 'change' }> => s.type === 'change')
 }
 
 // ── Shared participant type ───────────────────────────────────────────────────
@@ -55,49 +44,22 @@ function SentenceMirror({ item, fixes, submitted }: {
   fixes?: Record<string, string>
   submitted: boolean
 }) {
-  const iWords = getWords(item.incorrect)
-  const cWords = getWords(item.correct)
-  const mistakeIndices = getMistakeIndices(item.incorrect, item.correct)
+  const segments = computeWordDiff(item.incorrect, item.correct)
+  const indexedFixes: Record<number, string> = {}
+  changeSegments(segments).forEach((_, i) => {
+    const v = fixes?.[String(i)]
+    if (v !== undefined) indexedFixes[i] = v
+  })
 
   return (
     <div className="bg-slate-800 rounded-xl px-3 py-2.5">
-      <div className="flex flex-wrap gap-x-1 gap-y-1 leading-loose">
-        {iWords.map((word, wi) => {
-          const fix = fixes?.[String(wi)]
-          const display = fix !== undefined && fix !== '' ? fix : word
-          const isMistake = mistakeIndices.has(wi)
-
-          if (submitted && fixes) {
-            const isCorrect = isMistake
-              ? (fix ?? '').trim().toLowerCase() === (cWords[wi] ?? '').toLowerCase()
-              : fix === undefined || fix === ''
-            const colorClass = isMistake
-              ? (isCorrect
-                  ? 'bg-emerald-900/50 text-emerald-300 border border-emerald-600/50'
-                  : 'bg-red-900/40 text-red-300 border border-red-600/50')
-              : (fix !== undefined && fix !== '')
-                ? 'bg-amber-900/30 text-amber-300 border border-amber-600/40'
-                : 'text-slate-200'
-            return (
-              <span key={wi} className={`inline-block px-1 py-0.5 rounded text-xs font-medium ${colorClass}`}>
-                {isMistake && !isCorrect ? (
-                  <><span className="line-through opacity-50">{display}</span><span className="ml-1 text-emerald-400">{cWords[wi]}</span></>
-                ) : display}
-              </span>
-            )
-          }
-
-          // Not yet submitted — show fix in sky if typed, plain otherwise
-          const hasFix = fix !== undefined && fix !== ''
-          return (
-            <span key={wi} className={`inline-block px-1 py-0.5 rounded text-xs font-medium ${
-              hasFix ? 'bg-sky-900/40 text-sky-200 border border-sky-600/40' : 'text-slate-300'
-            }`}>
-              {display}
-            </span>
-          )
-        })}
-      </div>
+      <SentenceDiffView
+        segments={segments}
+        fixes={indexedFixes}
+        mode={submitted && fixes ? 'result' : 'edit'}
+        activeIndex={null}
+        size="sm"
+      />
     </div>
   )
 }
@@ -224,17 +186,18 @@ export function CorrectTheMistakeSharedHostPanel({
   state, items, participants, isLastActivity, isAdvancing, isLesson,
   onReveal, onNextActivity, onEndLesson, onEndGame,
 }: CorrectTheMistakeSharedHostPanelProps) {
-  const totalWords = items.reduce((s, it) => s + getWords(it.incorrect).length, 0)
+  const itemSegments = items.map(it => computeWordDiff(it.incorrect, it.correct))
+  const totalChanges = itemSegments.reduce((s, segs) => s + changeSegments(segs).length, 0)
   const fixedCount = Object.values(state.fixes).filter(v => v !== '').length
 
-  function fixKey(itemIndex: number, wordIndex: number) {
-    return `${itemIndex}_${wordIndex}`
+  function fixKey(itemIndex: number, changeIndex: number) {
+    return `${itemIndex}_${changeIndex}`
   }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-slate-500 font-medium">{fixedCount}/{totalWords} words fixed</span>
+        <span className="text-sm text-slate-500 font-medium">{fixedCount}/{totalChanges} fixed</span>
         {state.revealed && (
           <span className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
             <CheckCircle2 className="w-3.5 h-3.5" />Answers revealed
@@ -245,50 +208,21 @@ export function CorrectTheMistakeSharedHostPanel({
       {/* Sentence preview */}
       <div className="space-y-3">
         {items.map((item, itemIdx) => {
-          const iWords = getWords(item.incorrect)
-          const cWords = getWords(item.correct)
-          const mistakeIndices = getMistakeIndices(item.incorrect, item.correct)
+          const segments = itemSegments[itemIdx]
+          const indexedFixes: Record<number, string> = {}
+          changeSegments(segments).forEach((_, changeIdx) => {
+            const v = state.fixes[fixKey(itemIdx, changeIdx)]
+            if (v !== undefined) indexedFixes[changeIdx] = v
+          })
 
           return (
             <div key={item.id} className="bg-slate-800 rounded-2xl border border-slate-700 px-5 py-4 shadow-sm">
-              <div className="flex flex-wrap gap-x-1 gap-y-1.5 justify-center items-center leading-loose">
-                {iWords.map((word, wordIdx) => {
-                  const key = fixKey(itemIdx, wordIdx)
-                  const fix = state.fixes[key]
-                  const displayText = fix !== undefined && fix !== '' ? fix : word
-                  const isMistake = mistakeIndices.has(wordIdx)
-
-                  if (state.revealed) {
-                    const isCorrect = isMistake
-                      ? (fix ?? '').trim().toLowerCase() === (cWords[wordIdx] ?? '').toLowerCase()
-                      : fix === undefined || fix === ''
-                    const colorClass = isMistake
-                      ? (isCorrect ? 'border-emerald-500 bg-emerald-900/30 text-emerald-300' : 'border-red-500 bg-red-900/20 text-red-300')
-                      : (fix !== undefined && fix !== '') ? 'border-amber-500 bg-amber-900/20 text-amber-300' : 'text-slate-200'
-                    return (
-                      <span key={wordIdx}
-                        className={`inline-block px-1.5 py-0.5 rounded-md text-sm font-semibold border ${colorClass}`}>
-                        {isMistake && !isCorrect ? (
-                          <>
-                            <span className="line-through opacity-50">{displayText}</span>
-                            <span className="ml-1 text-emerald-400">{cWords[wordIdx]}</span>
-                          </>
-                        ) : displayText}
-                      </span>
-                    )
-                  }
-
-                  const hasFix = fix !== undefined && fix !== ''
-                  return (
-                    <span key={wordIdx}
-                      className={`inline-block px-1.5 py-0.5 rounded-md text-sm font-semibold border transition-colors ${
-                        hasFix ? 'border-sky-500 bg-sky-900/20 text-sky-300' : 'border-transparent text-slate-200'
-                      }`}>
-                      {displayText}
-                    </span>
-                  )
-                })}
-              </div>
+              <SentenceDiffView
+                segments={segments}
+                fixes={indexedFixes}
+                mode={state.revealed ? 'result' : 'edit'}
+                activeIndex={null}
+              />
             </div>
           )
         })}

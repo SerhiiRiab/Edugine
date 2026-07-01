@@ -8,26 +8,15 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from './types'
 import type { IndividualQuizResult } from '@/lib/mechanics/true-false/PlayerComponent'
+import { computeWordDiff, type DiffSegment } from './diff'
+import { SentenceDiffView } from './SentenceDiffView'
 
 export function CorrectTheMistakePlayerComponent(_props: MechanicPlayerProps<CorrectTheMistakeIndividualState>) {
   return null
 }
 
-// ── Shared helpers ────────────────────────────────────────────────────────────
-
-function getWords(sentence: string): string[] {
-  return sentence.trim().split(/\s+/).filter(Boolean)
-}
-
-function getMistakeIndices(incorrect: string, correct: string): Set<number> {
-  const iWords = getWords(incorrect)
-  const cWords = getWords(correct)
-  const mistakes = new Set<number>()
-  const len = Math.max(iWords.length, cWords.length)
-  for (let i = 0; i < len; i++) {
-    if ((iWords[i] ?? '').toLowerCase() !== (cWords[i] ?? '').toLowerCase()) mistakes.add(i)
-  }
-  return mistakes
+function changeSegments(segments: DiffSegment[]): Extract<DiffSegment, { type: 'change' }>[] {
+  return segments.filter((s): s is Extract<DiffSegment, { type: 'change' }> => s.type === 'change')
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -61,13 +50,13 @@ export function CorrectTheMistakePlayerPanel({
   const [currentIndex, setCurrentIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [correctSentences, setCorrectSentences] = useState(0)
-  // wordIndex → typed correction (null = not attempted)
-  const [wordFixes, setWordFixes] = useState<Record<number, string>>({})
-  const [activeWordIndex, setActiveWordIndex] = useState<number | null>(null)
+  // changeSegment position → typed correction
+  const [fixes, setFixes] = useState<Record<number, string>>({})
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [activeInputValue, setActiveInputValue] = useState('')
   const [submitted, setSubmitted] = useState(false)
-  // result per word index after submission
-  const [wordResults, setWordResults] = useState<Record<number, 'correct' | 'incorrect' | 'unnecessary' | 'normal'>>({})
+  // result per change-segment position after submission
+  const [results, setResults] = useState<Record<number, 'correct' | 'incorrect'>>({})
 
   const isCompletedRef = useRef(false)
   const scoreRef = useRef(0)
@@ -81,11 +70,11 @@ export function CorrectTheMistakePlayerPanel({
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
   useEffect(() => {
-    setWordFixes({})
-    setActiveWordIndex(null)
+    setFixes({})
+    setActiveIndex(null)
     setActiveInputValue('')
     setSubmitted(false)
-    setWordResults({})
+    setResults({})
   }, [currentIndex])
 
   const finishGameRef = useRef<() => void>(() => {})
@@ -131,36 +120,27 @@ export function CorrectTheMistakePlayerPanel({
     if (submitted || isCompletedRef.current) return
     const item = items[currentIndex]
     if (!item) return
-    const iWords = getWords(item.incorrect)
-    const cWords = getWords(item.correct)
-    const mistakeIndices = getMistakeIndices(item.incorrect, item.correct)
-    const results: Record<number, 'correct' | 'incorrect' | 'unnecessary' | 'normal'> = {}
-    let allMistakesFixed = true
-    for (let i = 0; i < Math.max(iWords.length, cWords.length); i++) {
-      const fix = wordFixes[i]
-      const isMistake = mistakeIndices.has(i)
-      if (isMistake) {
-        const cWord = (cWords[i] ?? '').toLowerCase()
-        const fixWord = (fix ?? '').trim().toLowerCase()
-        if (fix !== undefined && fixWord === cWord) {
-          results[i] = 'correct'
-        } else {
-          results[i] = 'incorrect'
-          allMistakesFixed = false
-        }
-      } else if (fix !== undefined && fix.trim() !== '') {
-        results[i] = 'unnecessary'
+    const segments = computeWordDiff(item.incorrect, item.correct)
+    const changes = changeSegments(segments)
+    const newResults: Record<number, 'correct' | 'incorrect'> = {}
+    let allFixed = true
+    changes.forEach((seg, i) => {
+      const fix = (fixes[i] ?? '').trim().toLowerCase()
+      const correctText = seg.cWords.join(' ').toLowerCase()
+      if (fix === correctText) {
+        newResults[i] = 'correct'
       } else {
-        results[i] = 'normal'
+        newResults[i] = 'incorrect'
+        allFixed = false
       }
-    }
-    const newScore = scoreRef.current + (allMistakesFixed ? 1 : 0)
+    })
+    const newScore = scoreRef.current + (allFixed ? 1 : 0)
     scoreRef.current = newScore
     setScore(newScore)
-    if (allMistakesFixed) setCorrectSentences(prev => prev + 1)
-    setWordResults(results)
+    if (allFixed) setCorrectSentences(prev => prev + 1)
+    setResults(newResults)
     setSubmitted(true)
-    setActiveWordIndex(null)
+    setActiveIndex(null)
     const stored = (() => { try { return JSON.parse(localStorage.getItem(`participant_${sessionId}`) ?? '{}') } catch { return {} } })()
     channelRef.current?.send({
       type: 'broadcast', event: 'question_answer',
@@ -168,10 +148,10 @@ export function CorrectTheMistakePlayerPanel({
         participantId: participantIdRef.current,
         nickname: stored.nickname ?? nickname,
         questionIndex: currentIndex,
-        correct: allMistakesFixed,
+        correct: allFixed,
         score: newScore,
         activityIndex: activityIndexRef.current,
-        ctmFixes: Object.fromEntries(Object.entries(wordFixes).map(([k, v]) => [k, v])),
+        ctmFixes: Object.fromEntries(Object.entries(fixes).map(([k, v]) => [k, v])),
       },
     })
     if (participantIdRef.current) {
@@ -183,8 +163,8 @@ export function CorrectTheMistakePlayerPanel({
           item_id: item.id,
           question_index: currentIndex,
           activity_index: activityIndexRef.current,
-          fixes: wordFixes,
-          correct: allMistakesFixed,
+          fixes,
+          correct: allFixed,
         },
       }).then(undefined, () => {})
     }
@@ -194,34 +174,32 @@ export function CorrectTheMistakePlayerPanel({
       else { setCurrentIndex(nextIndex) }
     }, 1800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, items, wordFixes, submitted])
+  }, [currentIndex, items, fixes, submitted])
 
-  function handleWordClick(wordIndex: number) {
+  function handleActivate(changeIndex: number) {
     if (submitted) return
-    setActiveWordIndex(wordIndex)
-    setActiveInputValue(wordFixes[wordIndex] ?? '')
+    setActiveIndex(changeIndex)
+    setActiveInputValue(fixes[changeIndex] ?? '')
   }
 
-  function handleInputConfirm(wordIndex: number) {
+  function handleInputConfirm(changeIndex: number) {
     const trimmed = activeInputValue.trim()
-    setWordFixes(prev => {
+    setFixes(prev => {
       if (!trimmed) {
         const next = { ...prev }
-        delete next[wordIndex]
+        delete next[changeIndex]
         return next
       }
-      return { ...prev, [wordIndex]: trimmed }
+      return { ...prev, [changeIndex]: trimmed }
     })
-    setActiveWordIndex(null)
+    setActiveIndex(null)
     setActiveInputValue('')
   }
 
   const item = items[currentIndex]
-  const words = item ? getWords(item.incorrect) : []
-  const correctWords = item ? getWords(item.correct) : []
-  const mistakeIndices = item ? getMistakeIndices(item.incorrect, item.correct) : new Set<number>()
-  const fixedMistakeCount = [...mistakeIndices].filter(i => wordFixes[i] !== undefined).length
-  const canSubmit = !submitted && fixedMistakeCount > 0
+  const segments = item ? computeWordDiff(item.incorrect, item.correct) : []
+  const changes = changeSegments(segments)
+  const canSubmit = !submitted && Object.keys(fixes).length > 0
 
   return (
     <div className="flex-1 flex flex-col">
@@ -268,89 +246,36 @@ export function CorrectTheMistakePlayerPanel({
               {/* Instruction */}
               {!submitted && (
                 <p className="text-center text-xs text-slate-400 font-medium">
-                  Tap any word you think is wrong and type the correction
+                  Find and correct the mistake in this sentence — tap the wrong part and type the correction
                 </p>
               )}
 
               {/* Sentence */}
               <div className="bg-slate-800 rounded-3xl border border-slate-700 px-6 py-5 shadow-xl">
-                <div className="flex flex-wrap gap-x-1 gap-y-2 justify-center items-center leading-loose">
-                  {words.map((word, i) => {
-                    const fix = wordFixes[i]
-                    const result = wordResults[i]
-                    const isActive = activeWordIndex === i
-                    const displayText = fix !== undefined ? fix : word
-
-                    if (isActive) {
-                      return (
-                        <input
-                          key={i}
-                          autoFocus
-                          value={activeInputValue}
-                          onChange={e => setActiveInputValue(e.target.value)}
-                          onBlur={() => handleInputConfirm(i)}
-                          onKeyDown={e => {
-                            if (e.key === 'Enter' || e.key === 'Tab') {
-                              e.preventDefault()
-                              handleInputConfirm(i)
-                            } else if (e.key === 'Escape') {
-                              setActiveWordIndex(null)
-                              setActiveInputValue('')
-                            }
-                          }}
-                          style={{ width: `${Math.max(activeInputValue.length || word.length, 3) + 2}ch` }}
-                          className="inline-block px-2 py-0.5 rounded-lg border-2 border-sky-400 bg-sky-900/30
-                            text-white text-base font-semibold outline-none text-center transition-all"
-                        />
-                      )
-                    }
-
-                    if (submitted) {
-                      const colorClass =
-                        result === 'correct' ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-600/60' :
-                        result === 'incorrect' ? 'bg-red-900/40 text-red-300 border border-red-600/60' :
-                        result === 'unnecessary' ? 'bg-amber-900/30 text-amber-300 border border-amber-600/50' :
-                        'text-slate-200'
-                      return (
-                        <span key={i}
-                          className={`inline-block px-1.5 py-0.5 rounded-md text-base font-semibold ${colorClass}`}>
-                          {result === 'incorrect' && mistakeIndices.has(i) ? (
-                            <>
-                              <span className="line-through opacity-50">{displayText}</span>
-                              <span className="ml-1 text-emerald-400 no-underline">{correctWords[i]}</span>
-                            </>
-                          ) : displayText}
-                        </span>
-                      )
-                    }
-
-                    const hasFix = fix !== undefined
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => handleWordClick(i)}
-                        className={`inline-block px-1.5 py-0.5 rounded-md text-base font-semibold transition-all active:scale-95
-                          ${hasFix
-                            ? 'bg-sky-900/40 text-sky-200 border border-sky-600/60 ring-1 ring-sky-500/30'
-                            : 'text-slate-100 hover:bg-slate-700/60 hover:text-white border border-transparent hover:border-slate-600'
-                          }`}
-                      >
-                        {displayText}
-                      </button>
-                    )
-                  })}
-                </div>
+                <SentenceDiffView
+                  segments={segments}
+                  fixes={fixes}
+                  mode={submitted ? 'result' : 'edit'}
+                  activeIndex={activeIndex}
+                  inputValue={activeInputValue}
+                  onActivate={handleActivate}
+                  onInputChange={setActiveInputValue}
+                  onConfirm={handleInputConfirm}
+                  onCancel={() => { setActiveIndex(null); setActiveInputValue('') }}
+                />
               </div>
 
               {/* Fixed words summary (before submit) */}
-              {!submitted && Object.keys(wordFixes).length > 0 && (
+              {!submitted && Object.keys(fixes).length > 0 && (
                 <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3 space-y-1.5">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Your fixes</p>
-                  {Object.entries(wordFixes).map(([idxStr, fix]) => {
+                  {Object.entries(fixes).map(([idxStr, fix]) => {
                     const idx = Number(idxStr)
+                    const seg = changes[idx]
+                    if (!seg) return null
                     return (
                       <div key={idx} className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="text-slate-500 line-through">{words[idx]}</span>
+                        <span className="text-slate-500 line-through">{seg.iWords.join(' ') || '(insert)'}</span>
                         <span className="text-slate-400">→</span>
                         <span className="text-sky-300 font-semibold">{fix}</span>
                       </div>
@@ -374,16 +299,16 @@ export function CorrectTheMistakePlayerPanel({
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                   className="space-y-2"
                 >
-                  {[...mistakeIndices].map(i => (
+                  {changes.map((seg, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
-                      {wordResults[i] === 'correct'
+                      {results[i] === 'correct'
                         ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
                         : <X className="w-4 h-4 text-red-400 shrink-0" />}
-                      <span className={wordResults[i] === 'correct' ? 'text-emerald-300' : 'text-red-300'}>
-                        <span className="text-slate-400 line-through mr-1">{words[i]}</span>
-                        {wordResults[i] === 'correct'
-                          ? <span className="font-semibold">→ {wordFixes[i]}</span>
-                          : <>→ <span className="font-semibold text-emerald-400">{correctWords[i]}</span></>}
+                      <span className={results[i] === 'correct' ? 'text-emerald-300' : 'text-red-300'}>
+                        <span className="text-slate-400 line-through mr-1">{seg.iWords.join(' ') || '(insert)'}</span>
+                        {results[i] === 'correct'
+                          ? <span className="font-semibold">→ {fixes[i]}</span>
+                          : <>→ <span className="font-semibold text-emerald-400">{seg.cWords.join(' ')}</span></>}
                       </span>
                     </div>
                   ))}
@@ -428,29 +353,33 @@ export interface CorrectTheMistakeSharedPlayerPanelProps {
 export function CorrectTheMistakeSharedPlayerPanel({
   activityIndex, items, channelRef, sharedState,
 }: CorrectTheMistakeSharedPlayerPanelProps) {
-  // local state for the word currently being edited
-  const [localActive, setLocalActive] = useState<{ itemIndex: number; wordIndex: number } | null>(null)
+  // local state for the change segment currently being edited
+  const [localActive, setLocalActive] = useState<{ itemIndex: number; changeIndex: number } | null>(null)
   const [localInputValue, setLocalInputValue] = useState('')
 
   const { fixes, revealed } = sharedState
 
-  function fixKey(itemIndex: number, wordIndex: number) {
-    return `${itemIndex}_${wordIndex}`
+  function fixKey(itemIndex: number, changeIndex: number) {
+    return `${itemIndex}_${changeIndex}`
   }
 
-  function handleWordClick(itemIndex: number, wordIndex: number) {
+  const itemSegments = items.map(it => computeWordDiff(it.incorrect, it.correct))
+  const totalChanges = itemSegments.reduce((s, segs) => s + changeSegments(segs).length, 0)
+  const fixedCount = Object.values(fixes).filter(v => v !== '').length
+
+  function handleActivate(itemIndex: number, changeIndex: number) {
     if (revealed) return
-    setLocalActive({ itemIndex, wordIndex })
-    setLocalInputValue(fixes[fixKey(itemIndex, wordIndex)] ?? '')
+    setLocalActive({ itemIndex, changeIndex })
+    setLocalInputValue(fixes[fixKey(itemIndex, changeIndex)] ?? '')
   }
 
-  function handleInputConfirm(itemIndex: number, wordIndex: number) {
+  function handleInputConfirm(itemIndex: number, changeIndex: number) {
     const trimmed = localInputValue.trim()
     setLocalActive(null)
     setLocalInputValue('')
     channelRef.current?.send({
       type: 'broadcast', event: 'ctm_fix',
-      payload: { itemIndex, wordIndex, value: trimmed, activityIndex },
+      payload: { itemIndex, wordIndex: changeIndex, value: trimmed, activityIndex },
     })
   }
 
@@ -458,6 +387,16 @@ export function CorrectTheMistakeSharedPlayerPanel({
 
   return (
     <div className="flex-1 flex flex-col px-4 py-4 gap-5 overflow-y-auto">
+      {!revealed && (
+        <div className="space-y-1.5">
+          <p className="text-center text-xs text-slate-400 font-medium">
+            Find and correct the mistake in each sentence — tap the wrong part and type the correction
+          </p>
+          <p className="text-center text-[11px] text-slate-500">
+            {fixedCount}/{totalChanges} fixed · your tutor will reveal the answers
+          </p>
+        </div>
+      )}
       {revealed && (
         <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-xl px-4 py-2.5 text-center">
           <span className="text-emerald-400 text-sm font-semibold">Answers revealed</span>
@@ -465,80 +404,27 @@ export function CorrectTheMistakeSharedPlayerPanel({
       )}
       <div className="space-y-4">
         {items.map((item, itemIdx) => {
-          const iWords = getWords(item.incorrect)
-          const cWords = getWords(item.correct)
-          const mistakeIndices = getMistakeIndices(item.incorrect, item.correct)
+          const segments = itemSegments[itemIdx]
+          const itemFixes: Record<number, string> = {}
+          changeSegments(segments).forEach((_, changeIdx) => {
+            const v = fixes[fixKey(itemIdx, changeIdx)]
+            if (v !== undefined) itemFixes[changeIdx] = v
+          })
+          const isActiveItem = localActive?.itemIndex === itemIdx
 
           return (
             <div key={item.id} className="bg-slate-800 rounded-3xl border border-slate-700 px-5 py-5 shadow-xl">
-              <div className="flex flex-wrap gap-x-1 gap-y-2 justify-center items-center leading-loose">
-                {iWords.map((word, wordIdx) => {
-                  const key = fixKey(itemIdx, wordIdx)
-                  const fix = fixes[key]
-                  const displayText = fix !== undefined && fix !== '' ? fix : word
-                  const isLocalActive = localActive?.itemIndex === itemIdx && localActive?.wordIndex === wordIdx
-
-                  if (isLocalActive) {
-                    return (
-                      <input
-                        key={wordIdx}
-                        autoFocus
-                        value={localInputValue}
-                        onChange={e => setLocalInputValue(e.target.value)}
-                        onBlur={() => handleInputConfirm(itemIdx, wordIdx)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter' || e.key === 'Tab') {
-                            e.preventDefault()
-                            handleInputConfirm(itemIdx, wordIdx)
-                          } else if (e.key === 'Escape') {
-                            setLocalActive(null)
-                            setLocalInputValue('')
-                          }
-                        }}
-                        style={{ width: `${Math.max(localInputValue.length || word.length, 3) + 2}ch` }}
-                        className="inline-block px-2 py-0.5 rounded-lg border-2 border-sky-400 bg-sky-900/30
-                          text-white text-base font-semibold outline-none text-center transition-all"
-                      />
-                    )
-                  }
-
-                  if (revealed) {
-                    const isMistake = mistakeIndices.has(wordIdx)
-                    const isCorrect = isMistake
-                      ? (fix ?? '').trim().toLowerCase() === (cWords[wordIdx] ?? '').toLowerCase()
-                      : fix === undefined || fix === ''
-                    const colorClass = isMistake
-                      ? (isCorrect ? 'bg-emerald-900/40 text-emerald-300 border border-emerald-600/60' : 'bg-red-900/40 text-red-300 border border-red-600/60')
-                      : (fix !== undefined && fix !== '') ? 'bg-amber-900/30 text-amber-300 border border-amber-600/50' : 'text-slate-200'
-                    return (
-                      <span key={wordIdx}
-                        className={`inline-block px-1.5 py-0.5 rounded-md text-base font-semibold ${colorClass}`}>
-                        {isMistake && !isCorrect ? (
-                          <>
-                            <span className="line-through opacity-50">{displayText}</span>
-                            <span className="ml-1 text-emerald-400">{cWords[wordIdx]}</span>
-                          </>
-                        ) : displayText}
-                      </span>
-                    )
-                  }
-
-                  const hasFix = fix !== undefined && fix !== ''
-                  return (
-                    <button
-                      key={wordIdx}
-                      onClick={() => handleWordClick(itemIdx, wordIdx)}
-                      className={`inline-block px-1.5 py-0.5 rounded-md text-base font-semibold transition-all active:scale-95
-                        ${hasFix
-                          ? 'bg-sky-900/40 text-sky-200 border border-sky-600/60'
-                          : 'text-slate-100 hover:bg-slate-700/60 hover:text-white border border-transparent hover:border-slate-600'
-                        }`}
-                    >
-                      {displayText}
-                    </button>
-                  )
-                })}
-              </div>
+              <SentenceDiffView
+                segments={segments}
+                fixes={itemFixes}
+                mode={revealed ? 'result' : 'edit'}
+                activeIndex={isActiveItem ? localActive.changeIndex : null}
+                inputValue={localInputValue}
+                onActivate={changeIndex => handleActivate(itemIdx, changeIndex)}
+                onInputChange={setLocalInputValue}
+                onConfirm={changeIndex => handleInputConfirm(itemIdx, changeIndex)}
+                onCancel={() => { setLocalActive(null); setLocalInputValue('') }}
+              />
             </div>
           )
         })}
