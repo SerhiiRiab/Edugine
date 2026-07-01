@@ -1569,7 +1569,10 @@ export function SessionHostView({ session, lesson }: Props) {
 
   async function handleNextActivity(targetIndex?: number) {
     if (!lesson) return
-    const nextIndex = targetIndex ?? currentActivityIndex + 1
+    // `onNextActivity` is passed as a bare `() => void` prop into many mechanic HostComponents,
+    // several of which wire it directly to onClick — React then invokes it with the click event.
+    // Guard against that here rather than relying on every call site to wrap it.
+    const nextIndex = typeof targetIndex === 'number' ? targetIndex : currentActivityIndex + 1
     setIsAdvancing(true)
     try {
       await advanceActivity(session.id, nextIndex)
