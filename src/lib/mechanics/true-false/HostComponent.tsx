@@ -257,19 +257,37 @@ export function TrueFalseVoteHostPanel({
         )}
       </div>
 
-      {/* Participant status */}
+      {/* Participant status / per-student breakdown */}
       {participants.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {participants.map((p, i) => {
-            const voted = voteState.votes[p.id] !== undefined
+            const vote = voteState.votes[p.id]
+            const voted = vote !== undefined
+            const isCorrect = voteState.revealed && voted ? vote === item?.isTrue : undefined
+            const cardClass = voteState.revealed
+              ? isCorrect
+                ? 'border-emerald-200 bg-emerald-50'
+                : voted
+                ? 'border-red-200 bg-red-50'
+                : 'border-slate-100 bg-white'
+              : voted
+              ? 'border-emerald-200 bg-emerald-50'
+              : 'border-slate-100 bg-white'
+
             return (
-              <div key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs
-                ${voted ? 'border-emerald-200 bg-emerald-50' : 'border-slate-100 bg-white'}`}>
+              <div key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs ${cardClass}`}>
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-white shrink-0 text-[10px] ${avatarBg(i)}`}>
                   {p.nickname[0].toUpperCase()}
                 </div>
-                <span className="truncate font-medium text-slate-600">{p.nickname}</span>
-                {voted && <span className="shrink-0 text-emerald-500">✓</span>}
+                <span className="truncate font-medium text-slate-600 flex-1">{p.nickname}</span>
+                {voted && voteState.revealed && (
+                  <span className={`shrink-0 font-bold flex items-center gap-0.5 ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {vote ? 'True' : 'False'}
+                    {isCorrect ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                  </span>
+                )}
+                {voted && !voteState.revealed && <span className="shrink-0 text-emerald-500">✓</span>}
+                {!voted && <span className="shrink-0 text-slate-300">…</span>}
               </div>
             )
           })}

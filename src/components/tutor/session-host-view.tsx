@@ -885,10 +885,11 @@ export function SessionHostView({ session, lesson }: Props) {
         if (p.state) setTalkTimeState(p.state)
       })
       .on('broadcast', { event: 'vote_cast' }, ({ payload }) => {
-        const p = payload as { participantId: string; answer: number | boolean }
+        const p = payload as { participantId: string; answer: number | boolean; questionIndex?: number }
         if (!p.participantId) return
         const current = voteStateRef.current
         if (!current || current.votes[p.participantId] !== undefined) return
+        if (p.questionIndex !== undefined && p.questionIndex !== current.currentQuestionIndex) return
         const newState: VoteState = { ...current, votes: { ...current.votes, [p.participantId]: p.answer } }
         voteStateRef.current = newState
         setVoteState(newState)

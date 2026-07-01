@@ -407,7 +407,7 @@ export function TrueFalseVotePlayerPanel({
     channelRef.current?.send({
       type: 'broadcast',
       event: 'vote_cast',
-      payload: { participantId, answer: choice },
+      payload: { participantId, answer: choice, questionIndex: voteState.currentQuestionIndex },
     })
   }
 

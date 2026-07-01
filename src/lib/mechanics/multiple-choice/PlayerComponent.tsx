@@ -398,7 +398,7 @@ export function MultipleChoiceVotePlayerPanel({
     channelRef.current?.send({
       type: 'broadcast',
       event: 'vote_cast',
-      payload: { participantId, answer: optionIndex },
+      payload: { participantId, answer: optionIndex, questionIndex: voteState.currentQuestionIndex },
     })
   }
 
