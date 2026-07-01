@@ -151,7 +151,7 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('config')
+    .select('config, status')
     .eq('id', sessionId)
     .eq('host_id', user.id)
     .single()
@@ -167,6 +167,17 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
     .eq('host_id', user.id)
 
   if (error) throw new Error(error.message)
+
+  // Count the session as completed the moment it genuinely starts — the host has
+  // pressed Play and at least one participant is present — rather than waiting for
+  // an explicit End click. This way a real session where the tutor just closes the
+  // tab afterward still counts, while a session nobody joined never does.
+  // `status === 'waiting'` guards against double-counting if this is ever re-invoked
+  // for an already-active session.
+  if (session?.status === 'waiting' && turnOrder.length > 0) {
+    await supabase.rpc('increment_sessions_completed', { uid: user.id })
+  }
+
   return { turnOrder }
 }
 
@@ -1471,8 +1482,9 @@ export async function endSession(sessionId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Increment lifetime counter atomically before deleting session data.
-  await supabase.rpc('increment_sessions_completed', { uid: user.id })
+  // sessions_completed is now incremented in startSession() as soon as the session
+  // genuinely starts (participant present + host pressed Play) — not here — so a
+  // session abandoned without an explicit End still counts correctly.
 
   // Delete session — CASCADE removes session_participants, session_events,
   // participant_progress, and shared_activity_state automatically.
