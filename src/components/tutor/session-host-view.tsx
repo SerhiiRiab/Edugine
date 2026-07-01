@@ -8,6 +8,8 @@ import {
   ArrowLeft, Copy, Check,
   PlayCircle, StopCircle, RotateCcw, Users,
   ChevronRight, Trophy, PartyPopper, CheckCircle2,
+  ListOrdered, ChevronDown, X, AlertTriangle,
+  Eye, EyeOff,
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -16,50 +18,69 @@ import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/se
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostComponent'
+import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerComponent'
 import type { SpeedMatchProgress } from '@/lib/mechanics/speed-match/types'
 import { SpeedMatchHostPanel } from '@/lib/mechanics/speed-match/HostComponent'
 import { SwipeBattleHostPanel } from '@/lib/mechanics/swipe-battle/HostComponent'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimeHostPanel, } from '@/lib/mechanics/talk-time/HostComponent'
+import { TalkTimePlayerPanel } from '@/lib/mechanics/talk-time/PlayerComponent'
 import { computeTimeLeft } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
 import { ContentBlockHostPanel } from '@/lib/mechanics/content-block/HostComponent'
+import { ContentBlockPlayerPanel } from '@/lib/mechanics/content-block/PlayerComponent'
 import { TrueFalseHostPanel, TrueFalseVoteHostPanel } from '@/lib/mechanics/true-false/HostComponent'
+import { TrueFalseVotePlayerPanel } from '@/lib/mechanics/true-false/PlayerComponent'
 import { MultipleChoiceHostPanel, MultipleChoiceVoteHostPanel } from '@/lib/mechanics/multiple-choice/HostComponent'
+import { MultipleChoiceVotePlayerPanel } from '@/lib/mechanics/multiple-choice/PlayerComponent'
 import { FillTheGapHostPanel } from '@/lib/mechanics/fill-the-gap/HostComponent'
 import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
 import { WordBankIndividualHostPanel, WordBankSharedHostPanel } from '@/lib/mechanics/word-bank/HostComponent'
+import { WordBankSharedPlayerPanel } from '@/lib/mechanics/word-bank/PlayerComponent'
 import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
 import { WordChoiceIndividualHostPanel, WordChoiceSharedHostPanel } from '@/lib/mechanics/word-choice/HostComponent'
+import { WordChoiceSharedPlayerPanel } from '@/lib/mechanics/word-choice/PlayerComponent'
 import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
 import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel } from '@/lib/mechanics/correct-the-mistake/HostComponent'
+import { CorrectTheMistakeSharedPlayerPanel } from '@/lib/mechanics/correct-the-mistake/PlayerComponent'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostComponent'
+import { DebateRoulettePlayerPanel } from '@/lib/mechanics/debate-roulette/PlayerComponent'
 import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-role/types'
 import { TUTOR_PARTICIPANT_ID } from '@/lib/mechanics/hidden-role/types'
 import { HiddenRoleHostPanel } from '@/lib/mechanics/hidden-role/HostComponent'
+import { HiddenRolePlayerPanel } from '@/lib/mechanics/hidden-role/PlayerComponent'
 import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
 import { MissionBriefingHostPanel } from '@/lib/mechanics/mission-briefing/HostComponent'
+import { MissionBriefingPlayerPanel } from '@/lib/mechanics/mission-briefing/PlayerComponent'
 import type { DramaEventState, EventType } from '@/lib/mechanics/drama-event/types'
 import { EVENT_TYPES, BUILT_IN_EVENTS } from '@/lib/mechanics/drama-event/types'
 import { DramaEventHostPanel } from '@/lib/mechanics/drama-event/HostComponent'
+import { DramaEventPlayerPanel } from '@/lib/mechanics/drama-event/PlayerComponent'
 import type { TabooState } from '@/lib/mechanics/taboo/types'
 import { TabooHostPanel } from '@/lib/mechanics/taboo/HostComponent'
+import { TabooPlayerPanel } from '@/lib/mechanics/taboo/PlayerComponent'
 import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
 import { ElevatorPitchHostPanel } from '@/lib/mechanics/elevator-pitch/HostComponent'
+import { ElevatorPitchPlayerPanel } from '@/lib/mechanics/elevator-pitch/PlayerComponent'
 import type { JigsawReadingState, JigsawReadingItem } from '@/lib/mechanics/jigsaw-reading/types'
 import { JigsawReadingHostPanel } from '@/lib/mechanics/jigsaw-reading/HostComponent'
+import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerComponent'
 import type { PredictVerifyState, PredictVerifyItem, PredictionMode } from '@/lib/mechanics/predict-verify/types'
 import { PredictVerifyHostPanel } from '@/lib/mechanics/predict-verify/HostComponent'
+import { PredictVerifyPlayerPanel } from '@/lib/mechanics/predict-verify/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
+import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
 import { computeTimeLeft as computeSpeedDebateTimeLeft } from '@/lib/mechanics/speed-debate/types'
 import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
 import { RoleplayQuestHostPanel } from '@/lib/mechanics/roleplay-quest/HostComponent'
+import { RoleplayQuestPlayerPanel } from '@/lib/mechanics/roleplay-quest/PlayerComponent'
 import { computeTimeLeft as computeRoleplayTimeLeft } from '@/lib/mechanics/roleplay-quest/types'
 import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
 import { SpeakingChallengeHostPanel } from '@/lib/mechanics/speaking-challenge/HostComponent'
+import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
 import { pickNextWord as pickSpeakingWord } from '@/lib/mechanics/speaking-challenge/types'
 import { ErrorBoundary } from '@/components/error-boundary'
 
@@ -229,6 +250,9 @@ export function SessionHostView({ session, lesson }: Props) {
   const [lessonBetween, setLessonBetween] = useState(false)
   const [isAdvancing, setIsAdvancing] = useState(false)
   const [completedCountCurrentActivity, setCompletedCountCurrentActivity] = useState(0)
+  const [showActivityList, setShowActivityList] = useState(false)
+  const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
+  const [showStudentView, setShowStudentView] = useState(false)
 
   const [elapsed, setElapsed] = useState(0)
   const [codeCopied, setCodeCopied] = useState(false)
@@ -1543,9 +1567,9 @@ export function SessionHostView({ session, lesson }: Props) {
     })
   }
 
-  async function handleNextActivity() {
+  async function handleNextActivity(targetIndex?: number) {
     if (!lesson) return
-    const nextIndex = currentActivityIndex + 1
+    const nextIndex = targetIndex ?? currentActivityIndex + 1
     setIsAdvancing(true)
     try {
       await advanceActivity(session.id, nextIndex)
@@ -1757,6 +1781,19 @@ export function SessionHostView({ session, lesson }: Props) {
     } finally {
       setIsAdvancing(false)
     }
+  }
+
+  function handleActivityListSelect(targetIndex: number) {
+    if (targetIndex === currentActivityIndex) { setShowActivityList(false); return }
+    setShowActivityList(false)
+    setPendingJumpIndex(targetIndex)
+  }
+
+  async function handleConfirmJump() {
+    if (pendingJumpIndex === null) return
+    const targetIndex = pendingJumpIndex
+    setPendingJumpIndex(null)
+    await handleNextActivity(targetIndex)
   }
 
   async function handleEndLesson() {
@@ -3348,6 +3385,94 @@ export function SessionHostView({ session, lesson }: Props) {
               </p>
             )}
           </div>
+
+          {phase === 'active' && !lessonBetween && (
+            <button
+              onClick={() => setShowStudentView(v => !v)}
+              className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg
+                border transition-colors shrink-0 ${
+                  showStudentView
+                    ? 'border-violet-300 bg-violet-50 text-violet-700'
+                    : 'border-slate-200 text-slate-500 hover:border-violet-300 hover:text-violet-600'
+                }`}
+            >
+              {showStudentView ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              Student view
+            </button>
+          )}
+
+          {isMultiActivity && phase === 'active' && (
+            <div className="relative shrink-0">
+              <button
+                onClick={() => setShowActivityList(v => !v)}
+                className={`flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg
+                  border transition-colors ${
+                    showActivityList
+                      ? 'border-violet-300 bg-violet-50 text-violet-700'
+                      : 'border-slate-200 text-slate-500 hover:border-violet-300 hover:text-violet-600'
+                  }`}
+              >
+                <ListOrdered className="w-3.5 h-3.5" />
+                Activities
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showActivityList ? 'rotate-180' : ''}`} />
+              </button>
+
+              {showActivityList && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setShowActivityList(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border
+                    border-slate-200 shadow-xl z-30 overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                        Activities ({lesson.activities.length})
+                      </p>
+                      <button onClick={() => setShowActivityList(false)}
+                        className="text-slate-300 hover:text-slate-500 transition-colors">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+                      {lesson.activities.map((activity, i) => {
+                        const isCurrent = i === currentActivityIndex
+                        return (
+                          <button
+                            key={activity.id}
+                            onClick={() => handleActivityListSelect(i)}
+                            className={`w-full text-left flex items-center gap-3 px-4 py-3 transition-colors ${
+                              isCurrent ? 'bg-violet-50' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center
+                              text-xs font-bold ${
+                                isCurrent ? 'bg-violet-600 text-white' : 'bg-slate-100 text-slate-400'
+                              }`}>
+                              {i + 1}
+                            </span>
+                            <span className="flex-1 min-w-0">
+                              <span className={`block text-sm font-semibold truncate ${
+                                isCurrent ? 'text-violet-700' : 'text-slate-700'
+                              }`}>
+                                {activity.content_set_title}
+                              </span>
+                              <span className="block text-xs text-slate-400 truncate">
+                                {MECHANIC_NAMES[activity.mechanic_id] ?? activity.mechanic_id}
+                              </span>
+                            </span>
+                            {isCurrent && (
+                              <span className="shrink-0 text-[10px] font-bold text-violet-600 bg-violet-100 px-2 py-0.5 rounded-full">
+                                Current
+                              </span>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
           <StatusBadge phase={phase} />
 
           {phase === 'active' && !lessonBetween && (
@@ -3364,6 +3489,211 @@ export function SessionHostView({ session, lesson }: Props) {
           )}
         </div>
       </div>
+
+      {/* ── Student view preview ────────────────────────────────────────────── */}
+      {showStudentView && phase === 'active' && !lessonBetween && (
+        <div className="border-b border-slate-200 bg-slate-100">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Eye className="w-4 h-4 text-slate-400" />
+              <p className="text-sm font-semibold text-slate-500">What students see right now</p>
+              <span className="text-xs text-slate-400">(preview — not interactive)</span>
+            </div>
+            <div className="mx-auto w-full max-w-sm rounded-[2rem] border-8 border-slate-800 bg-slate-950 shadow-xl overflow-hidden">
+              <div className="h-[560px] overflow-y-auto flex flex-col pointer-events-none select-none">
+                {currentMechanicId === 'story_builder' && storyState && (
+                  <StoryBuilderPlayerPanel
+                    sessionId={session.id} activityIndex={currentActivityIndex}
+                    participantId="" nickname="Preview"
+                    storyState={storyState} participants={participants}
+                    channelRef={channelRef} onStateUpdate={() => {}}
+                  />
+                )}
+                {currentMechanicId === 'talk_time' && talkTimeState && (
+                  <TalkTimePlayerPanel
+                    participantId="" nickname="Preview"
+                    state={talkTimeState} participants={participants}
+                    instructions={lesson?.activities[currentActivityIndex]?.instructions ?? null}
+                  />
+                )}
+                {currentMechanicId === 'content_block' && contentBlockState && (
+                  <ContentBlockPlayerPanel
+                    participantId="" state={contentBlockState}
+                    onGotIt={() => {}} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'true_false' && currentActivityMode === 'vote' && voteState && (
+                  <TrueFalseVotePlayerPanel
+                    participantId="" voteState={voteState}
+                    items={currentActivityItems.map(i => ({ statement: i.statement ?? '', isTrue: i.isTrue ?? true }))}
+                    participants={participants} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'multiple_choice' && currentActivityMode === 'vote' && voteState && (
+                  <MultipleChoiceVotePlayerPanel
+                    participantId="" voteState={voteState}
+                    items={currentActivityItems.map(i => ({ question: i.question ?? '', options: i.options ?? [], correctIndex: i.correctIndex ?? 0 }))}
+                    participants={participants} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'word_bank' && currentActivityMode === 'shared' && wordBankSharedState && (
+                  <WordBankSharedPlayerPanel
+                    sessionId={session.id} activityIndex={currentActivityIndex} participantId=""
+                    items={currentActivityItems.map(i => ({
+                      id: i.id,
+                      text: i.text ?? '',
+                      blanks: (i.blanks ?? []).map(b => ({ answer: b.answer })),
+                      wordBank: i.wordBank ?? [],
+                    }))}
+                    channelRef={channelRef} sharedState={wordBankSharedState}
+                  />
+                )}
+                {currentMechanicId === 'word_choice' && currentActivityMode === 'shared' && wordChoiceSharedState && (
+                  <WordChoiceSharedPlayerPanel
+                    sessionId={session.id} activityIndex={currentActivityIndex} participantId=""
+                    items={currentActivityItems.map(i => ({
+                      id: i.id,
+                      sentence: i.sentence ?? '',
+                      blanks: (i.blanks ?? []).map((b: { options?: string[]; correctIndex?: number }) => ({
+                        options: b.options ?? [],
+                        correctIndex: b.correctIndex ?? 0,
+                      })),
+                    }))}
+                    channelRef={channelRef} sharedState={wordChoiceSharedState}
+                  />
+                )}
+                {currentMechanicId === 'correct_the_mistake' && currentActivityMode === 'shared' && ctmSharedState && (
+                  <CorrectTheMistakeSharedPlayerPanel
+                    sessionId={session.id} activityIndex={currentActivityIndex} participantId=""
+                    items={currentActivityItems.map(i => ({ id: i.id, incorrect: i.incorrect ?? '', correct: i.correct ?? '' }))}
+                    channelRef={channelRef} sharedState={ctmSharedState}
+                  />
+                )}
+                {currentMechanicId === 'debate_roulette' && debateRouletteState && (
+                  <DebateRoulettePlayerPanel
+                    participantId="" state={debateRouletteState}
+                    participants={participants} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'hidden_role' && hiddenRoleState && (
+                  <HiddenRolePlayerPanel
+                    participantId="" state={hiddenRoleState}
+                    items={currentActivityItems as unknown as HiddenRoleItem[]}
+                    participants={participants} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'mission_briefing' && missionBriefingState && (
+                  <MissionBriefingPlayerPanel
+                    participantId="" state={missionBriefingState}
+                    items={currentActivityItems as unknown as MissionBriefingItem[]}
+                    participants={participants} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'drama_event' && dramaEventState && (
+                  <DramaEventPlayerPanel state={dramaEventState} channelRef={channelRef} />
+                )}
+                {currentMechanicId === 'taboo' && tabooState && (
+                  <TabooPlayerPanel
+                    participantId="" nickname="Preview"
+                    state={tabooState}
+                    items={currentActivityItems as unknown as import('@/lib/mechanics/taboo/types').TabooItem[]}
+                    participants={participants} channelRef={channelRef} activityIndex={currentActivityIndex}
+                  />
+                )}
+                {currentMechanicId === 'elevator_pitch' && elevatorPitchState && (
+                  <ElevatorPitchPlayerPanel
+                    participantId="" nickname="Preview"
+                    state={elevatorPitchState}
+                    items={currentActivityItems as unknown as import('@/lib/mechanics/elevator-pitch/types').ElevatorPitchItem[]}
+                    participants={participants} channelRef={channelRef} activityIndex={currentActivityIndex}
+                  />
+                )}
+                {currentMechanicId === 'jigsaw_reading' && jigsawReadingState && (
+                  <JigsawReadingPlayerPanel
+                    participantId="" state={jigsawReadingState}
+                    items={currentActivityItems as unknown as JigsawReadingItem[]}
+                    participants={participants} channelRef={channelRef} activityIndex={currentActivityIndex}
+                  />
+                )}
+                {currentMechanicId === 'predict_verify' && predictVerifyState && (
+                  <PredictVerifyPlayerPanel
+                    participantId="" state={predictVerifyState}
+                    items={currentActivityItems as unknown as PredictVerifyItem[]}
+                    participants={participants} channelRef={channelRef} activityIndex={currentActivityIndex}
+                  />
+                )}
+                {currentMechanicId === 'speed_debate' && speedDebateState && (
+                  <SpeedDebatePlayerPanel
+                    participantId="" nickname="Preview"
+                    state={speedDebateState} participants={participants}
+                  />
+                )}
+                {currentMechanicId === 'roleplay_quest' && roleplayQuestState && (
+                  <RoleplayQuestPlayerPanel
+                    sessionId={session.id} activityIndex={currentActivityIndex}
+                    participantId="" nickname="Preview"
+                    state={roleplayQuestState} participants={participants} channelRef={channelRef}
+                  />
+                )}
+                {currentMechanicId === 'speaking_challenge' && speakingChallengeState && (
+                  <SpeakingChallengePlayerPanel
+                    participantId="" state={speakingChallengeState} participants={participants}
+                  />
+                )}
+                {![
+                  'story_builder', 'talk_time', 'content_block', 'debate_roulette', 'hidden_role',
+                  'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading',
+                  'predict_verify', 'speed_debate', 'roleplay_quest', 'speaking_challenge',
+                ].includes(currentMechanicId ?? '')
+                  && !(['true_false', 'multiple_choice'].includes(currentMechanicId ?? '') && currentActivityMode === 'vote')
+                  && !(['word_bank', 'word_choice', 'correct_the_mistake'].includes(currentMechanicId ?? '') && currentActivityMode === 'shared')
+                  && (
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
+                      <EyeOff className="w-8 h-8 text-slate-600" />
+                      <p className="text-slate-400 text-sm">
+                        This activity is individual-paced — each student sees their own progress.
+                      </p>
+                      <p className="text-slate-500 text-xs">See the per-student cards above instead.</p>
+                    </div>
+                  )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Jump-to-activity confirmation ───────────────────────────────────── */}
+      {pendingJumpIndex !== null && lesson && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <h3 className="font-bold text-slate-800">Jump to this activity?</h3>
+            </div>
+            <p className="text-sm text-slate-500">
+              Everyone will be moved immediately from <span className="font-semibold text-slate-700">
+                {lesson.activities[currentActivityIndex]?.content_set_title}
+              </span> to <span className="font-semibold text-slate-700">
+                {lesson.activities[pendingJumpIndex]?.content_set_title}
+              </span>. Progress on the current activity won&apos;t be resumed automatically.
+            </p>
+            <div className="flex gap-3 pt-1">
+              <button onClick={() => setPendingJumpIndex(null)} disabled={isAdvancing}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600
+                  hover:bg-slate-50 font-semibold text-sm transition-colors disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={handleConfirmJump} disabled={isAdvancing}
+                className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700
+                  text-white font-bold text-sm transition-colors disabled:opacity-50">
+                {isAdvancing ? 'Jumping...' : 'Jump'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
 
@@ -4233,7 +4563,7 @@ export function SessionHostView({ session, lesson }: Props) {
 
               {!isLastActivity ? (
                 <button
-                  onClick={handleNextActivity}
+                  onClick={() => handleNextActivity()}
                   disabled={isAdvancing}
                   className="flex-1 flex items-center justify-center gap-2 bg-violet-600
                     hover:bg-violet-700 disabled:opacity-50 text-white font-bold
