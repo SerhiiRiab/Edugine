@@ -2838,7 +2838,9 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur) return
     jigsawReadingStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null })
       .then(() => {
-        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+        if (isLesson) {
+          if (isLastActivity) { handleEndLesson() } else { handleNextActivity() }
+        } else { handleEndGame() }
       })
       .catch(() => {})
   }
@@ -2929,7 +2931,9 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur) return
     predictVerifyStateUpdate({ ...cur, timerRunning: false, timerStartedAt: null })
       .then(() => {
-        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+        if (isLesson) {
+          if (isLastActivity) { handleEndLesson() } else { handleNextActivity() }
+        } else { handleEndGame() }
       })
       .catch(() => {})
   }
