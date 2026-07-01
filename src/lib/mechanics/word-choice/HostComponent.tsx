@@ -18,6 +18,7 @@ interface HostParticipant {
   score: number
   correctCount: number
   totalSwipes: number
+  answers?: Record<number, boolean | number | (number | null)[]>
 }
 
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
@@ -27,6 +28,7 @@ function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 export interface WordChoiceIndividualHostPanelProps {
   participants: HostParticipant[]
+  items: WCItem[]
   totalItems: number
   isLastActivity: boolean
   isAdvancing: boolean
@@ -37,7 +39,7 @@ export interface WordChoiceIndividualHostPanelProps {
 }
 
 export function WordChoiceIndividualHostPanel({
-  participants, totalItems, isLastActivity, isAdvancing, isLesson,
+  participants, items, totalItems, isLastActivity, isAdvancing, isLesson,
   onNextActivity, onEndLesson, onEndGame,
 }: WordChoiceIndividualHostPanelProps) {
   return (
@@ -47,6 +49,7 @@ export function WordChoiceIndividualHostPanel({
           const answered = p.cardIndex
           const accuracy = p.totalSwipes > 0 ? Math.round((p.correctCount / p.totalSwipes) * 100) : null
           const done = answered >= totalItems
+          const currentItem = !done ? items[answered] : undefined
           return (
             <div key={p.id} className={`bg-white rounded-2xl border p-4 space-y-3 transition-all ${done ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200'}`}>
               <div className="flex items-center gap-3">
@@ -66,6 +69,17 @@ export function WordChoiceIndividualHostPanel({
                   <p className="text-xs text-slate-400">pts</p>
                 </div>
               </div>
+
+              {/* Student sees — current sentence this participant is filling in */}
+              {currentItem !== undefined && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
+                  <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 text-center">
+                    <p className="text-xs text-slate-100 leading-snug">{currentItem.sentence}</p>
+                  </div>
+                </div>
+              )}
+
               {totalItems > 0 && (
                 <div className="space-y-1">
                   <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
@@ -81,6 +95,43 @@ export function WordChoiceIndividualHostPanel({
                   )}
                 </div>
               )}
+
+              {/* Completion breakdown — every sentence + this student's picks per blank */}
+              {done && items.length > 0 && (
+                <div className="space-y-1.5 pt-1 border-t border-slate-100">
+                  {items.map((it, qi) => {
+                    const raw = p.answers?.[qi]
+                    const sel = Array.isArray(raw) ? raw : undefined
+                    const parts = it.sentence.split('___')
+                    return (
+                      <div key={qi} className="text-xs rounded-lg px-2.5 py-1.5 bg-slate-50">
+                        <p className="text-slate-600 leading-snug">
+                          {parts.map((part, bi) => {
+                            const blank = it.blanks[bi]
+                            if (bi >= it.blanks.length) return <span key={bi}>{part}</span>
+                            const picked = sel?.[bi] ?? null
+                            const isCorrect = picked !== null && picked !== undefined ? picked === blank.correctIndex : undefined
+                            return (
+                              <span key={bi}>
+                                {part}
+                                <span className={`font-semibold ${
+                                  isCorrect === true ? 'text-emerald-600' : isCorrect === false ? 'text-red-500' : 'text-slate-300'
+                                }`}>
+                                  {picked !== null && picked !== undefined ? blank.options[picked] : '—'}
+                                </span>
+                                {isCorrect === false && (
+                                  <span className="text-emerald-600 text-[10px] font-semibold"> (correct: {blank.options[blank.correctIndex]})</span>
+                                )}
+                              </span>
+                            )
+                          })}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${p.online ? 'bg-emerald-400' : 'bg-slate-300'}`} />
                 <span className="text-xs text-slate-400">{p.online ? 'Live' : 'Disconnected'}</span>

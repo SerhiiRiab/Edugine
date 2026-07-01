@@ -126,6 +126,7 @@ export function WordChoicePlayerPanel({
         participantId: participantIdRef.current,
         nickname: stored.nickname ?? nickname,
         questionIndex: currentIndex,
+        selections,
         correct: allCorrect,
         score: newScore,
         activityIndex: activityIndexRef.current,

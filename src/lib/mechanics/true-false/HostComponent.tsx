@@ -19,7 +19,7 @@ interface HostParticipant {
   score: number
   correctCount: number
   totalSwipes: number
-  answers?: Record<number, boolean | number>
+  answers?: Record<number, boolean | number | (number | null)[]>
 }
 
 // ── Individual mode host panel ─────────────────────────────────────────────────

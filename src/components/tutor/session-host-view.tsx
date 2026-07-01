@@ -177,7 +177,7 @@ interface ParticipantGameState {
   totalSwipes: number
   recentSwipes: SwipeRecord[]
   gameResult: GameResult | null
-  answers?: Record<number, boolean | number>  // true_false/multiple_choice individual: choice per questionIndex
+  answers?: Record<number, boolean | number | (number | null)[]>  // true_false/multiple_choice/word_choice individual: choice(s) per questionIndex
   wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
   ctmAnswerIndex?: number       // correct_the_mistake individual: sentence index the fields below apply to
@@ -844,11 +844,12 @@ export function SessionHostView({ session, lesson }: Props) {
           }, 700)
         }
       })
-      // ── True/False + Multiple Choice per-question answers ──────────────────
+      // ── True/False + Multiple Choice + Word Choice per-question answers ─────
       .on('broadcast', { event: 'question_answer' }, ({ payload }) => {
         const p = payload as {
           participantId: string; questionIndex: number; correct: boolean; score: number; activityIndex?: number
           choice?: boolean | number
+          selections?: (number | null)[]
           wbFills?: (string | null)[]; wbResults?: boolean[]
         }
         if (!p.participantId) return
@@ -861,6 +862,7 @@ export function SessionHostView({ session, lesson }: Props) {
             correctCount: x.correctCount + (p.correct ? 1 : 0),
             totalSwipes: x.totalSwipes + 1,
             ...(p.choice !== undefined && { answers: { ...x.answers, [p.questionIndex]: p.choice } }),
+            ...(p.selections !== undefined && { answers: { ...x.answers, [p.questionIndex]: p.selections } }),
             ...(p.wbFills !== undefined && { wbFills: p.wbFills }),
             ...(p.wbResults !== undefined && { wbResults: p.wbResults }),
           }
@@ -4166,6 +4168,14 @@ export function SessionHostView({ session, lesson }: Props) {
             {currentMechanicId === 'word_choice' && currentActivityMode !== 'shared' && (
               <WordChoiceIndividualHostPanel
                 participants={participants}
+                items={currentActivityItems.map(i => ({
+                  id: i.id,
+                  sentence: i.sentence ?? '',
+                  blanks: (i.blanks ?? []).map((b: { options?: string[]; correctIndex?: number }) => ({
+                    options: b.options ?? [],
+                    correctIndex: b.correctIndex ?? 0,
+                  })),
+                }))}
                 totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
