@@ -1,6 +1,6 @@
 'use client'
 
-import { StopCircle, Users, CheckCircle2, XCircle, Eye } from 'lucide-react'
+import { StopCircle, Users, CheckCircle2, Eye } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from './types'
 import { computeWordDiff, type DiffSegment } from './diff'
@@ -15,18 +15,18 @@ function changeSegments(segments: DiffSegment[]): Extract<DiffSegment, { type: '
   return segments.filter((s): s is Extract<DiffSegment, { type: 'change' }> => s.type === 'change')
 }
 
+function normalizeSentence(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 // ── Shared participant type ───────────────────────────────────────────────────
 
 interface HostParticipant {
   id: string
   nickname: string
   online: boolean
-  cardIndex: number
-  score: number
-  correctCount: number
-  totalSwipes: number
-  ctmLastQuestionIndex?: number
-  ctmFixes?: Record<string, string>
+  gameResult: { correct: number; incorrect: number; totalCards: number; score: number } | null
+  ctmAnswers?: Record<string, string>
 }
 
 interface CTMItem {
@@ -38,34 +38,9 @@ interface CTMItem {
 const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
-// ── SentenceMirror ────────────────────────────────────────────────────────────
-
-function SentenceMirror({ item, fixes, submitted }: {
-  item: CTMItem
-  fixes?: Record<string, string>
-  submitted: boolean
-}) {
-  const segments = computeWordDiff(item.incorrect, item.correct)
-  const indexedFixes: Record<number, string> = {}
-  segments.forEach((_, segIdx) => {
-    const v = fixes?.[String(segIdx)]
-    if (v !== undefined) indexedFixes[segIdx] = v
-  })
-
-  return (
-    <div className="bg-slate-800 rounded-xl px-3 py-2.5">
-      <SentenceDiffView
-        segments={segments}
-        fixes={indexedFixes}
-        mode={submitted && fixes ? 'result' : 'edit'}
-        activeIndex={null}
-        size="sm"
-      />
-    </div>
-  )
-}
-
 // ── Individual Host Panel ─────────────────────────────────────────────────────
+// Mirrors the student's numbered sentence list live: text updates as they type,
+// then colors green/red once they've checked (gameResult set).
 
 export interface CorrectTheMistakeIndividualHostPanelProps {
   participants: HostParticipant[]
@@ -87,14 +62,9 @@ export function CorrectTheMistakeIndividualHostPanel({
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {participants.map((p, i) => {
-          const answered = p.cardIndex
-          const accuracy = p.totalSwipes > 0 ? Math.round((p.correctCount / p.totalSwipes) * 100) : null
-          const done = answered >= totalItems
-
-          // Which sentence to mirror: last submitted (if any), else current working sentence
-          const hasResult = p.ctmLastQuestionIndex !== undefined && p.ctmFixes !== undefined
-          const mirrorIndex = hasResult ? p.ctmLastQuestionIndex! : Math.min(answered, totalItems - 1)
-          const mirrorItem = items[mirrorIndex]
+          const done = p.gameResult !== null
+          const answers = p.ctmAnswers ?? {}
+          const editedCount = Object.keys(answers).length
 
           return (
             <div key={p.id} className={`bg-white rounded-2xl border p-4 space-y-3 transition-all ${done ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200'}`}>
@@ -108,46 +78,44 @@ export function CorrectTheMistakeIndividualHostPanel({
                   <p className="text-xs text-slate-400 mt-0.5">
                     {done
                       ? <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Done</span>
-                      : `Sentence ${answered + 1}/${totalItems}`}
+                      : `${editedCount}/${totalItems} edited`}
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-lg font-black text-violet-600 tabular-nums">{p.score}</p>
+                  <p className="text-lg font-black text-violet-600 tabular-nums">{p.gameResult?.score ?? 0}</p>
                   <p className="text-xs text-slate-400">pts</p>
                 </div>
               </div>
 
-              {/* Sentence mirror */}
-              {mirrorItem && (
-                <div className="space-y-1">
-                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                    {hasResult ? `Sentence ${mirrorIndex! + 1} result` : `Working on sentence ${mirrorIndex + 1}`}
-                  </p>
-                  <ErrorBoundary fallback="Couldn't preview this sentence.">
-                    <SentenceMirror
-                      item={mirrorItem}
-                      fixes={hasResult ? p.ctmFixes : undefined}
-                      submitted={hasResult}
-                    />
-                  </ErrorBoundary>
-                </div>
-              )}
-
-              {/* Progress bar */}
-              {totalItems > 0 && (
-                <div className="space-y-1">
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${done ? 'bg-emerald-500' : 'bg-sky-500'}`}
-                      style={{ width: `${Math.min(100, (answered / totalItems) * 100)}%` }} />
+              {/* Live sentence mirror */}
+              {items.length > 0 && (
+                <ErrorBoundary fallback="Couldn't preview this student's answers.">
+                  <div className="space-y-1 bg-slate-50 rounded-xl px-3 py-2.5">
+                    {items.map((item, idx) => {
+                      const typed = answers[String(idx)]
+                      const displayText = typed !== undefined ? typed : (done ? item.incorrect : null)
+                      const isCorrect = done
+                        ? normalizeSentence(typed ?? item.incorrect) === normalizeSentence(item.correct)
+                        : null
+                      return (
+                        <div key={item.id} className="flex items-start gap-2 text-xs">
+                          <span className="shrink-0 text-slate-400 font-semibold">{idx + 1}.</span>
+                          {displayText === null ? (
+                            <span className="text-slate-300 italic">not started</span>
+                          ) : (
+                            <span className={
+                              isCorrect === true ? 'text-emerald-600 font-medium'
+                                : isCorrect === false ? 'text-red-600 font-medium'
+                                  : 'text-slate-500'
+                            }>
+                              {displayText}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
                   </div>
-                  {accuracy !== null && (
-                    <div className="flex justify-between text-xs text-slate-400">
-                      <span className="flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-emerald-500" />{p.correctCount} correct</span>
-                      <span className="flex items-center gap-1"><XCircle className="w-3 h-3 text-red-400" />{p.totalSwipes - p.correctCount} wrong</span>
-                      <span className="font-semibold text-slate-500">{accuracy}%</span>
-                    </div>
-                  )}
-                </div>
+                </ErrorBoundary>
               )}
 
               <div className="flex items-center gap-1.5">

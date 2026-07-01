@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Check, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -19,6 +19,10 @@ function changeSegments(segments: DiffSegment[]): Extract<DiffSegment, { type: '
   return segments.filter((s): s is Extract<DiffSegment, { type: 'change' }> => s.type === 'change')
 }
 
+function normalizeSentence(s: string): string {
+  return s.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface CTMItem {
@@ -28,6 +32,10 @@ interface CTMItem {
 }
 
 // ── Individual Player Panel ───────────────────────────────────────────────────
+// All sentences are shown at once as a numbered list. Students tap a sentence to
+// edit it inline (pre-filled with the original text) and press one Check button
+// at the end to grade everything together — some sentences may have no mistake,
+// so leaving the text unchanged is a valid (and sometimes correct) answer.
 
 export interface CorrectTheMistakePlayerPanelProps {
   sessionId: string
@@ -47,160 +55,121 @@ export function CorrectTheMistakePlayerPanel({
   sessionId, activityIndex, participantId, nickname, items,
   channelRef, isLesson, hostEnded, accumulatedScore, totalActivities, onComplete,
 }: CorrectTheMistakePlayerPanelProps) {
-  const [currentIndex, setCurrentIndex] = useState(0)
-  const [score, setScore] = useState(0)
-  const [correctSentences, setCorrectSentences] = useState(0)
-  // changeSegment position → typed correction
-  const [fixes, setFixes] = useState<Record<number, string>>({})
+  // item index → student's current sentence text (absent = untouched, defaults to item.incorrect)
+  const [answers, setAnswers] = useState<Record<number, string>>({})
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const [activeInputValue, setActiveInputValue] = useState('')
+  const [draftValue, setDraftValue] = useState('')
   const [submitted, setSubmitted] = useState(false)
-  // result per change-segment position after submission
-  const [results, setResults] = useState<Record<number, 'correct' | 'incorrect'>>({})
+  const [results, setResults] = useState<Record<number, boolean>>({})
+  const [score, setScore] = useState(0)
 
   const isCompletedRef = useRef(false)
-  const scoreRef = useRef(0)
   const activityIndexRef = useRef(activityIndex)
   const participantIdRef = useRef(participantId)
   const onCompleteRef = useRef(onComplete)
+  const answersRef = useRef<Record<number, string>>({})
+  const broadcastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { activityIndexRef.current = activityIndex }, [activityIndex])
   useEffect(() => { participantIdRef.current = participantId }, [participantId])
-  useEffect(() => { scoreRef.current = score }, [score])
   useEffect(() => { onCompleteRef.current = onComplete }, [onComplete])
 
-  useEffect(() => {
-    setFixes({})
-    setActiveIndex(null)
-    setActiveInputValue('')
-    setSubmitted(false)
-    setResults({})
-  }, [currentIndex])
+  function getStoredNickname() {
+    try { return JSON.parse(localStorage.getItem(`participant_${sessionId}`) ?? '{}').nickname ?? nickname }
+    catch { return nickname }
+  }
 
-  const finishGameRef = useRef<() => void>(() => {})
+  const broadcastProgress = useCallback((nextAnswers: Record<number, string>) => {
+    channelRef.current?.send({
+      type: 'broadcast', event: 'ctm_progress',
+      payload: {
+        participantId: participantIdRef.current,
+        nickname: getStoredNickname(),
+        activityIndex: activityIndexRef.current,
+        answers: nextAnswers,
+      },
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelRef])
 
-  function finishGame() {
+  useEffect(() => () => { if (broadcastTimerRef.current) clearTimeout(broadcastTimerRef.current) }, [])
+
+  const runCheck = useCallback(() => {
     if (isCompletedRef.current) return
+    if (broadcastTimerRef.current) { clearTimeout(broadcastTimerRef.current); broadcastTimerRef.current = null }
     isCompletedRef.current = true
-    const correct = correctSentences
+
+    const finalAnswers = answersRef.current
+    const newResults: Record<number, boolean> = {}
+    let correct = 0
+    items.forEach((item, i) => {
+      const studentText = normalizeSentence(finalAnswers[i] ?? item.incorrect)
+      const correctText = normalizeSentence(item.correct)
+      const isCorrect = studentText === correctText
+      newResults[i] = isCorrect
+      if (isCorrect) correct++
+    })
+
+    setResults(newResults)
+    setScore(correct)
+    setSubmitted(true)
+    setActiveIndex(null)
+    broadcastProgress(finalAnswers)
+
     const result: IndividualQuizResult = {
       totalCards: items.length,
       correct,
       incorrect: items.length - correct,
-      score: scoreRef.current,
+      score: correct,
     }
     if (participantIdRef.current) {
       createClient().from('participant_progress').upsert({
         session_id: sessionId,
         participant_id: participantIdRef.current,
         activity_index: activityIndexRef.current,
-        score: scoreRef.current,
+        score: correct,
         current_card_index: items.length,
         state: { correct, incorrect: result.incorrect, totalCards: items.length },
         updated_at: new Date().toISOString(),
       }, { onConflict: 'session_id,participant_id,activity_index' }).then(undefined, () => {})
     }
-    const stored = (() => { try { return JSON.parse(localStorage.getItem(`participant_${sessionId}`) ?? '{}') } catch { return {} } })()
     channelRef.current?.send({
       type: 'broadcast', event: 'game_complete',
       payload: {
         ...result, swipes: [],
-        nickname: stored.nickname ?? nickname,
+        nickname: getStoredNickname(),
         participantId: participantIdRef.current,
         ...(isLesson && { activityIndex: activityIndexRef.current }),
       },
     })
     onCompleteRef.current(result)
-  }
-
-  finishGameRef.current = finishGame
-  useEffect(() => { if (hostEnded) finishGameRef.current() }, [hostEnded])
-
-  const handleSubmit = useCallback(() => {
-    if (submitted || isCompletedRef.current) return
-    const item = items[currentIndex]
-    if (!item) return
-    const segments = computeWordDiff(item.incorrect, item.correct)
-    const newResults: Record<number, 'correct' | 'incorrect'> = {}
-    let allFixed = true
-    segments.forEach((seg, segIdx) => {
-      if (seg.type !== 'change') return
-      const fix = (fixes[segIdx] ?? '').trim().toLowerCase()
-      const correctText = seg.cWords.join(' ').toLowerCase()
-      if (fix === correctText) {
-        newResults[segIdx] = 'correct'
-      } else {
-        newResults[segIdx] = 'incorrect'
-        allFixed = false
-      }
-    })
-    const newScore = scoreRef.current + (allFixed ? 1 : 0)
-    scoreRef.current = newScore
-    setScore(newScore)
-    if (allFixed) setCorrectSentences(prev => prev + 1)
-    setResults(newResults)
-    setSubmitted(true)
-    setActiveIndex(null)
-    const stored = (() => { try { return JSON.parse(localStorage.getItem(`participant_${sessionId}`) ?? '{}') } catch { return {} } })()
-    channelRef.current?.send({
-      type: 'broadcast', event: 'question_answer',
-      payload: {
-        participantId: participantIdRef.current,
-        nickname: stored.nickname ?? nickname,
-        questionIndex: currentIndex,
-        correct: allFixed,
-        score: newScore,
-        activityIndex: activityIndexRef.current,
-        ctmFixes: Object.fromEntries(Object.entries(fixes).map(([k, v]) => [k, v])),
-      },
-    })
-    if (participantIdRef.current) {
-      createClient().from('session_events').insert({
-        session_id: sessionId,
-        participant_id: participantIdRef.current,
-        event_type: 'question_answer',
-        payload: {
-          item_id: item.id,
-          question_index: currentIndex,
-          activity_index: activityIndexRef.current,
-          fixes,
-          correct: allFixed,
-        },
-      }).then(undefined, () => {})
-    }
-    setTimeout(() => {
-      const nextIndex = currentIndex + 1
-      if (nextIndex >= items.length) { setTimeout(() => finishGameRef.current(), 300) }
-      else { setCurrentIndex(nextIndex) }
-    }, 1800)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, items, fixes, submitted])
+  }, [items, sessionId, isLesson, broadcastProgress])
 
-  function handleActivate(segIdx: number) {
+  useEffect(() => { if (hostEnded) runCheck() }, [hostEnded, runCheck])
+
+  function handleActivate(i: number) {
     if (submitted) return
-    setActiveIndex(segIdx)
-    setActiveInputValue(fixes[segIdx] ?? '')
+    setActiveIndex(i)
+    setDraftValue(answers[i] ?? items[i]?.incorrect ?? '')
   }
 
-  function handleInputConfirm(segIdx: number) {
-    const trimmed = activeInputValue.trim()
-    setFixes(prev => {
-      if (!trimmed) {
-        const next = { ...prev }
-        delete next[segIdx]
-        return next
-      }
-      return { ...prev, [segIdx]: trimmed }
-    })
+  function handleDraftChange(i: number, value: string) {
+    setDraftValue(value)
+    const next = { ...answersRef.current, [i]: value }
+    answersRef.current = next
+    setAnswers(next)
+    if (broadcastTimerRef.current) clearTimeout(broadcastTimerRef.current)
+    broadcastTimerRef.current = setTimeout(() => broadcastProgress(next), 350)
+  }
+
+  function handleBlur() {
     setActiveIndex(null)
-    setActiveInputValue('')
+    if (broadcastTimerRef.current) { clearTimeout(broadcastTimerRef.current); broadcastTimerRef.current = null }
+    broadcastProgress(answersRef.current)
   }
 
-  const item = items[currentIndex]
-  const segments = item ? computeWordDiff(item.incorrect, item.correct) : []
-  // Only count actual mistake segments as required — tapping a correct word shouldn't unlock Check.
-  const canSubmit = !submitted && segments.some((seg, segIdx) =>
-    seg.type === 'change' && fixes[segIdx] !== undefined && fixes[segIdx] !== '')
+  const correctCount = Object.values(results).filter(Boolean).length
 
   return (
     <div className="flex-1 flex flex-col">
@@ -222,120 +191,101 @@ export function CorrectTheMistakePlayerPanel({
           </div>
         )}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-slate-400">Sentence {currentIndex + 1}/{items.length}</span>
-          <span className="text-lg font-black text-sky-400">{score} pts</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-slate-700 overflow-hidden">
-          <motion.div className="h-full rounded-full bg-sky-500"
-            animate={{ width: `${(currentIndex / items.length) * 100}%` }}
-            transition={{ duration: 0.3 }} />
+          <span className="text-sm text-slate-400">{items.length} sentence{items.length !== 1 ? 's' : ''}</span>
+          {submitted && <span className="text-lg font-black text-sky-400">{score} pts</span>}
         </div>
       </div>
 
       {/* Main */}
-      <div className="flex-1 flex flex-col px-4 py-4 gap-5 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          {item && (
-            <motion.div
-              key={`${activityIndex}-${currentIndex}`}
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -12, scale: 0.96 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-5"
-            >
-              {/* Instruction */}
-              {!submitted && (
-                <p className="text-center text-xs text-slate-400 font-medium">
-                  Find and correct the mistake in this sentence — tap the wrong part and type the correction
-                </p>
-              )}
+      <div className="flex-1 flex flex-col px-4 py-4 gap-4 overflow-y-auto">
+        {!submitted && (
+          <p className="text-center text-xs text-slate-400 font-medium">
+            Tap any sentence to edit it — fix mistakes, or leave it if it's already correct
+          </p>
+        )}
 
-              {/* Sentence */}
-              <div className="bg-slate-800 rounded-3xl border border-slate-700 px-6 py-5 shadow-xl">
-                <SentenceDiffView
-                  segments={segments}
-                  fixes={fixes}
-                  mode={submitted ? 'result' : 'edit'}
-                  activeIndex={activeIndex}
-                  inputValue={activeInputValue}
-                  onActivate={handleActivate}
-                  onInputChange={setActiveInputValue}
-                  onConfirm={handleInputConfirm}
-                  onCancel={() => { setActiveIndex(null); setActiveInputValue('') }}
-                />
-              </div>
+        <div className="space-y-3">
+          {items.map((item, i) => {
+            const isActive = activeIndex === i
+            const currentText = answers[i] ?? item.incorrect
+            const isCorrect = results[i]
 
-              {/* Fixed words summary (before submit) */}
-              {!submitted && Object.keys(fixes).length > 0 && (
-                <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3 space-y-1.5">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Your fixes</p>
-                  {Object.entries(fixes).map(([idxStr, fix]) => {
-                    const idx = Number(idxStr)
-                    const seg = segments[idx]
-                    if (!seg) return null
-                    const before = seg.type === 'change' ? (seg.iWords.join(' ') || '(insert)') : seg.word
-                    return (
-                      <div key={idx} className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="text-slate-500 line-through">{before}</span>
-                        <span className="text-slate-400">→</span>
-                        <span className="text-sky-300 font-semibold">{fix}</span>
+            return (
+              <div key={item.id} className="flex items-start gap-3">
+                <span className="shrink-0 w-6 h-6 mt-0.5 rounded-full bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center">
+                  {i + 1}
+                </span>
+                <div className="flex-1 min-w-0">
+                  {isActive ? (
+                    <input
+                      autoFocus
+                      value={draftValue}
+                      onChange={e => handleDraftChange(i, e.target.value)}
+                      onFocus={e => e.target.select()}
+                      onBlur={handleBlur}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur() }
+                      }}
+                      className="w-full bg-slate-800 border-2 border-sky-400 rounded-lg px-3 py-2
+                        text-sm text-white outline-none"
+                    />
+                  ) : submitted ? (
+                    <motion.div
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                      className={`rounded-lg px-3 py-2 text-sm border ${
+                        isCorrect
+                          ? 'bg-emerald-900/30 border-emerald-600/50 text-emerald-200'
+                          : 'bg-red-900/30 border-red-600/50 text-red-200'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        {isCorrect
+                          ? <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          : <X className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />}
+                        <span>{currentText}</span>
                       </div>
-                    )
-                  })}
+                      {!isCorrect && (
+                        <div className="mt-1.5 pl-6 text-xs text-emerald-400">
+                          Correct: <span className="font-semibold">{item.correct}</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleActivate(i)}
+                      className="w-full text-left text-sm text-slate-100 border-b border-dashed border-slate-600
+                        hover:border-sky-400 hover:text-sky-300 px-1 py-2 transition-colors"
+                    >
+                      {currentText}
+                    </button>
+                  )}
                 </div>
-              )}
-
-              {/* Submit button */}
-              {!submitted && (
-                <button onClick={handleSubmit} disabled={!canSubmit}
-                  className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all
-                    bg-sky-600 hover:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed
-                    text-white active:scale-[0.98] shadow-sm">
-                  Check
-                </button>
-              )}
-
-              {/* Post-submit feedback */}
-              {submitted && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="space-y-2"
-                >
-                  {segments.map((seg, segIdx) => seg.type === 'change' && (
-                    <div key={segIdx} className="flex items-center gap-3 text-sm bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3">
-                      {results[segIdx] === 'correct'
-                        ? <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        : <X className="w-4 h-4 text-red-400 shrink-0" />}
-                      <span className={results[segIdx] === 'correct' ? 'text-emerald-300' : 'text-red-300'}>
-                        <span className="text-slate-400 line-through mr-1">{seg.iWords.join(' ') || '(insert)'}</span>
-                        {results[segIdx] === 'correct'
-                          ? <span className="font-semibold">→ {fixes[segIdx]}</span>
-                          : <>→ <span className="font-semibold text-emerald-400">{seg.cWords.join(' ')}</span></>}
-                      </span>
-                    </div>
-                  ))}
-                </motion.div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex justify-around text-center pt-1">
-          <div>
-            <div className="text-xl font-black text-emerald-400">{correctSentences}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Correct</div>
-          </div>
-          <div>
-            <div className="text-xl font-black text-sky-400">{score}</div>
-            <div className="text-xs text-slate-500 mt-0.5">Points</div>
-          </div>
-          <div>
-            <div className="text-xl font-black text-slate-300">
-              {Math.max(0, items.length - currentIndex - (submitted ? 1 : 0))}
-            </div>
-            <div className="text-xs text-slate-500 mt-0.5">Left</div>
-          </div>
+              </div>
+            )
+          })}
         </div>
+
+        {!submitted && (
+          <button onClick={runCheck}
+            className="w-full py-3.5 rounded-2xl font-bold text-sm transition-all
+              bg-sky-600 hover:bg-sky-500 text-white active:scale-[0.98] shadow-sm">
+            Check
+          </button>
+        )}
+
+        {submitted && (
+          <div className="flex justify-around text-center pt-1">
+            <div>
+              <div className="text-xl font-black text-emerald-400">{correctCount}</div>
+              <div className="text-xs text-slate-500 mt-0.5">Correct</div>
+            </div>
+            <div>
+              <div className="text-xl font-black text-sky-400">{score}</div>
+              <div className="text-xs text-slate-500 mt-0.5">Points</div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

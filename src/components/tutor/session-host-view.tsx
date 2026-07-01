@@ -179,8 +179,7 @@ interface ParticipantGameState {
   gameResult: GameResult | null
   wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
-  ctmLastQuestionIndex?: number // correct_the_mistake: last submitted sentence index
-  ctmFixes?: Record<string, string> // correct_the_mistake: wordIndex → typed fix
+  ctmAnswers?: Record<string, string> // correct_the_mistake: item index → live/final typed sentence
 }
 
 interface Props {
@@ -827,7 +826,6 @@ export function SessionHostView({ session, lesson }: Props) {
         const p = payload as {
           participantId: string; questionIndex: number; correct: boolean; score: number; activityIndex?: number
           wbFills?: (string | null)[]; wbResults?: boolean[]
-          ctmFixes?: Record<string, string>
         }
         if (!p.participantId) return
         setParticipants(prev => prev.map(x => {
@@ -840,9 +838,19 @@ export function SessionHostView({ session, lesson }: Props) {
             totalSwipes: x.totalSwipes + 1,
             ...(p.wbFills !== undefined && { wbFills: p.wbFills }),
             ...(p.wbResults !== undefined && { wbResults: p.wbResults }),
-            ...(p.ctmFixes !== undefined && { ctmLastQuestionIndex: p.questionIndex, ctmFixes: p.ctmFixes }),
           }
         }))
+      })
+      // ── Correct the Mistake individual: live per-sentence answers ───────────
+      .on('broadcast', { event: 'ctm_progress' }, ({ payload }) => {
+        const p = payload as { participantId: string; activityIndex?: number; answers: Record<number, string> }
+        if (!p.participantId) return
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setParticipants(prev => prev.map(x =>
+          x.id === p.participantId
+            ? { ...x, ctmAnswers: Object.fromEntries(Object.entries(p.answers ?? {}).map(([k, v]) => [k, v])) }
+            : x
+        ))
       })
       // ── Activity / game complete (per-participant) ──────────────────────────
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
@@ -1552,6 +1560,7 @@ export function SessionHostView({ session, lesson }: Props) {
           totalSwipes: 0,
           recentSwipes: [],
           gameResult: null,
+          ctmAnswers: undefined,
         })))
         setMirrorCardIndex(0)
         setMirrorFlash(null)
@@ -1774,6 +1783,7 @@ export function SessionHostView({ session, lesson }: Props) {
         totalSwipes: 0,
         recentSwipes: [],
         gameResult: null,
+        ctmAnswers: undefined,
       })))
       setMirrorCardIndex(0)
       setMirrorFlash(null)
