@@ -6,7 +6,7 @@ export interface JigsawReadingItem {
 }
 
 export interface JigsawReadingState {
-  phase: 'claim' | 'read' | 'share' | 'questions'
+  phase: 'claim' | 'read' | 'share' | 'questions' | 'done'
   claims: Record<string, string>  // fragmentIndex (string key) → participantId
   currentQuestionIndex: number
   readTimerDuration: number    // seconds; 0 = manual

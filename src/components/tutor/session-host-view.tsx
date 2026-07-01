@@ -2809,6 +2809,12 @@ export function SessionHostView({ session, lesson }: Props) {
     })
   }
 
+  async function handleJigsawMarkDone() {
+    const cur = jigsawReadingStateRef.current
+    if (!cur) return
+    await jigsawReadingStateUpdate({ ...cur, phase: 'done' })
+  }
+
   async function handleJigsawSetReadTimer(seconds: number) {
     const cur = jigsawReadingStateRef.current
     if (!cur) return
@@ -3932,7 +3938,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onSetReadTimer={handleJigsawSetReadTimer}
                 onSetShareTimer={handleJigsawSetShareTimer}
                 onTimerExpired={handleJigsawTimerExpired}
-                onFinish={handleEndGame}
+                onMarkDone={handleJigsawMarkDone}
               />
             )}
 

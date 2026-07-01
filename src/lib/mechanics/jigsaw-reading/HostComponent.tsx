@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
-import { Play, ChevronRight, StopCircle, Timer, Eye, EyeOff } from 'lucide-react'
+import { Play, ChevronRight, StopCircle, Timer, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { JigsawReadingState, JigsawReadingItem } from './types'
 import { computeTimeLeft } from './types'
@@ -25,8 +25,8 @@ const SHARE_TIMER_OPTIONS = [
   { label: 'Manual', value: 0 },
 ]
 
-function PhaseBar({ phase }: { phase: 'claim' | 'read' | 'share' | 'questions' }) {
-  const phases: Array<{ id: typeof phase; label: string }> = [
+function PhaseBar({ phase }: { phase: 'claim' | 'read' | 'share' | 'questions' | 'done' }) {
+  const phases = [
     { id: 'claim',     label: '1. Claim' },
     { id: 'read',      label: '2. Read' },
     { id: 'share',     label: '3. Share' },
@@ -35,7 +35,11 @@ function PhaseBar({ phase }: { phase: 'claim' | 'read' | 'share' | 'questions' }
   return (
     <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs font-semibold">
       {phases.map((p, i) => (
-        <div key={p.id} className={`flex-1 text-center py-2 ${p.id === phase ? 'bg-violet-600 text-white' : 'bg-white text-slate-400'} ${i > 0 ? 'border-l border-slate-200' : ''}`}>
+        <div key={p.id} className={`flex-1 text-center py-2 ${
+          phase === 'done' ? 'bg-emerald-500 text-white'
+          : p.id === phase ? 'bg-violet-600 text-white'
+          : 'bg-white text-slate-400'
+        } ${i > 0 ? 'border-l border-slate-200' : ''}`}>
           {p.label}
         </div>
       ))}
@@ -81,7 +85,7 @@ export interface JigsawReadingHostPanelProps {
   onSetReadTimer: (seconds: number) => Promise<void>
   onSetShareTimer: (seconds: number) => Promise<void>
   onTimerExpired: () => Promise<void>
-  onFinish: () => void
+  onMarkDone: () => Promise<void>
 }
 
 export function JigsawReadingHostPanel({
@@ -89,7 +93,7 @@ export function JigsawReadingHostPanel({
   isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
   onStartReading, onStartSharing, onStartTimer, onStartQuestions, onNextQuestion,
-  onSetReadTimer, onSetShareTimer, onTimerExpired, onFinish,
+  onSetReadTimer, onSetShareTimer, onTimerExpired, onMarkDone,
 }: JigsawReadingHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
   const [timeUp, setTimeUp] = useState(false)
@@ -118,6 +122,42 @@ export function JigsawReadingHostPanel({
   const currentQuestion = state.questions[state.currentQuestionIndex] ?? null
   const currentAnswer = state.suggestedAnswers[state.currentQuestionIndex] ?? null
   const claimedCount = Object.keys(state.claims).length
+
+  // ── Done phase ───────────────────────────────────────────────────────────────
+  if (state.phase === 'done') {
+    return (
+      <div className="space-y-4">
+        <PhaseBar phase="done" />
+
+        <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6 text-center space-y-2">
+          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+          <p className="text-lg font-black text-emerald-800">Activity Complete!</p>
+          <p className="text-sm text-emerald-600">All discussion questions covered.</p>
+        </div>
+
+        <div className="flex gap-2">
+          <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy || isAdvancing}
+            className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors disabled:opacity-40">
+            <StopCircle className="w-4 h-4" />{isLesson ? 'End lesson' : 'End game'}
+          </button>
+          {isLesson ? (
+            <button onClick={onNextActivity} disabled={isAdvancing}
+              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white font-bold text-sm transition-colors disabled:opacity-40 ${isLastActivity ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-violet-600 hover:bg-violet-700'}`}>
+              <ChevronRight className="w-4 h-4" />
+              {isAdvancing ? (isLastActivity ? 'Finishing…' : 'Loading…') : isLastActivity ? 'Finish lesson!' : 'Next activity →'}
+            </button>
+          ) : (
+            <button onClick={onNextActivity} disabled={isAdvancing}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm transition-colors disabled:opacity-40">
+              <ChevronRight className="w-4 h-4" />{isAdvancing ? 'Loading…' : 'Next activity →'}
+            </button>
+          )}
+        </div>
+
+        <FragmentList items={items} participants={participants} claims={state.claims} />
+      </div>
+    )
+  }
 
   // ── Questions phase ──────────────────────────────────────────────────────────
   if (state.phase === 'questions') {
@@ -160,6 +200,12 @@ export function JigsawReadingHostPanel({
             <button onClick={wrap(onNextQuestion)} disabled={isBusy}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-bold text-sm transition-colors disabled:opacity-40">
               <ChevronRight className="w-4 h-4" />Next question
+            </button>
+          )}
+          {isLastQuestion && (
+            <button onClick={wrap(onMarkDone)} disabled={isBusy}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors disabled:opacity-40">
+              <CheckCircle2 className="w-4 h-4" />Finish Activity
             </button>
           )}
           <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
