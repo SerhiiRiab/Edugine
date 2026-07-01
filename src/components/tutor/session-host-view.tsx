@@ -2934,6 +2934,12 @@ export function SessionHostView({ session, lesson }: Props) {
       .catch(() => {})
   }
 
+  async function handlePredictVerifyMarkDone() {
+    const cur = predictVerifyStateRef.current
+    if (!cur) return
+    await predictVerifyStateUpdate({ ...cur, phase: 'done' })
+  }
+
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -3963,6 +3969,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onSetPredictTimer={handlePredictVerifySetPredictTimer}
                 onSetReadTimer={handlePredictVerifySetReadTimer}
                 onSetPredictionMode={handlePredictVerifySetMode}
+                onMarkDone={handlePredictVerifyMarkDone}
               />
             )}
 

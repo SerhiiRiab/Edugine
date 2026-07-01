@@ -11,7 +11,7 @@ export interface PredictVerifyItem {
 }
 
 export interface PredictVerifyState {
-  phase: 'predict' | 'read' | 'discuss'
+  phase: 'predict' | 'read' | 'discuss' | 'done'
   currentArticleIndex: number
   predictionMode: PredictionMode
   predictTimerDuration: number    // seconds; 0 = manual
