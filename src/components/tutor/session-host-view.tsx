@@ -40,7 +40,7 @@ import { WordBankSharedPlayerPanel } from '@/lib/mechanics/word-bank/PlayerCompo
 import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
 import { WordChoiceIndividualHostPanel, WordChoiceSharedHostPanel } from '@/lib/mechanics/word-choice/HostComponent'
 import { WordChoiceSharedPlayerPanel } from '@/lib/mechanics/word-choice/PlayerComponent'
-import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
+import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
 import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel } from '@/lib/mechanics/correct-the-mistake/HostComponent'
 import { CorrectTheMistakeSharedPlayerPanel } from '@/lib/mechanics/correct-the-mistake/PlayerComponent'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
@@ -179,7 +179,10 @@ interface ParticipantGameState {
   gameResult: GameResult | null
   wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
-  ctmAnswers?: Record<string, string> // correct_the_mistake: item index → live/final typed sentence
+  ctmAnswerIndex?: number       // correct_the_mistake individual: sentence index the fields below apply to
+  ctmAnswerText?: string        // correct_the_mistake individual: live/checked text for that sentence
+  ctmChecked?: boolean          // correct_the_mistake individual: has the student checked this sentence yet
+  ctmCorrect?: boolean          // correct_the_mistake individual: result once checked
 }
 
 interface Props {
@@ -276,6 +279,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
   // Correct the Mistake shared state (correct_the_mistake in shared mode)
   const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
+  // Correct the Mistake individual state (host-paced, one sentence at a time)
+  const [ctmIndividualState, setCtmIndividualState] = useState<CorrectTheMistakeIndividualState | null>(null)
   // Debate Roulette state
   const [debateRouletteState, setDebateRouletteState] = useState<DebateRouletteState | null>(null)
 
@@ -333,6 +338,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
   const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
   const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
+  const ctmIndividualStateRef = useRef<CorrectTheMistakeIndividualState | null>(null)
   const debateRouletteStateRef = useRef<DebateRouletteState | null>(null)
   const contentBlockStateRef = useRef<ContentBlockState | null>(null)
   const hiddenRoleStateRef = useRef<HiddenRoleState | null>(null)
@@ -355,6 +361,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
   useEffect(() => { wordChoiceSharedStateRef.current = wordChoiceSharedState }, [wordChoiceSharedState])
   useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
+  useEffect(() => { ctmIndividualStateRef.current = ctmIndividualState }, [ctmIndividualState])
   useEffect(() => { debateRouletteStateRef.current = debateRouletteState }, [debateRouletteState])
   useEffect(() => { contentBlockStateRef.current = contentBlockState }, [contentBlockState])
   useEffect(() => { hiddenRoleStateRef.current = hiddenRoleState }, [hiddenRoleState])
@@ -668,6 +675,19 @@ export function SessionHostView({ session, lesson }: Props) {
             setCtmSharedState(stateRow.state as unknown as CorrectTheMistakeSharedState)
           }
         }
+
+        // Restore correct_the_mistake individual (host-paced) state from DB on tab restore / reconnect
+        if (currentMechanic === 'correct_the_mistake' && currentActivityMode !== 'shared' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'currentIndex' in (stateRow.state as Record<string, unknown>)) {
+            setCtmIndividualState(stateRow.state as unknown as CorrectTheMistakeIndividualState)
+          }
+        }
       } catch { /* participants will be populated via presence on reconnect */ }
     }
     load()
@@ -841,14 +861,17 @@ export function SessionHostView({ session, lesson }: Props) {
           }
         }))
       })
-      // ── Correct the Mistake individual: live per-sentence answers ───────────
-      .on('broadcast', { event: 'ctm_progress' }, ({ payload }) => {
-        const p = payload as { participantId: string; activityIndex?: number; answers: Record<number, string> }
+      // ── Correct the Mistake individual: live answer for the current sentence ─
+      .on('broadcast', { event: 'ctm_individual_answer' }, ({ payload }) => {
+        const p = payload as {
+          participantId: string; activityIndex?: number
+          sentenceIndex: number; text: string; checked: boolean; correct?: boolean
+        }
         if (!p.participantId) return
         if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
         setParticipants(prev => prev.map(x =>
           x.id === p.participantId
-            ? { ...x, ctmAnswers: Object.fromEntries(Object.entries(p.answers ?? {}).map(([k, v]) => [k, v])) }
+            ? { ...x, ctmAnswerIndex: p.sentenceIndex, ctmAnswerText: p.text, ctmChecked: p.checked, ctmCorrect: p.correct }
             : x
         ))
       })
@@ -950,6 +973,10 @@ export function SessionHostView({ session, lesson }: Props) {
       .on('broadcast', { event: 'ctm_state_update' }, ({ payload }) => {
         const p = payload as { state: CorrectTheMistakeSharedState }
         if (p.state) setCtmSharedState(p.state)
+      })
+      .on('broadcast', { event: 'ctm_individual_state_update' }, ({ payload }) => {
+        const p = payload as { state: CorrectTheMistakeIndividualState }
+        if (p.state) setCtmIndividualState(p.state)
       })
       .on('broadcast', { event: 'debate_roulette_state_update' }, ({ payload }) => {
         const p = payload as { state: DebateRouletteState }
@@ -1374,6 +1401,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newWordBankSharedState: WordBankSharedState | undefined
         let newWordChoiceSharedState: WordChoiceSharedState | undefined
         let newCtmSharedState: CorrectTheMistakeSharedState | undefined
+        let newCtmIndividualState: CorrectTheMistakeIndividualState | undefined
         let newDebateRouletteState: DebateRouletteState | undefined
         let newHiddenRoleState: HiddenRoleState | undefined
         let newMissionBriefingState: MissionBriefingState | undefined
@@ -1447,7 +1475,18 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setCtmSharedState(newCtmSharedState)
+          setCtmIndividualState(null)
           setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+        } else if (firstActivity?.mechanic_id === 'correct_the_mistake' && firstActivity?.mode !== 'shared') {
+          newCtmIndividualState = { currentIndex: 0, phase: 'playing' }
+          const supabase = createClient()
+          await supabase.from('shared_activity_state').upsert({
+            session_id: session.id, activity_index: currentActivityIndex,
+            state: newCtmIndividualState as unknown as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          setCtmIndividualState(newCtmIndividualState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'debate_roulette') {
           newDebateRouletteState = await initDebateRouletteState(session.id, currentActivityIndex)
           setDebateRouletteState(newDebateRouletteState)
@@ -1535,6 +1574,7 @@ export function SessionHostView({ session, lesson }: Props) {
             wordBankSharedState: newWordBankSharedState,
             wordChoiceSharedState: newWordChoiceSharedState,
             ctmSharedState: newCtmSharedState,
+            ctmIndividualState: newCtmIndividualState,
             debateRouletteState: newDebateRouletteState,
             hiddenRoleState: newHiddenRoleState,
             missionBriefingState: newMissionBriefingState,
@@ -1595,6 +1635,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newWordBankSharedState: WordBankSharedState | undefined
       let newWordChoiceSharedState: WordChoiceSharedState | undefined
       let newCtmSharedState: CorrectTheMistakeSharedState | undefined
+      let newCtmIndividualState: CorrectTheMistakeIndividualState | undefined
       let newDebateRouletteState: DebateRouletteState | undefined
       let newHiddenRoleState: HiddenRoleState | undefined
       let newMissionBriefingState: MissionBriefingState | undefined
@@ -1671,7 +1712,18 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setCtmSharedState(newCtmSharedState)
+        setCtmIndividualState(null)
         setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+      } else if (nextActivity?.mechanic_id === 'correct_the_mistake' && nextActivity?.mode !== 'shared') {
+        newCtmIndividualState = { currentIndex: 0, phase: 'playing' }
+        const supabase = createClient()
+        await supabase.from('shared_activity_state').upsert({
+          session_id: session.id, activity_index: nextIndex,
+          state: newCtmIndividualState as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        })
+        setCtmIndividualState(newCtmIndividualState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'debate_roulette') {
         newDebateRouletteState = await initDebateRouletteState(session.id, nextIndex)
         setDebateRouletteState(newDebateRouletteState)
@@ -1757,6 +1809,7 @@ export function SessionHostView({ session, lesson }: Props) {
           wordBankSharedState: newWordBankSharedState,
           wordChoiceSharedState: newWordChoiceSharedState,
           ctmSharedState: newCtmSharedState,
+          ctmIndividualState: newCtmIndividualState,
           debateRouletteState: newDebateRouletteState,
           hiddenRoleState: newHiddenRoleState,
           missionBriefingState: newMissionBriefingState,
@@ -2082,6 +2135,23 @@ export function SessionHostView({ session, lesson }: Props) {
     setCtmSharedState(newState)
     channelRef.current?.send({
       type: 'broadcast', event: 'ctm_state_update', payload: { state: newState },
+    })
+  }
+
+  async function handleCtmIndividualNext() {
+    if (!ctmIndividualState || ctmIndividualState.phase === 'done') return
+    const nextIndex = ctmIndividualState.currentIndex + 1
+    const newState: CorrectTheMistakeIndividualState = nextIndex >= currentActivityItems.length
+      ? { ...ctmIndividualState, phase: 'done' }
+      : { currentIndex: nextIndex, phase: 'playing' }
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setCtmIndividualState(newState)
+    channelRef.current?.send({
+      type: 'broadcast', event: 'ctm_individual_state_update', payload: { state: newState },
     })
   }
 
@@ -4118,14 +4188,15 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── CORRECT THE MISTAKE — individual mode ────────────────── */}
-            {currentMechanicId === 'correct_the_mistake' && currentActivityMode !== 'shared' && (
+            {currentMechanicId === 'correct_the_mistake' && currentActivityMode !== 'shared' && ctmIndividualState && (
               <CorrectTheMistakeIndividualHostPanel
+                state={ctmIndividualState}
                 participants={participants}
                 items={currentActivityItems.map(i => ({ id: i.id, incorrect: i.incorrect ?? '', correct: i.correct ?? '' }))}
-                totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
                 isLesson={isLesson}
+                onNextSentence={handleCtmIndividualNext}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onEndGame={handleEndGame}

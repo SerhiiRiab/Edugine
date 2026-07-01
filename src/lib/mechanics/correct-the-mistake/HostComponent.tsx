@@ -26,7 +26,10 @@ interface HostParticipant {
   nickname: string
   online: boolean
   gameResult: { correct: number; incorrect: number; totalCards: number; score: number } | null
-  ctmAnswers?: Record<string, string>
+  ctmAnswerIndex?: number
+  ctmAnswerText?: string
+  ctmChecked?: boolean
+  ctmCorrect?: boolean
 }
 
 interface CTMItem {
@@ -39,36 +42,91 @@ const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-ro
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 // ── Individual Host Panel ─────────────────────────────────────────────────────
-// Mirrors the student's numbered sentence list live: text updates as they type,
-// then colors green/red once they've checked (gameResult set).
+// Host-paced: one sentence at a time, synced to every student. The host sees
+// each student's live answer for the CURRENT sentence and decides when to move
+// on with "Next Sentence" — no need to wait for everyone. Once the last sentence
+// is passed (phase 'done'), results are shown and Next/Finish Activity unlocks.
 
 export interface CorrectTheMistakeIndividualHostPanelProps {
+  state: CorrectTheMistakeIndividualState
   participants: HostParticipant[]
   items: CTMItem[]
-  totalItems: number
   isLastActivity: boolean
   isAdvancing: boolean
   isLesson: boolean
+  onNextSentence: () => void
   onNextActivity: () => void
   onEndLesson: () => void
   onEndGame: () => void
 }
 
 export function CorrectTheMistakeIndividualHostPanel({
-  participants, items, totalItems, isLastActivity, isAdvancing, isLesson,
-  onNextActivity, onEndLesson, onEndGame,
+  state, participants, items, isLastActivity, isAdvancing, isLesson,
+  onNextSentence, onNextActivity, onEndLesson, onEndGame,
 }: CorrectTheMistakeIndividualHostPanelProps) {
+  const { currentIndex, phase } = state
+
+  // ── Done phase — results + Next/Finish Activity ─────────────────────────────
+  if (phase === 'done') {
+    const doneCount = participants.filter(p => p.gameResult !== null).length
+    return (
+      <div className="space-y-4">
+        <div className="bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-6 text-center space-y-2">
+          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+          <p className="text-lg font-black text-emerald-800">All sentences complete!</p>
+          <p className="text-sm text-emerald-600">{doneCount}/{participants.length} student{participants.length !== 1 ? 's' : ''} finished</p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {participants.map((p, i) => (
+            <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 ${avatarBg(i)}`}>
+                {p.nickname[0].toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-slate-800 truncate text-sm">{p.nickname}</p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {p.gameResult ? `${p.gameResult.correct}/${p.gameResult.totalCards} correct` : 'not finished'}
+                </p>
+              </div>
+              <p className="text-lg font-black text-violet-600 tabular-nums shrink-0">{p.gameResult?.score ?? 0}</p>
+            </div>
+          ))}
+          {participants.length === 0 && (
+            <div className="sm:col-span-2 bg-white rounded-2xl border border-slate-200 p-8 flex flex-col items-center gap-3">
+              <Users className="w-8 h-8 text-slate-300" />
+              <p className="text-slate-400 text-sm">No participants yet</p>
+            </div>
+          )}
+        </div>
+
+        <HostControls isLesson={isLesson} isLastActivity={isLastActivity} isAdvancing={isAdvancing}
+          onNextActivity={onNextActivity} onEndLesson={onEndLesson} onEndGame={onEndGame} />
+      </div>
+    )
+  }
+
+  // ── Playing phase — current sentence + live student answers ─────────────────
+  const item = items[currentIndex]
+  const isLastSentence = currentIndex >= items.length - 1
+
   return (
     <div className="space-y-4">
+      <div className="bg-white rounded-2xl border-2 border-violet-200 p-5 text-center space-y-1">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-violet-500">
+          Sentence {currentIndex + 1} of {items.length}
+        </p>
+        <p className="text-xl font-black text-slate-900 leading-snug">{item?.incorrect ?? '—'}</p>
+      </div>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {participants.map((p, i) => {
-          const done = p.gameResult !== null
-          const answers = p.ctmAnswers ?? {}
-          const editedCount = Object.keys(answers).length
+          const onCurrentSentence = p.ctmAnswerIndex === currentIndex
+          const text = onCurrentSentence ? p.ctmAnswerText : undefined
+          const checked = onCurrentSentence && p.ctmChecked === true
 
           return (
-            <div key={p.id} className={`bg-white rounded-2xl border p-4 space-y-3 transition-all ${done ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200'}`}>
-              {/* Header */}
+            <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-4 space-y-2">
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 ${avatarBg(i)}`}>
                   {p.nickname[0].toUpperCase()}
@@ -76,52 +134,24 @@ export function CorrectTheMistakeIndividualHostPanel({
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-800 truncate text-sm">{p.nickname}</p>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    {done
-                      ? <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Done</span>
-                      : `${editedCount}/${totalItems} edited`}
+                    {checked
+                      ? <span className="text-emerald-600 font-semibold flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Checked</span>
+                      : 'Working…'}
                   </p>
                 </div>
-                <div className="text-right shrink-0">
-                  <p className="text-lg font-black text-violet-600 tabular-nums">{p.gameResult?.score ?? 0}</p>
-                  <p className="text-xs text-slate-400">pts</p>
-                </div>
-              </div>
-
-              {/* Live sentence mirror */}
-              {items.length > 0 && (
-                <ErrorBoundary fallback="Couldn't preview this student's answers.">
-                  <div className="space-y-1 bg-slate-50 rounded-xl px-3 py-2.5">
-                    {items.map((item, idx) => {
-                      const typed = answers[String(idx)]
-                      const displayText = typed !== undefined ? typed : (done ? item.incorrect : null)
-                      const isCorrect = done
-                        ? normalizeSentence(typed ?? item.incorrect) === normalizeSentence(item.correct)
-                        : null
-                      return (
-                        <div key={item.id} className="flex items-start gap-2 text-xs">
-                          <span className="shrink-0 text-slate-400 font-semibold">{idx + 1}.</span>
-                          {displayText === null ? (
-                            <span className="text-slate-300 italic">not started</span>
-                          ) : (
-                            <span className={
-                              isCorrect === true ? 'text-emerald-600 font-medium'
-                                : isCorrect === false ? 'text-red-600 font-medium'
-                                  : 'text-slate-500'
-                            }>
-                              {displayText}
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </ErrorBoundary>
-              )}
-
-              <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full shrink-0 ${p.online ? 'bg-emerald-400' : 'bg-slate-300'}`} />
-                <span className="text-xs text-slate-400">{p.online ? 'Live' : 'Disconnected'}</span>
               </div>
+              <ErrorBoundary fallback="Couldn't preview this answer.">
+                <div className={`text-xs rounded-lg px-3 py-2 ${
+                  text === undefined
+                    ? 'bg-slate-50 text-slate-300 italic'
+                    : checked
+                      ? (p.ctmCorrect ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700')
+                      : 'bg-slate-50 text-slate-500'
+                }`}>
+                  {text === undefined ? 'not started' : text}
+                </div>
+              </ErrorBoundary>
             </div>
           )
         })}
@@ -132,8 +162,22 @@ export function CorrectTheMistakeIndividualHostPanel({
           </div>
         )}
       </div>
-      <HostControls isLesson={isLesson} isLastActivity={isLastActivity} isAdvancing={isAdvancing}
-        onNextActivity={onNextActivity} onEndLesson={onEndLesson} onEndGame={onEndGame} />
+
+      <div className="flex gap-3">
+        <button onClick={onEndGame} disabled={isAdvancing}
+          className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl
+            border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
+            hover:text-red-600 text-slate-400 text-sm font-semibold disabled:opacity-50 transition-colors"
+        >
+          <StopCircle className="w-4 h-4" />End Activity
+        </button>
+        <button onClick={onNextSentence} disabled={isAdvancing}
+          className="flex-1 flex items-center justify-center gap-2 bg-violet-600
+            hover:bg-violet-700 disabled:opacity-50 text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-sm"
+        >
+          {isLastSentence ? 'Show results →' : 'Next sentence →'}
+        </button>
+      </div>
     </div>
   )
 }

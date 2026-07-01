@@ -23,7 +23,7 @@ import type { WordBankSharedState } from '@/lib/mechanics/word-bank/types'
 import { WordBankPlayerPanel, WordBankSharedPlayerPanel } from '@/lib/mechanics/word-bank/PlayerComponent'
 import type { WordChoiceSharedState } from '@/lib/mechanics/word-choice/types'
 import { WordChoicePlayerPanel, WordChoiceSharedPlayerPanel } from '@/lib/mechanics/word-choice/PlayerComponent'
-import type { CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
+import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
 import { CorrectTheMistakePlayerPanel, CorrectTheMistakeSharedPlayerPanel } from '@/lib/mechanics/correct-the-mistake/PlayerComponent'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRoulettePlayerPanel } from '@/lib/mechanics/debate-roulette/PlayerComponent'
@@ -173,6 +173,7 @@ export function PlayerView({ session, lesson }: Props) {
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
   const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
+  const [ctmIndividualState, setCtmIndividualState] = useState<CorrectTheMistakeIndividualState | null>(null)
   const [debateRouletteState, setDebateRouletteState] = useState<DebateRouletteState | null>(null)
   const [hiddenRoleState, setHiddenRoleState] = useState<HiddenRoleState | null>(null)
 
@@ -342,6 +343,24 @@ export function PlayerView({ session, lesson }: Props) {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, ctmSharedState])
+
+  // ── Correct the Mistake individual (host-paced): fetch from DB on reconnect ─
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'correct_the_mistake' || currentActivity?.mode === 'shared' || ctmIndividualState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'currentIndex' in (data.state as Record<string, unknown>)) {
+          setCtmIndividualState(data.state as unknown as CorrectTheMistakeIndividualState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, ctmIndividualState])
 
   // ── Debate Roulette: fetch from DB on reconnect ───────────────────────────────
   useEffect(() => {
@@ -672,7 +691,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -684,6 +703,7 @@ export function PlayerView({ session, lesson }: Props) {
         setWordBankSharedState(p.wordBankSharedState ?? null)
         setWordChoiceSharedState(p.wordChoiceSharedState ?? null)
         setCtmSharedState(p.ctmSharedState ?? null)
+        setCtmIndividualState(p.ctmIndividualState ?? null)
         setDebateRouletteState(p.debateRouletteState ?? null)
         setHiddenRoleState(p.hiddenRoleState ?? null)
         setMissionBriefingState(p.missionBriefingState ?? null)
@@ -718,7 +738,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -728,6 +748,7 @@ export function PlayerView({ session, lesson }: Props) {
         setWordBankSharedState(p.wordBankSharedState ?? null)
         setWordChoiceSharedState(p.wordChoiceSharedState ?? null)
         setCtmSharedState(p.ctmSharedState ?? null)
+        setCtmIndividualState(p.ctmIndividualState ?? null)
         setDebateRouletteState(p.debateRouletteState ?? null)
         setHiddenRoleState(p.hiddenRoleState ?? null)
         setMissionBriefingState(p.missionBriefingState ?? null)
@@ -753,6 +774,10 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'ctm_state_update' }, ({ payload }) => {
         const p = payload as { state: CorrectTheMistakeSharedState }
         if (p.state) setCtmSharedState(p.state)
+      })
+      .on('broadcast', { event: 'ctm_individual_state_update' }, ({ payload }) => {
+        const p = payload as { state: CorrectTheMistakeIndividualState }
+        if (p.state) setCtmIndividualState(p.state)
       })
       .on('broadcast', { event: 'debate_roulette_state_update' }, ({ payload }) => {
         const p = payload as { state: DebateRouletteState }
@@ -1466,21 +1491,30 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
-          {/* Correct the Mistake — individual mode */}
+          {/* Correct the Mistake — individual mode (host-paced) */}
           {currentMechanicId === 'correct_the_mistake' && currentActivity?.mode !== 'shared' && participantId && (
-            <CorrectTheMistakePlayerPanel
-              sessionId={session.id}
-              activityIndex={currentActivityIndex}
-              participantId={participantId}
-              nickname={nickname}
-              items={currentItems.map(i => ({ id: i.id, incorrect: i.incorrect ?? '', correct: i.correct ?? '' }))}
-              channelRef={channelRef}
-              isLesson={isLesson}
-              hostEnded={hostEnded}
-              accumulatedScore={totalScore}
-              totalActivities={isLesson ? lesson.activities.length : 1}
-              onComplete={handlePanelComplete}
-            />
+            ctmIndividualState
+              ? (
+                <CorrectTheMistakePlayerPanel
+                  sessionId={session.id}
+                  activityIndex={currentActivityIndex}
+                  participantId={participantId}
+                  nickname={nickname}
+                  items={currentItems.map(i => ({ id: i.id, incorrect: i.incorrect ?? '', correct: i.correct ?? '' }))}
+                  channelRef={channelRef}
+                  individualState={ctmIndividualState}
+                  isLesson={isLesson}
+                  hostEnded={hostEnded}
+                  accumulatedScore={totalScore}
+                  totalActivities={isLesson ? lesson.activities.length : 1}
+                  onComplete={handlePanelComplete}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading…</p>
+                </div>
+              )
           )}
 
           {/* Correct the Mistake — shared mode */}

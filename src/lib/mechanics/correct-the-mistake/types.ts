@@ -7,8 +7,11 @@ export interface CorrectTheMistakeItem {
   correct: string
 }
 
+// Individual mode — host-paced, one sentence at a time. Every student edits/checks
+// their own answer for the current sentence; the host advances everyone together.
 export interface CorrectTheMistakeIndividualState {
-  phase: 'waiting' | 'playing' | 'finished'
+  currentIndex: number
+  phase: 'playing' | 'done'
 }
 
 // Shared collaborative mode — all students fix sentences together live
