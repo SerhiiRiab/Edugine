@@ -54,12 +54,15 @@ export interface SwipeBattleHostPanelProps {
   elapsed: number
   isEnding: boolean
   isLesson: boolean
+  isLastActivity: boolean
+  isAdvancing: boolean
   selectedParticipantId: string | null
   onSelectParticipant: (id: string) => void
   mirrorCardIndex: number
   mirrorFlash: 'correct' | 'wrong' | null
   mirrorTimeLeft: number
   mirrorExitDir: 'left' | 'right'
+  onNextActivity: () => void
   onEndGame: () => void
   onEndLesson: () => void
 }
@@ -108,12 +111,15 @@ export function SwipeBattleHostPanel({
   elapsed,
   isEnding,
   isLesson,
+  isLastActivity,
+  isAdvancing,
   selectedParticipantId,
   onSelectParticipant,
   mirrorCardIndex,
   mirrorFlash,
   mirrorTimeLeft,
   mirrorExitDir,
+  onNextActivity,
   onEndGame,
   onEndLesson,
 }: SwipeBattleHostPanelProps) {
@@ -321,6 +327,8 @@ export function SwipeBattleHostPanel({
                   ? Math.round((p.correctCount / p.totalSwipes) * 100)
                   : 0
                 const isSelected = p.id === selectedParticipantId
+                const done = p.cardIndex >= currentActivityItems.length
+                const currentCard = !done ? currentActivityItems[p.cardIndex] : undefined
                 return (
                   <button
                     key={p.id}
@@ -358,6 +366,17 @@ export function SwipeBattleHostPanel({
                     {p.totalSwipes > 0 && (
                       <div className="mt-1 text-xs text-slate-400">
                         {accuracy}% accuracy
+                      </div>
+                    )}
+                    {currentCard !== undefined && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
+                        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Student sees</p>
+                        <p className="text-xs text-slate-700 truncate">
+                          {currentCard.word} <span className="text-slate-400">→</span> {currentCard.translation}
+                        </p>
+                        <p className={`text-[10px] font-semibold ${currentCard.isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                          {currentCard.isCorrect ? '✓ Correct pair' : '✗ Wrong pair'}
+                        </p>
                       </div>
                     )}
                   </button>
@@ -512,17 +531,54 @@ export function SwipeBattleHostPanel({
             </div>
           )}
 
-          <button
-            onClick={isLesson ? onEndLesson : onEndGame}
-            disabled={isEnding}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
-              border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
-              hover:text-red-600 text-slate-400 text-sm font-semibold
-              disabled:opacity-50 transition-colors"
-          >
-            <StopCircle className="w-4 h-4" />
-            {isEnding ? 'Ending...' : isLesson ? 'End lesson' : 'End game'}
-          </button>
+          {isLesson ? (
+            <div className="flex gap-3">
+              <button
+                onClick={onEndLesson}
+                disabled={isEnding || isAdvancing}
+                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl
+                  border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
+                  hover:text-red-600 text-slate-400 text-sm font-semibold
+                  disabled:opacity-50 transition-colors"
+              >
+                <StopCircle className="w-4 h-4" />
+                End lesson
+              </button>
+              {!isLastActivity ? (
+                <button
+                  onClick={onNextActivity}
+                  disabled={isAdvancing}
+                  className="flex-1 flex items-center justify-center gap-2 bg-violet-600
+                    hover:bg-violet-700 disabled:opacity-50 text-white font-bold
+                    py-3 rounded-xl text-sm transition-colors shadow-sm"
+                >
+                  {isAdvancing ? 'Loading...' : 'Next activity →'}
+                </button>
+              ) : (
+                <button
+                  onClick={onEndLesson}
+                  disabled={isAdvancing}
+                  className="flex-1 flex items-center justify-center gap-2 bg-emerald-500
+                    hover:bg-emerald-600 disabled:opacity-50 text-white font-bold
+                    py-3 rounded-xl text-sm transition-colors shadow-sm"
+                >
+                  {isAdvancing ? 'Finishing...' : 'Finish lesson!'}
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={onEndGame}
+              disabled={isEnding}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
+                border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
+                hover:text-red-600 text-slate-400 text-sm font-semibold
+                disabled:opacity-50 transition-colors"
+            >
+              <StopCircle className="w-4 h-4" />
+              {isEnding ? 'Ending...' : 'End game'}
+            </button>
+          )}
         </div>
       </div>
     </>

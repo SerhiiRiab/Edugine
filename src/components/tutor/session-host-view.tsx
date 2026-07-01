@@ -4527,12 +4527,15 @@ export function SessionHostView({ session, lesson }: Props) {
                 elapsed={elapsed}
                 isEnding={isEnding}
                 isLesson={isLesson}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
                 selectedParticipantId={selectedParticipantId}
                 onSelectParticipant={setSelectedParticipantId}
                 mirrorCardIndex={mirrorCardIndex}
                 mirrorFlash={mirrorFlash}
                 mirrorTimeLeft={mirrorTimeLeft}
                 mirrorExitDir={mirrorExitDir}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndGame={handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
               />
