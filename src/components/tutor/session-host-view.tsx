@@ -177,6 +177,7 @@ interface ParticipantGameState {
   totalSwipes: number
   recentSwipes: SwipeRecord[]
   gameResult: GameResult | null
+  answers?: Record<number, boolean | number>  // true_false/multiple_choice individual: choice per questionIndex
   wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
   ctmAnswerIndex?: number       // correct_the_mistake individual: sentence index the fields below apply to
@@ -410,6 +411,7 @@ export function SessionHostView({ session, lesson }: Props) {
             totalSwipes: 0,
             recentSwipes: [],
             gameResult: null,
+            answers: {},
           })))
           if (data.length === 1) setSelectedParticipantId(data[0].id)
         }
@@ -780,6 +782,7 @@ export function SessionHostView({ session, lesson }: Props) {
               totalSwipes: 0,
               recentSwipes: [],
               gameResult: null,
+              answers: {},
             }
             const updated = [...prev, newEntry]
             // Auto-select if this is the first (and only) participant
@@ -845,6 +848,7 @@ export function SessionHostView({ session, lesson }: Props) {
       .on('broadcast', { event: 'question_answer' }, ({ payload }) => {
         const p = payload as {
           participantId: string; questionIndex: number; correct: boolean; score: number; activityIndex?: number
+          choice?: boolean | number
           wbFills?: (string | null)[]; wbResults?: boolean[]
         }
         if (!p.participantId) return
@@ -856,6 +860,7 @@ export function SessionHostView({ session, lesson }: Props) {
             score: p.score,
             correctCount: x.correctCount + (p.correct ? 1 : 0),
             totalSwipes: x.totalSwipes + 1,
+            ...(p.choice !== undefined && { answers: { ...x.answers, [p.questionIndex]: p.choice } }),
             ...(p.wbFills !== undefined && { wbFills: p.wbFills }),
             ...(p.wbResults !== undefined && { wbResults: p.wbResults }),
           }
@@ -1837,6 +1842,7 @@ export function SessionHostView({ session, lesson }: Props) {
         totalSwipes: 0,
         recentSwipes: [],
         gameResult: null,
+        answers: {},
         ctmAnswers: undefined,
       })))
       setMirrorCardIndex(0)

@@ -153,6 +153,7 @@ export function MultipleChoicePlayerPanel({
         participantId: participantIdRef.current,
         nickname: stored.nickname ?? nickname,
         questionIndex: currentIndex,
+        choice: optionIndex,
         correct,
         score: newScore,
         activityIndex: activityIndexRef.current,

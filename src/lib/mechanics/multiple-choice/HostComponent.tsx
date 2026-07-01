@@ -19,6 +19,7 @@ interface HostParticipant {
   score: number
   correctCount: number
   totalSwipes: number
+  answers?: Record<number, boolean | number>
 }
 
 // ── Individual mode host panel ─────────────────────────────────────────────────
@@ -126,6 +127,41 @@ export function MultipleChoiceHostPanel({
                       <span className="font-semibold text-slate-500">{accuracy}%</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Completion breakdown — every question + this student's answer */}
+              {done && items.length > 0 && (
+                <div className="space-y-1 pt-1 border-t border-slate-100">
+                  {items.map((it, qi) => {
+                    const raw = p.answers?.[qi]
+                    const ans = typeof raw === 'number' ? raw : undefined
+                    const isCorrect = ans !== undefined ? ans === it.correctIndex : undefined
+                    const ansText = ans !== undefined ? it.options[ans] : undefined
+                    return (
+                      <div
+                        key={qi}
+                        className={`flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 ${
+                          isCorrect === true ? 'bg-emerald-50' : isCorrect === false ? 'bg-red-50' : 'bg-slate-50'
+                        }`}
+                      >
+                        <span className="flex-1 min-w-0 truncate text-slate-600">{it.question}</span>
+                        {ans !== undefined ? (
+                          <span className={`shrink-0 font-bold flex items-center gap-0.5 max-w-[45%] truncate ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {OPTION_LETTERS[ans] ?? ans + 1}. {ansText}
+                            {isCorrect ? <CheckCircle2 className="w-3 h-3 shrink-0" /> : <XCircle className="w-3 h-3 shrink-0" />}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-slate-300">—</span>
+                        )}
+                        {isCorrect === false && (
+                          <span className="shrink-0 text-emerald-600 text-[10px] font-semibold whitespace-nowrap">
+                            correct: {OPTION_LETTERS[it.correctIndex] ?? it.correctIndex + 1}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 

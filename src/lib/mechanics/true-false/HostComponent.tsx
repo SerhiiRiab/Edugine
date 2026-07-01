@@ -19,6 +19,7 @@ interface HostParticipant {
   score: number
   correctCount: number
   totalSwipes: number
+  answers?: Record<number, boolean | number>
 }
 
 // ── Individual mode host panel ─────────────────────────────────────────────────
@@ -119,6 +120,40 @@ export function TrueFalseHostPanel({
                       <span className="font-semibold text-slate-500">{accuracy}%</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Completion breakdown — every statement + this student's answer */}
+              {done && items.length > 0 && (
+                <div className="space-y-1 pt-1 border-t border-slate-100">
+                  {items.map((it, qi) => {
+                    const raw = p.answers?.[qi]
+                    const ans = typeof raw === 'boolean' ? raw : undefined
+                    const isCorrect = ans !== undefined ? ans === it.isTrue : undefined
+                    return (
+                      <div
+                        key={qi}
+                        className={`flex items-center gap-2 text-xs rounded-lg px-2.5 py-1.5 ${
+                          isCorrect === true ? 'bg-emerald-50' : isCorrect === false ? 'bg-red-50' : 'bg-slate-50'
+                        }`}
+                      >
+                        <span className="flex-1 min-w-0 truncate text-slate-600">{it.statement}</span>
+                        {ans !== undefined ? (
+                          <span className={`shrink-0 font-bold flex items-center gap-0.5 ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {ans ? 'True' : 'False'}
+                            {isCorrect ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 text-slate-300">—</span>
+                        )}
+                        {isCorrect === false && (
+                          <span className="shrink-0 text-emerald-600 text-[10px] font-semibold whitespace-nowrap">
+                            correct: {it.isTrue ? 'True' : 'False'}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 

@@ -156,6 +156,7 @@ export function TrueFalsePlayerPanel({
         participantId: participantIdRef.current,
         nickname: stored.nickname ?? nickname,
         questionIndex: currentIndex,
+        choice,
         correct,
         score: newScore,
         activityIndex: activityIndexRef.current,
