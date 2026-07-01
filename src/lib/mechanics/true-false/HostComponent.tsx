@@ -25,6 +25,7 @@ interface HostParticipant {
 
 export interface TrueFalseHostPanelProps {
   participants: HostParticipant[]
+  items: Array<{ statement: string; isTrue: boolean }>
   totalItems: number
   isLastActivity: boolean
   isAdvancing: boolean
@@ -45,6 +46,7 @@ function avatarBg(index: number) {
 
 export function TrueFalseHostPanel({
   participants,
+  items,
   totalItems,
   isLastActivity,
   isAdvancing,
@@ -60,6 +62,7 @@ export function TrueFalseHostPanel({
           const answered = p.cardIndex
           const accuracy = p.totalSwipes > 0 ? Math.round((p.correctCount / p.totalSwipes) * 100) : null
           const done = answered >= totalItems
+          const currentStatement = !done ? items[answered]?.statement : undefined
 
           return (
             <div
@@ -86,6 +89,16 @@ export function TrueFalseHostPanel({
                   <p className="text-xs text-slate-400">pts</p>
                 </div>
               </div>
+
+              {/* Student sees — current statement this participant is answering */}
+              {currentStatement !== undefined && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
+                  <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 text-center">
+                    <p className="text-xs text-slate-100 leading-snug">{currentStatement}</p>
+                  </div>
+                </div>
+              )}
 
               {totalItems > 0 && (
                 <div className="space-y-1">

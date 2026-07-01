@@ -256,21 +256,21 @@ export function TrueFalsePlayerPanel({
           )}
         </AnimatePresence>
 
-        {/* True / False buttons */}
+        {/* True / False buttons — False left, True right (matches swipe direction) */}
         <div className="flex gap-4 w-full max-w-sm">
-          <TFButton
-            label="True"
-            value={true}
-            feedback={feedback}
-            disabled={isProcessing}
-            onClick={() => handleAnswer(true)}
-          />
           <TFButton
             label="False"
             value={false}
             feedback={feedback}
             disabled={isProcessing}
             onClick={() => handleAnswer(false)}
+          />
+          <TFButton
+            label="True"
+            value={true}
+            feedback={feedback}
+            disabled={isProcessing}
+            onClick={() => handleAnswer(true)}
           />
         </div>
 
@@ -463,17 +463,8 @@ export function TrueFalseVotePlayerPanel({
           )}
         </AnimatePresence>
 
-        {/* True / False vote buttons */}
+        {/* True / False vote buttons — False left, True right (matches swipe direction) */}
         <div className="flex gap-4 w-full max-w-sm">
-          <VoteTFButton
-            label="True"
-            value={true}
-            myVote={typeof myVote === 'boolean' ? myVote : localVote}
-            correctAnswer={voteState.revealed ? item?.isTrue : undefined}
-            count={voteState.revealed ? trueCount : undefined}
-            disabled={hasVoted}
-            onClick={() => handleVote(true)}
-          />
           <VoteTFButton
             label="False"
             value={false}
@@ -482,6 +473,15 @@ export function TrueFalseVotePlayerPanel({
             count={voteState.revealed ? falseCount : undefined}
             disabled={hasVoted}
             onClick={() => handleVote(false)}
+          />
+          <VoteTFButton
+            label="True"
+            value={true}
+            myVote={typeof myVote === 'boolean' ? myVote : localVote}
+            correctAnswer={voteState.revealed ? item?.isTrue : undefined}
+            count={voteState.revealed ? trueCount : undefined}
+            disabled={hasVoted}
+            onClick={() => handleVote(true)}
           />
         </div>
 

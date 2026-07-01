@@ -25,6 +25,7 @@ interface HostParticipant {
 
 export interface MultipleChoiceHostPanelProps {
   participants: HostParticipant[]
+  items: Array<{ question: string; options: string[]; correctIndex: number }>
   totalItems: number
   isLastActivity: boolean
   isAdvancing: boolean
@@ -45,6 +46,7 @@ function avatarBg(index: number) {
 
 export function MultipleChoiceHostPanel({
   participants,
+  items,
   totalItems,
   isLastActivity,
   isAdvancing,
@@ -60,6 +62,7 @@ export function MultipleChoiceHostPanel({
           const answered = p.cardIndex
           const accuracy = p.totalSwipes > 0 ? Math.round((p.correctCount / p.totalSwipes) * 100) : null
           const done = answered >= totalItems
+          const currentItem = !done ? items[answered] : undefined
 
           return (
             <div
@@ -86,6 +89,23 @@ export function MultipleChoiceHostPanel({
                   <p className="text-xs text-slate-400">pts</p>
                 </div>
               </div>
+
+              {/* Student sees — current question this participant is answering */}
+              {currentItem !== undefined && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Student sees</p>
+                  <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3 space-y-1.5">
+                    <p className="text-xs text-slate-100 leading-snug text-center">{currentItem.question}</p>
+                    <div className="flex flex-wrap justify-center gap-1 pt-1">
+                      {currentItem.options.map((opt, oi) => (
+                        <span key={oi} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                          {OPTION_LETTERS[oi] ?? oi + 1}. {opt}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {totalItems > 0 && (
                 <div className="space-y-1">
@@ -273,20 +293,29 @@ export function MultipleChoiceVoteHostPanel({
               ? 'border-emerald-200 bg-emerald-50'
               : 'border-slate-100 bg-white'
 
+            const chosenText = voted ? item?.options[vote as number] : undefined
+
             return (
-              <div key={p.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs ${cardClass}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-white shrink-0 text-[10px] ${avatarBg(i)}`}>
-                  {p.nickname[0].toUpperCase()}
+              <div key={p.id} className={`px-3 py-2 rounded-xl border text-xs space-y-1 ${cardClass}`}>
+                <div className="flex items-center gap-2">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-white shrink-0 text-[10px] ${avatarBg(i)}`}>
+                    {p.nickname[0].toUpperCase()}
+                  </div>
+                  <span className="truncate font-medium text-slate-600 flex-1">{p.nickname}</span>
+                  {voted && voteState.revealed && (
+                    <span className={`shrink-0 font-bold flex items-center gap-0.5 ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {OPTION_LETTERS[vote as number] ?? String((vote as number) + 1)}
+                      {isCorrect ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    </span>
+                  )}
+                  {voted && !voteState.revealed && <span className="shrink-0 text-emerald-500">✓</span>}
+                  {!voted && <span className="shrink-0 text-slate-300">…</span>}
                 </div>
-                <span className="truncate font-medium text-slate-600 flex-1">{p.nickname}</span>
-                {voted && voteState.revealed && (
-                  <span className={`shrink-0 font-bold flex items-center gap-0.5 ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
-                    {OPTION_LETTERS[vote as number] ?? String((vote as number) + 1)}
-                    {isCorrect ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                  </span>
+                {voteState.revealed && chosenText && (
+                  <p className={`truncate pl-8 ${isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
+                    {chosenText}
+                  </p>
                 )}
-                {voted && !voteState.revealed && <span className="shrink-0 text-emerald-500">✓</span>}
-                {!voted && <span className="shrink-0 text-slate-300">…</span>}
               </div>
             )
           })}

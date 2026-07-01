@@ -4058,6 +4058,7 @@ export function SessionHostView({ session, lesson }: Props) {
             {currentMechanicId === 'true_false' && currentActivityMode !== 'vote' && (
               <TrueFalseHostPanel
                 participants={participants}
+                items={currentActivityItems.map(i => ({ statement: i.statement ?? '', isTrue: i.isTrue ?? true }))}
                 totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
@@ -4089,6 +4090,7 @@ export function SessionHostView({ session, lesson }: Props) {
             {currentMechanicId === 'multiple_choice' && currentActivityMode !== 'vote' && (
               <MultipleChoiceHostPanel
                 participants={participants}
+                items={currentActivityItems.map(i => ({ question: i.question ?? '', options: i.options ?? [], correctIndex: i.correctIndex ?? 0 }))}
                 totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
