@@ -1342,14 +1342,10 @@ export function SessionHostView({ session, lesson }: Props) {
               return { ...prev, [pid]: [...without, entry].sort((a, b) => a.activityIndex - b.activityIndex) }
             })
           }
-          // Only move to the between-activities screen once everyone has finished —
-          // otherwise the host gets bounced away the instant the first student is done,
-          // hiding the live per-student view (progress, completion breakdown, etc.)
-          const totalCount = participantCountRef.current
-          const completedCount = completedParticipantIdsRef.current.size
-          if (totalCount > 0 && completedCount >= totalCount) {
-            setLessonBetween(true)
-          }
+          // Don't auto-switch to the between-activities screen — even once everyone
+          // is done, stay on the live per-student view so the host can look over
+          // results / discuss with the class, then advance manually via the
+          // "Next activity" button (which calls handleNextActivity directly).
         } else {
           // Single mode: end when all participants have completed
           if (pid) completedParticipantIdsRef.current.add(pid)
