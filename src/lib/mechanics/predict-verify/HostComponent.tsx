@@ -208,16 +208,17 @@ export function PredictVerifyHostPanel({
               <RefreshCw className="w-4 h-4" />Next Article
             </button>
           )}
-          {isLastQuestion && isLastArticle && (
+          {isLastQuestion && isLastArticle ? (
             <button onClick={wrap(onMarkDone)} disabled={isBusy}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-sm transition-colors disabled:opacity-40">
               <CheckCircle2 className="w-4 h-4" />Finish Activity
             </button>
+          ) : (
+            <button onClick={() => { onEndGame() }} disabled={isBusy}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
+              <StopCircle className="w-4 h-4" />End Activity
+            </button>
           )}
-          <button onClick={() => { onEndGame() }} disabled={isBusy}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
-            <StopCircle className="w-4 h-4" />End Activity
-          </button>
         </div>
       </div>
     )
