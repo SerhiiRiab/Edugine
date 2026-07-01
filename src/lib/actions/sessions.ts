@@ -1256,14 +1256,15 @@ export async function initElevatorPitchState(
   const allItems = ((contentSet?.content_items ?? []) as Array<{ position: number }>)
     .sort((a, b) => a.position - b.position)
 
-  const topicOrder = allItems.map((_, i) => i).sort(() => Math.random() - 0.5)
+  const shuffledIndices = allItems.map((_, i) => i).sort(() => Math.random() - 0.5)
+  const firstTopicIndex = shuffledIndices[0] ?? 0
 
   const state: ElevatorPitchState = {
     phase: 'setup',
     turnOrder,
     currentSpeakerIndex: 0,
-    topicOrder,
-    currentTopicPosition: 0,
+    currentTopicIndex: firstTopicIndex,
+    usedTopicIndices: allItems.length > 0 ? [firstTopicIndex] : [],
     turnDuration,
     timerRunning: false,
     timerStartedAt: null,

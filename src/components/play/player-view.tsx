@@ -445,7 +445,7 @@ export function PlayerView({ session, lesson }: Props) {
       .eq('activity_index', currentActivityIndex)
       .single()
       .then(({ data }) => {
-        if (data?.state && 'topicOrder' in (data.state as Record<string, unknown>)) {
+        if (data?.state && 'currentTopicIndex' in (data.state as Record<string, unknown>)) {
           setElevatorPitchState(data.state as unknown as ElevatorPitchState)
         }
       })

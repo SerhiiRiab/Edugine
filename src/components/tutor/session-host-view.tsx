@@ -596,7 +596,7 @@ export function SessionHostView({ session, lesson }: Props) {
             .eq('session_id', session.id)
             .eq('activity_index', actIdx)
             .single()
-          if (stateRow?.state && 'topicOrder' in (stateRow.state as Record<string, unknown>)) {
+          if (stateRow?.state && 'currentTopicIndex' in (stateRow.state as Record<string, unknown>)) {
             const restored = stateRow.state as unknown as ElevatorPitchState
             setElevatorPitchState(restored)
             elevatorPitchStateRef.current = restored
@@ -2706,15 +2706,41 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleElevatorPitchNextTurn() {
     const cur = elevatorPitchStateRef.current
     if (!cur) return
-    const nextSpeakerIndex = (cur.currentSpeakerIndex + 1) % Math.max(cur.turnOrder.length, 1)
-    const nextTopicPosition = (cur.currentTopicPosition + 1) % Math.max(cur.topicOrder.length, 1)
+
+    // All speakers have had a turn — finish instead of looping back to the first speaker.
+    if (cur.currentSpeakerIndex + 1 >= cur.turnOrder.length) {
+      await elevatorPitchStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
+      return
+    }
+
+    const items = currentActivityItems as unknown as import('@/lib/mechanics/elevator-pitch/types').ElevatorPitchItem[]
+    const unused = items.map((_, i) => i).filter(i => !cur.usedTopicIndices.includes(i))
+    const suggestedTopicIndex = unused.length > 0
+      ? unused[Math.floor(Math.random() * unused.length)]
+      : (cur.currentTopicIndex + 1) % Math.max(items.length, 1)
+
     await elevatorPitchStateUpdate({
       ...cur,
-      currentSpeakerIndex: nextSpeakerIndex,
-      currentTopicPosition: nextTopicPosition,
+      currentSpeakerIndex: cur.currentSpeakerIndex + 1,
+      currentTopicIndex: suggestedTopicIndex,
+      usedTopicIndices: cur.usedTopicIndices.includes(suggestedTopicIndex)
+        ? cur.usedTopicIndices
+        : [...cur.usedTopicIndices, suggestedTopicIndex],
       timerRunning: false,
       timerStartedAt: null,
       timeLeftAtStart: cur.turnDuration,
+    })
+  }
+
+  async function handleElevatorPitchSelectTopic(topicIndex: number) {
+    const cur = elevatorPitchStateRef.current
+    if (!cur) return
+    await elevatorPitchStateUpdate({
+      ...cur,
+      currentTopicIndex: topicIndex,
+      usedTopicIndices: cur.usedTopicIndices.includes(topicIndex)
+        ? cur.usedTopicIndices
+        : [...cur.usedTopicIndices, topicIndex],
     })
   }
 
@@ -3922,6 +3948,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onStart={handleElevatorPitchStart}
                 onStartPitch={handleElevatorPitchStartPitch}
                 onNextTurn={handleElevatorPitchNextTurn}
+                onSelectTopic={handleElevatorPitchSelectTopic}
                 onSetDuration={handleElevatorPitchSetDuration}
                 onTimerExpired={handleElevatorPitchTimerExpired}
                 onFinish={handleEndGame}

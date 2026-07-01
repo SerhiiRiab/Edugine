@@ -58,7 +58,7 @@ export function ElevatorPitchPlayerPanel({
   const [phrasesOpen, setPhrasesOpen] = useState(false)
 
   const isPitcher = state.turnOrder[state.currentSpeakerIndex] === participantId
-  const currentItem = items[state.topicOrder?.[state.currentTopicPosition] ?? 0]
+  const currentItem = items[state.currentTopicIndex ?? 0]
   const pitcherParticipant = participants.find(p => p.id === state.turnOrder[state.currentSpeakerIndex])
   const phrases = state.usefulPhrases.trim().split('\n').filter(Boolean)
 

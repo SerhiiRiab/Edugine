@@ -9,8 +9,8 @@ export interface ElevatorPitchState {
   phase: 'setup' | 'active' | 'finished'
   turnOrder: string[]          // participantId[]
   currentSpeakerIndex: number  // index into turnOrder
-  topicOrder: number[]         // shuffled item indices
-  currentTopicPosition: number // position in topicOrder (wraps)
+  currentTopicIndex: number    // index into items — topic assigned to the current speaker
+  usedTopicIndices: number[]   // item indices already assigned this session, for host reference
   turnDuration: number         // seconds; 0 = manual
   timerRunning: boolean
   timerStartedAt: string | null

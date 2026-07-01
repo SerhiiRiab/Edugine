@@ -57,6 +57,7 @@ export interface ElevatorPitchHostPanelProps {
   onStart: () => Promise<void>
   onStartPitch: () => Promise<void>
   onNextTurn: () => Promise<void>
+  onSelectTopic: (topicIndex: number) => Promise<void>
   onSetDuration: (seconds: number) => Promise<void>
   onTimerExpired: () => Promise<void>
   onFinish: () => void
@@ -66,7 +67,7 @@ export function ElevatorPitchHostPanel({
   state, items, participants,
   isLastActivity, isAdvancing, isLesson = true,
   onNextActivity, onEndLesson, onEndGame,
-  onStart, onStartPitch, onNextTurn, onSetDuration, onTimerExpired, onFinish,
+  onStart, onStartPitch, onNextTurn, onSelectTopic, onSetDuration, onTimerExpired, onFinish,
 }: ElevatorPitchHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
   const [timeUp, setTimeUp] = useState(false)
@@ -88,7 +89,7 @@ export function ElevatorPitchHostPanel({
     }
   }
 
-  const currentItem = items[state.topicOrder?.[state.currentTopicPosition] ?? 0]
+  const currentItem = items[state.currentTopicIndex ?? 0]
   const currentSpeakerId = state.turnOrder[state.currentSpeakerIndex] ?? ''
   const currentSpeaker = participants.find(p => p.id === currentSpeakerId)
   const phrases = state.usefulPhrases.trim().split('\n').filter(Boolean)
@@ -174,6 +175,31 @@ export function ElevatorPitchHostPanel({
           {currentItem.context && (
             <p className="text-sm text-slate-500 italic">{currentItem.context}</p>
           )}
+        </div>
+      )}
+
+      {/* Topic picker — host chooses which topic to assign */}
+      {items.length > 1 && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Assign a topic</p>
+          </div>
+          <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto">
+            {items.map((item, i) => {
+              const isSelected = i === state.currentTopicIndex
+              const isUsed = state.usedTopicIndices.includes(i) && !isSelected
+              return (
+                <button key={i} type="button" onClick={wrap(() => onSelectTopic(i))} disabled={isBusy}
+                  className={`w-full text-left flex items-center gap-2 px-4 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40 ${
+                    isSelected ? 'bg-violet-50 text-violet-700' : isUsed ? 'text-slate-400 hover:bg-slate-50' : 'text-slate-600 hover:bg-slate-50'
+                  }`}>
+                  <span className="flex-1 truncate">{item.topic}</span>
+                  {isUsed && <span className="text-[10px] uppercase tracking-wide text-slate-300 font-bold shrink-0">Used</span>}
+                  {isSelected && <span className="text-[10px] bg-violet-100 text-violet-700 font-bold px-2 py-0.5 rounded-full shrink-0">Selected</span>}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 
