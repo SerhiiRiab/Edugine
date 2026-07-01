@@ -242,17 +242,19 @@ export function CorrectTheMistakePlayerPanel({
 
             <div className="bg-slate-800 rounded-3xl border border-slate-700 px-6 py-5 shadow-xl">
               {isEditing ? (
-                <input
+                <textarea
                   autoFocus
+                  rows={3}
                   value={draftValue}
                   onChange={e => handleDraftChange(e.target.value)}
                   onFocus={e => e.target.select()}
                   onBlur={handleBlur}
                   onKeyDown={e => {
-                    if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur() }
+                    if (e.key === 'Escape') { e.preventDefault(); e.currentTarget.blur() }
+                    else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); e.currentTarget.blur() }
                   }}
                   className="w-full bg-slate-900 border-2 border-sky-400 rounded-xl px-4 py-3
-                    text-base text-white outline-none text-center"
+                    text-base leading-relaxed text-white outline-none text-center resize-none"
                 />
               ) : checked ? (
                 <div className={`rounded-xl px-4 py-3 text-base border ${
