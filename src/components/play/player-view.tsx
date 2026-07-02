@@ -1885,18 +1885,20 @@ export function PlayerView({ session, lesson }: Props) {
                     <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">
                       Review these ({lastActivityResult.swipes.filter(s => !s.correct).length})
                     </p>
-                    {lastActivityResult.swipes.filter(s => !s.correct).map((s, i) => (
-                      <div key={i} className="flex items-center gap-2 text-sm">
-                        <span className="text-red-400">✗</span>
-                        <span className="text-white">{s.word}</span>
-                        {s.translation && (
-                          <>
-                            <span className="text-slate-500">→</span>
-                            <span className="text-slate-300">{s.translation}</span>
-                          </>
-                        )}
-                      </div>
-                    ))}
+                    <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                      {lastActivityResult.swipes.filter(s => !s.correct).map((s, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+                          <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                          <span className="text-white font-medium truncate">{s.word}</span>
+                          {s.translation && (
+                            <>
+                              <span className="text-slate-500 shrink-0">→</span>
+                              <span className="text-slate-300 truncate">{s.translation}</span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </>

@@ -167,6 +167,7 @@ interface ActivityResult {
   correct: number
   incorrect: number
   totalCards: number
+  swipes?: SwipeRecord[]
 }
 
 // Per-participant runtime state tracked during an active game
@@ -260,6 +261,16 @@ export function SessionHostView({ session, lesson }: Props) {
   const [showActivityList, setShowActivityList] = useState(false)
   const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
   const [showStudentView, setShowStudentView] = useState(false)
+  // Which student rows have their per-card breakdown expanded, keyed by `${studentId}:${activityIndex}`
+  const [expandedCardBreakdowns, setExpandedCardBreakdowns] = useState<Set<string>>(new Set())
+
+  function toggleCardBreakdown(key: string) {
+    setExpandedCardBreakdowns(prev => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
+  }
 
   const [elapsed, setElapsed] = useState(0)
   const [codeCopied, setCodeCopied] = useState(false)
@@ -1343,6 +1354,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 correct: p.correct,
                 incorrect: p.incorrect,
                 totalCards: p.totalCards,
+                swipes: p.swipes,
               }
               const without = existing.filter(r => r.activityIndex !== idx)
               return { ...prev, [pid]: [...without, entry].sort((a, b) => a.activityIndex - b.activityIndex) }
@@ -4601,29 +4613,45 @@ export function SessionHostView({ session, lesson }: Props) {
                     const acc = r && r.totalCards > 0
                       ? Math.round((r.correct / r.totalCards) * 100)
                       : null
+                    const hasSwipes = !!r?.swipes && r.swipes.length > 0
+                    const key = `${student.id}:${currentActivityIndex}`
+                    const expanded = expandedCardBreakdowns.has(key)
                     return (
-                      <div key={student.id} className="flex items-center gap-3">
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center
-                          text-sm font-bold text-white shrink-0 ${avatarBg(originalIndex)}`}>
-                          {student.nickname[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-semibold text-slate-800 truncate leading-tight">
-                            {student.nickname}
+                      <div key={student.id}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center
+                            text-sm font-bold text-white shrink-0 ${avatarBg(originalIndex)}`}>
+                            {student.nickname[0].toUpperCase()}
                           </div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            {r
-                              ? `${r.correct}/${r.totalCards} correct${acc !== null ? ` (${acc}%)` : ''} · lesson total: ${lessonTotal} pts`
-                              : 'not finished yet'}
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-slate-800 truncate leading-tight">
+                              {student.nickname}
+                            </div>
+                            <div className="text-xs text-slate-400 mt-0.5">
+                              {r
+                                ? `${r.correct}/${r.totalCards} correct${acc !== null ? ` (${acc}%)` : ''} · lesson total: ${lessonTotal} pts`
+                                : 'not finished yet'}
+                            </div>
                           </div>
+                          {r ? (
+                            <span className="text-violet-600 font-black tabular-nums text-lg">
+                              {r.score} pts
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 text-sm">—</span>
+                          )}
+                          {hasSwipes && (
+                            <button
+                              type="button"
+                              onClick={() => toggleCardBreakdown(key)}
+                              className="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors shrink-0"
+                              title="Show per-card breakdown"
+                            >
+                              <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                            </button>
+                          )}
                         </div>
-                        {r ? (
-                          <span className="text-violet-600 font-black tabular-nums text-lg">
-                            {r.score} pts
-                          </span>
-                        ) : (
-                          <span className="text-slate-300 text-sm">—</span>
-                        )}
+                        {hasSwipes && expanded && <SwipeBreakdownList swipes={r!.swipes!} />}
                       </div>
                     )
                   })}
@@ -4758,16 +4786,32 @@ export function SessionHostView({ session, lesson }: Props) {
                             {results.map((r) => {
                               const act = lesson!.activities[r.activityIndex]
                               const acc = r.totalCards > 0 ? Math.round((r.correct / r.totalCards) * 100) : 0
+                              const hasSwipes = !!r.swipes && r.swipes.length > 0
+                              const key = `${student.id}:${r.activityIndex}`
+                              const expanded = expandedCardBreakdowns.has(key)
                               return (
-                                <div key={r.activityIndex} className="flex items-center gap-3 text-sm py-1">
-                                  <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
-                                    {r.activityIndex + 1}
+                                <div key={r.activityIndex}>
+                                  <div className="flex items-center gap-3 text-sm py-1">
+                                    <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0">
+                                      {r.activityIndex + 1}
+                                    </div>
+                                    <span className="flex-1 text-slate-600 truncate">
+                                      {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
+                                    </span>
+                                    <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
+                                    <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                                    {hasSwipes && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleCardBreakdown(key)}
+                                        className="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors shrink-0"
+                                        title="Show per-card breakdown"
+                                      >
+                                        <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                                      </button>
+                                    )}
                                   </div>
-                                  <span className="flex-1 text-slate-600 truncate">
-                                    {act?.content_set_title ?? `Activity ${r.activityIndex + 1}`}
-                                  </span>
-                                  <span className="text-emerald-600 text-xs tabular-nums">{r.correct}/{r.totalCards} ({acc}%)</span>
-                                  <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                                  {hasSwipes && expanded && <SwipeBreakdownList swipes={r.swipes!} />}
                                 </div>
                               )
                             })}
@@ -4835,23 +4879,39 @@ export function SessionHostView({ session, lesson }: Props) {
                   const acc = r && r.totalCards > 0
                     ? Math.round((r.correct / r.totalCards) * 100)
                     : 0
+                  const hasSwipes = !!r?.swipes && r.swipes.length > 0
+                  const key = `${p.id}:final`
+                  const expanded = expandedCardBreakdowns.has(key)
                   return (
-                    <div key={p.id} className="flex items-center gap-3 text-sm py-1">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center
-                        text-xs font-bold text-white shrink-0 ${avatarBg(i)}`}>
-                        {p.nickname[0].toUpperCase()}
+                    <div key={p.id} className="py-1">
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center
+                          text-xs font-bold text-white shrink-0 ${avatarBg(i)}`}>
+                          {p.nickname[0].toUpperCase()}
+                        </div>
+                        <span className="flex-1 font-medium text-slate-700 truncate">{p.nickname}</span>
+                        {r ? (
+                          <>
+                            <span className="text-emerald-600 text-xs tabular-nums">
+                              {r.correct}/{r.totalCards} ({acc}%)
+                            </span>
+                            <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
+                            {hasSwipes && (
+                              <button
+                                type="button"
+                                onClick={() => toggleCardBreakdown(key)}
+                                className="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors shrink-0"
+                                title="Show per-card breakdown"
+                              >
+                                <ChevronDown className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-slate-400 text-xs">did not finish</span>
+                        )}
                       </div>
-                      <span className="flex-1 font-medium text-slate-700 truncate">{p.nickname}</span>
-                      {r ? (
-                        <>
-                          <span className="text-emerald-600 text-xs tabular-nums">
-                            {r.correct}/{r.totalCards} ({acc}%)
-                          </span>
-                          <span className="text-violet-600 font-bold tabular-nums">{r.score} pts</span>
-                        </>
-                      ) : (
-                        <span className="text-slate-400 text-xs">did not finish</span>
-                      )}
+                      {hasSwipes && expanded && <SwipeBreakdownList swipes={r!.swipes!} />}
                     </div>
                   )
                 })}
@@ -4898,6 +4958,32 @@ export function SessionHostView({ session, lesson }: Props) {
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function SwipeBreakdownList({ swipes }: { swipes: SwipeRecord[] }) {
+  const sorted = [...swipes].sort((a, b) => a.cardIndex - b.cardIndex)
+  return (
+    <div className="mt-2 space-y-1 rounded-xl bg-slate-50 border border-slate-100 p-3">
+      {sorted.map((s, i) => (
+        <div key={i} className="flex items-center gap-2 text-xs">
+          {s.correct ? (
+            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+          ) : (
+            <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+          )}
+          <span className={`font-medium truncate ${s.correct ? 'text-slate-700' : 'text-red-700'}`}>
+            {s.word}
+          </span>
+          {s.translation && (
+            <>
+              <span className="text-slate-300">→</span>
+              <span className="text-slate-500 truncate">{s.translation}</span>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function StatusBadge({ phase }: { phase: SessionStatus }) {
   const map: Record<SessionStatus, { label: string; cls: string }> = {

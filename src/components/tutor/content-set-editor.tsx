@@ -147,7 +147,7 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
           value={item.word}
           onChange={(e) => onUpdate(item.id, { word: e.target.value })}
           placeholder="English word, or a standalone statement"
-          className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+          className="flex-[3] min-w-0 text-sm text-slate-800 bg-slate-50 rounded-lg
             border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
             outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
         />
@@ -161,7 +161,7 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
           value={item.translation}
           onChange={(e) => onUpdate(item.id, { translation: e.target.value })}
           placeholder="Translation (blank = standalone statement)"
-          className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+          className="flex-[3] min-w-0 text-sm text-slate-800 bg-slate-50 rounded-lg
             border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
             outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
         />
