@@ -56,6 +56,7 @@ interface CardItem {
   id: string
   word: string
   translation: string
+  explanation?: string
   isCorrect: boolean
   front?: string
   back?: string
@@ -1877,8 +1878,12 @@ export function PlayerView({ session, lesson }: Props) {
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-red-400">✗</span>
                         <span className="text-white">{s.word}</span>
-                        <span className="text-slate-500">→</span>
-                        <span className="text-slate-300">{s.translation}</span>
+                        {s.translation && (
+                          <>
+                            <span className="text-slate-500">→</span>
+                            <span className="text-slate-300">{s.translation}</span>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

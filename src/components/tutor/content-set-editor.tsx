@@ -47,6 +47,7 @@ import {
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { MECHANICS } from '@/lib/mechanics/registry'
 import type { MechanicId } from '@/lib/mechanics/types'
+import { isStatementCard } from '@/lib/mechanics/swipe-battle/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ interface EditorItem {
   id: string
   word: string
   translation: string
+  explanation: string
   isCorrect: boolean
 }
 
@@ -76,11 +78,12 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function rawToEditor(item: RawItem): EditorItem {
-  const d = item.data as { word?: string; translation?: string; isCorrect?: boolean }
+  const d = item.data as { word?: string; translation?: string; explanation?: string; isCorrect?: boolean }
   return {
     id: item.id,
     word: d.word ?? '',
     translation: d.translation ?? '',
+    explanation: d.explanation ?? '',
     isCorrect: d.isCorrect ?? true,
   }
 }
@@ -105,6 +108,7 @@ interface CardRowProps {
 function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id })
+  const isStatement = isStatementCard(item)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -115,81 +119,102 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 bg-white rounded-xl border-2 p-3 group transition-all duration-150
+      className={`flex flex-col gap-2 bg-white rounded-xl border-2 p-3 group transition-all duration-150
         ${isDragging
           ? 'border-violet-300 shadow-lg opacity-60 scale-[0.99] z-50'
           : 'border-slate-100 hover:border-violet-100 hover:shadow-sm'
         }`}
     >
-      {/* Drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-slate-200 hover:text-slate-400
-          transition-colors shrink-0 touch-none"
-      >
-        <GripVertical className="w-4 h-4" />
-      </div>
+      <div className="flex items-center gap-3">
+        {/* Drag handle */}
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-slate-200 hover:text-slate-400
+            transition-colors shrink-0 touch-none"
+        >
+          <GripVertical className="w-4 h-4" />
+        </div>
 
-      {/* Index */}
-      <span className="text-xs text-slate-300 font-mono w-5 text-right shrink-0 select-none">
-        {index + 1}
-      </span>
+        {/* Index */}
+        <span className="text-xs text-slate-300 font-mono w-5 text-right shrink-0 select-none">
+          {index + 1}
+        </span>
 
-      {/* Word */}
-      <input
-        type="text"
-        value={item.word}
-        onChange={(e) => onUpdate(item.id, { word: e.target.value })}
-        placeholder="English word"
-        className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
-          border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
-          outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
-      />
+        {/* Word / statement */}
+        <input
+          type="text"
+          value={item.word}
+          onChange={(e) => onUpdate(item.id, { word: e.target.value })}
+          placeholder="English word, or a true/false statement"
+          className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+            border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+            outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
+        />
 
-      {/* Arrow */}
-      <span className="text-slate-300 shrink-0 select-none">→</span>
+        {/* Arrow */}
+        <span className="text-slate-300 shrink-0 select-none">→</span>
 
-      {/* Translation */}
-      <input
-        type="text"
-        value={item.translation}
-        onChange={(e) => onUpdate(item.id, { translation: e.target.value })}
-        placeholder="Translation"
-        className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
-          border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
-          outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
-      />
+        {/* Translation */}
+        <input
+          type="text"
+          value={item.translation}
+          onChange={(e) => onUpdate(item.id, { translation: e.target.value })}
+          placeholder="Translation (blank = true/false card)"
+          className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+            border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+            outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
+        />
 
-      {/* isCorrect toggle */}
-      <div className="w-28 flex flex-col items-center gap-0.5 shrink-0">
+        {/* isCorrect toggle */}
+        <div className="w-28 flex flex-col items-center gap-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => onUpdate(item.id, { isCorrect: !item.isCorrect })}
+            title={isStatement
+              ? 'Is this statement true? (students should swipe right)'
+              : 'Is this a correct word pair? (students should swipe right)'}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
+              ${item.isCorrect ? 'bg-emerald-400' : 'bg-slate-200'}`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200
+                ${item.isCorrect ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
+          <span className={`text-[10px] font-medium ${item.isCorrect ? 'text-emerald-500' : 'text-slate-400'}`}>
+            {isStatement
+              ? (item.isCorrect ? 'True ✓' : 'False ✗')
+              : (item.isCorrect ? 'Correct ✓' : 'Wrong ✗')}
+          </span>
+        </div>
+
+        {/* Delete */}
         <button
           type="button"
-          onClick={() => onUpdate(item.id, { isCorrect: !item.isCorrect })}
-          title="Is this a correct word pair? (students should swipe right)"
-          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
-            ${item.isCorrect ? 'bg-emerald-400' : 'bg-slate-200'}`}
+          onClick={() => onDelete(item.id)}
+          className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8
+            rounded-lg hover:bg-red-50 hover:text-red-500 text-slate-300
+            transition-all shrink-0"
         >
-          <span
-            className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200
-              ${item.isCorrect ? 'translate-x-6' : 'translate-x-1'}`}
-          />
+          <Trash2 className="w-4 h-4" />
         </button>
-        <span className={`text-[10px] font-medium ${item.isCorrect ? 'text-emerald-500' : 'text-slate-400'}`}>
-          {item.isCorrect ? 'Correct ✓' : 'Wrong ✗'}
-        </span>
       </div>
 
-      {/* Delete */}
-      <button
-        type="button"
-        onClick={() => onDelete(item.id)}
-        className="opacity-0 group-hover:opacity-100 flex items-center justify-center w-8 h-8
-          rounded-lg hover:bg-red-50 hover:text-red-500 text-slate-300
-          transition-all shrink-0"
-      >
-        <Trash2 className="w-4 h-4" />
-      </button>
+      {/* Explanation — single-statement cards only, shown to students after they swipe */}
+      {isStatement && (
+        <div className="flex items-center gap-3 pl-11">
+          <input
+            type="text"
+            value={item.explanation}
+            onChange={(e) => onUpdate(item.id, { explanation: e.target.value })}
+            placeholder="Explanation shown after swipe (optional)"
+            className="flex-1 text-xs text-slate-600 bg-slate-50 rounded-lg
+              border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+              outline-none px-3 py-1.5 transition-colors placeholder:text-slate-300"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -290,6 +315,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
         await updateContentItem(item.id, {
           word: item.word,
           translation: item.translation,
+          explanation: item.explanation,
           isCorrect: item.isCorrect,
         })
         markSaved()
@@ -319,11 +345,12 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       const created = await createContentItem(set.id, {
         word: '',
         translation: '',
+        explanation: '',
         isCorrect: true,
       })
       setItems((prev) => [
         ...prev,
-        { id: created.id, word: '', translation: '', isCorrect: true },
+        { id: created.id, word: '', translation: '', explanation: '', isCorrect: true },
       ])
     } catch {
       toast.error('Failed to add card')
@@ -496,10 +523,10 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           <div className="flex items-center gap-3 mb-2 px-3 text-xs text-slate-400 font-semibold uppercase tracking-wide select-none">
             <span className="w-4 shrink-0" />
             <span className="w-5 shrink-0" />
-            <span className="flex-[3]">Front (word)</span>
+            <span className="flex-[3]">Word / Statement</span>
             <span className="w-3 shrink-0" />
-            <span className="flex-[3]">Back (translation)</span>
-            <span className="w-28 text-center">Correct pair?</span>
+            <span className="flex-[3]">Translation (blank = statement)</span>
+            <span className="w-28 text-center">Correct / True?</span>
             <span className="w-8 shrink-0" />
           </div>
         )}

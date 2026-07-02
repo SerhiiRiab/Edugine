@@ -140,14 +140,14 @@ export function BulkImportModal({ config, onImport, onClose }: Props) {
               {preview.map((item, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
                   <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  {multiField && secondField ? (
+                  {multiField && secondField && item[secondField.key] != null ? (
                     <>
                       <span className="text-slate-700 font-medium truncate max-w-[45%]">
                         {String(item[firstField.key] ?? '(empty)')}
                       </span>
                       <span className="text-slate-400 shrink-0">→</span>
                       <span className="text-slate-600 truncate max-w-[45%]">
-                        {String(item[secondField.key] ?? '(empty)')}
+                        {String(item[secondField.key])}
                       </span>
                     </>
                   ) : (

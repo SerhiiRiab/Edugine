@@ -90,6 +90,7 @@ interface CardItem {
   id: string
   word: string
   translation: string
+  explanation?: string
   isCorrect: boolean
   statement?: string
   isTrue?: boolean
@@ -125,7 +126,7 @@ interface CardItem {
 interface SwipeRecord {
   cardIndex: number
   word: string
-  translation: string
+  translation?: string
   swipedRight: boolean
   correct: boolean
   score: number
@@ -806,7 +807,7 @@ export function SessionHostView({ session, lesson }: Props) {
       // ── Swipe events (per-participant) ──────────────────────────────────────
       .on('broadcast', { event: 'swipe' }, ({ payload }) => {
         const p = payload as {
-          participantId: string; cardIndex: number; word: string; translation: string
+          participantId: string; cardIndex: number; word: string; translation?: string
           swipedRight: boolean; correct: boolean; score: number; activityIndex?: number
         }
         if (!p.participantId) return

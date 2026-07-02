@@ -6,6 +6,7 @@ import {
   StopCircle, Target, TrendingUp, Users, Wifi, WifiOff,
 } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
+import { isStatementCard } from './types'
 import type { SwipeBattleState } from './types'
 
 export function SwipeBattleHostComponent(
@@ -23,7 +24,7 @@ export function SwipeBattleHostComponent(
 interface SwipeRecord {
   cardIndex: number
   word: string
-  translation: string
+  translation?: string
   swipedRight: boolean
   correct: boolean
   score: number
@@ -44,7 +45,8 @@ export interface SwipeBattleParticipant {
 export interface SwipeBattleCardItem {
   id: string
   word: string
-  translation: string
+  translation?: string
+  explanation?: string
   isCorrect: boolean
 }
 
@@ -129,6 +131,7 @@ export function SwipeBattleHostPanel({
   const selTotal = selectedParticipant?.totalSwipes ?? 0
   const selAccuracy = selTotal > 0 ? Math.round((selCorrect / selTotal) * 100) : 0
   const mirrorItem = currentActivityItems[mirrorCardIndex]
+  const mirrorIsStatement = mirrorItem ? isStatementCard(mirrorItem) : false
 
   return (
     <>
@@ -262,16 +265,22 @@ export function SwipeBattleHostPanel({
                             ? 'bg-emerald-900/50 text-emerald-400 border-emerald-700'
                             : 'bg-red-900/50 text-red-400 border-red-700'
                         }`}>
-                          {mirrorItem.isCorrect ? '✓ Correct pair' : '✗ Wrong pair'}
+                          {mirrorIsStatement
+                            ? (mirrorItem.isCorrect ? '✓ True statement' : '✗ False statement')
+                            : (mirrorItem.isCorrect ? '✓ Correct pair' : '✗ Wrong pair')}
                         </span>
                         <div className="text-center space-y-3">
                           <div className="text-3xl sm:text-4xl font-black text-white leading-tight">
                             {mirrorItem.word}
                           </div>
-                          <div className="w-10 h-0.5 bg-slate-600 mx-auto rounded-full" />
-                          <div className="text-2xl sm:text-3xl text-slate-300 font-semibold leading-tight">
-                            {mirrorItem.translation}
-                          </div>
+                          {!mirrorIsStatement && (
+                            <>
+                              <div className="w-10 h-0.5 bg-slate-600 mx-auto rounded-full" />
+                              <div className="text-2xl sm:text-3xl text-slate-300 font-semibold leading-tight">
+                                {mirrorItem.translation}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </motion.div>
                     ) : (
@@ -329,6 +338,7 @@ export function SwipeBattleHostPanel({
                 const isSelected = p.id === selectedParticipantId
                 const done = p.cardIndex >= currentActivityItems.length
                 const currentCard = !done ? currentActivityItems[p.cardIndex] : undefined
+                const cardIsStatement = currentCard ? isStatementCard(currentCard) : false
                 return (
                   <button
                     key={p.id}
@@ -372,10 +382,14 @@ export function SwipeBattleHostPanel({
                       <div className="mt-2 pt-2 border-t border-slate-100 space-y-1">
                         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Student sees</p>
                         <p className="text-xs text-slate-700 truncate">
-                          {currentCard.word} <span className="text-slate-400">→</span> {currentCard.translation}
+                          {cardIsStatement
+                            ? currentCard.word
+                            : <>{currentCard.word} <span className="text-slate-400">→</span> {currentCard.translation}</>}
                         </p>
                         <p className={`text-[10px] font-semibold ${currentCard.isCorrect ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {currentCard.isCorrect ? '✓ Correct pair' : '✗ Wrong pair'}
+                          {cardIsStatement
+                            ? (currentCard.isCorrect ? '✓ True statement' : '✗ False statement')
+                            : (currentCard.isCorrect ? '✓ Correct pair' : '✗ Wrong pair')}
                         </p>
                       </div>
                     )}
@@ -477,8 +491,12 @@ export function SwipeBattleHostPanel({
                           <span className={`font-semibold ${s.correct ? 'text-slate-700' : 'text-slate-500 line-through'}`}>
                             {s.word}
                           </span>
-                          <span className="text-slate-400 mx-1">→</span>
-                          <span className="text-slate-500">{s.translation}</span>
+                          {s.translation && (
+                            <>
+                              <span className="text-slate-400 mx-1">→</span>
+                              <span className="text-slate-500">{s.translation}</span>
+                            </>
+                          )}
                         </span>
                         {s.timeTaken && (
                           <span className="text-slate-400 shrink-0 tabular-nums">
