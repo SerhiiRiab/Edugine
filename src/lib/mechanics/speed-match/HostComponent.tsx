@@ -167,23 +167,34 @@ export function SpeedMatchHostPanel({
               disabled:opacity-50 transition-colors"
           >
             <StopCircle className="w-4 h-4" />
-            End
+            End lesson
           </button>
-          <button
-            onClick={onNextActivity}
-            disabled={isAdvancing || (!allFinished && !isAdvancing)}
-            title={!allFinished ? 'Wait for all students to finish' : undefined}
-            className="flex-1 flex items-center justify-center gap-2 bg-sky-600
-              hover:bg-sky-700 disabled:opacity-50 text-white font-bold
-              px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
-          >
-            {isAdvancing
-              ? 'Loading...'
-              : isLastActivity
-              ? (isLesson ? 'Finish lesson' : 'Finish')
-              : <>{allFinished ? 'Next activity' : `Waiting (${finishedCount}/${participants.length})`} <ChevronRight className="w-4 h-4" /></>
-            }
-          </button>
+          {!isLastActivity && (
+            <button
+              onClick={onNextActivity}
+              disabled={isAdvancing}
+              title={!allFinished ? `${finishedCount}/${participants.length} finished — you can move on anyway` : undefined}
+              className="flex-1 flex items-center justify-center gap-2 bg-sky-600
+                hover:bg-sky-700 disabled:opacity-50 text-white font-bold
+                px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
+            >
+              {isAdvancing
+                ? 'Loading...'
+                : <>{allFinished ? 'Next activity' : `Next activity (${finishedCount}/${participants.length})`} <ChevronRight className="w-4 h-4" /></>
+              }
+            </button>
+          )}
+          {isLastActivity && (
+            <button
+              onClick={onEndLesson}
+              disabled={isAdvancing}
+              className="flex-1 flex items-center justify-center gap-2 bg-emerald-500
+                hover:bg-emerald-600 disabled:opacity-50 text-white font-bold
+                px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
+            >
+              {isAdvancing ? 'Finishing...' : 'Finish lesson!'}
+            </button>
+          )}
         </div>
       ) : (
         <button
