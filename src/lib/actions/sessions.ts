@@ -96,6 +96,7 @@ export async function createSession(
   contentSetId: string,
   instructions?: string,
   mode?: 'individual' | 'vote' | 'shared',
+  mechanicConfig?: Record<string, unknown>,
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -112,7 +113,7 @@ export async function createSession(
 
   if (!set) throw new Error('Content set not found')
 
-  const config: Record<string, unknown> = {}
+  const config: Record<string, unknown> = { ...mechanicConfig }
   if (instructions) config.instructions = instructions
   if (mode === 'vote') config.voteMode = true
   if (mode === 'shared') config.sharedMode = true

@@ -71,6 +71,7 @@ import {
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { searchContentSets } from '@/lib/actions/content-sets'
+import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL } from '@/lib/mechanics/swipe-battle/types'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -262,6 +263,8 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
   const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>('individual')
   const [timerSeconds, setTimerSeconds] = useState('')
   const [instructions, setInstructions] = useState('')
+  const [rightLabel, setRightLabel] = useState('')
+  const [leftLabel, setLeftLabel] = useState('')
   const [adding, setAdding] = useState(false)
   const mechanic = selectedSet ? MECHANIC_META[selectedSet.mechanic_id] : null
   const MechanicIcon = mechanic?.Icon ?? Gamepad2
@@ -310,6 +313,10 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
       const cfg: Record<string, unknown> = {}
       if (secs && !isNaN(secs)) cfg.timerSeconds = secs
       if (instructions.trim()) cfg.instructions = instructions.trim()
+      if (selectedSet.mechanic_id === 'swipe_battle') {
+        if (rightLabel.trim()) cfg.rightLabel = rightLabel.trim()
+        if (leftLabel.trim()) cfg.leftLabel = leftLabel.trim()
+      }
       await onAdd({
         content_set_id: selectedSet.id,
         mechanic_id: selectedSet.mechanic_id,
@@ -582,6 +589,44 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
                 <p className="text-xs text-slate-400">Shown above the activity for all students</p>
               </div>
 
+              {selectedSet.mechanic_id === 'swipe_battle' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 block">
+                    Swipe meaning{' '}
+                    <span className="text-slate-400 font-normal text-xs">optional</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-emerald-600 font-medium">Swipe right means</label>
+                      <input
+                        type="text"
+                        value={rightLabel}
+                        onChange={(e) => setRightLabel(e.target.value)}
+                        placeholder={DEFAULT_RIGHT_LABEL}
+                        maxLength={40}
+                        className="w-full mt-1 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                          focus-visible:border-violet-400 transition-colors placeholder:text-slate-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-red-500 font-medium">Swipe left means</label>
+                      <input
+                        type="text"
+                        value={leftLabel}
+                        onChange={(e) => setLeftLabel(e.target.value)}
+                        placeholder={DEFAULT_LEFT_LABEL}
+                        maxLength={40}
+                        className="w-full mt-1 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                          focus-visible:border-violet-400 transition-colors placeholder:text-slate-300"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">Shown to students so they know what they&apos;re judging</p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-slate-700 block">
                   Time limit{' '}
@@ -636,6 +681,14 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
                     <div className="flex items-start justify-between gap-4">
                       <span className="text-slate-500 shrink-0">Instructions</span>
                       <span className="font-semibold text-slate-800 text-right text-xs leading-relaxed">{instructions.trim()}</span>
+                    </div>
+                  )}
+                  {selectedSet.mechanic_id === 'swipe_battle' && (rightLabel.trim() || leftLabel.trim()) && (
+                    <div className="flex items-start justify-between gap-4">
+                      <span className="text-slate-500 shrink-0">Swipe meaning</span>
+                      <span className="font-semibold text-slate-800 text-right text-xs leading-relaxed">
+                        → {rightLabel.trim() || DEFAULT_RIGHT_LABEL} · ← {leftLabel.trim() || DEFAULT_LEFT_LABEL}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -714,6 +767,12 @@ function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalPro
   const [instructions, setInstructions] = useState(
     typeof activity.config.instructions === 'string' ? activity.config.instructions : '',
   )
+  const [rightLabel, setRightLabel] = useState(
+    typeof activity.config.rightLabel === 'string' ? activity.config.rightLabel : '',
+  )
+  const [leftLabel, setLeftLabel] = useState(
+    typeof activity.config.leftLabel === 'string' ? activity.config.leftLabel : '',
+  )
   const [saving, setSaving] = useState(false)
   const indOnly = INDIVIDUAL_ONLY.has(activity.mechanic_id)
   const voteCap = VOTE_CAPABLE.has(activity.mechanic_id)
@@ -727,6 +786,10 @@ function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalPro
       const cfg: Record<string, unknown> = {}
       if (secs && !isNaN(secs)) cfg.timerSeconds = secs
       if (instructions.trim()) cfg.instructions = instructions.trim()
+      if (activity.mechanic_id === 'swipe_battle') {
+        if (rightLabel.trim()) cfg.rightLabel = rightLabel.trim()
+        if (leftLabel.trim()) cfg.leftLabel = leftLabel.trim()
+      }
       await onSave(activity.id, { mode, config: cfg })
       onClose()
     } catch {
@@ -853,6 +916,44 @@ function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalPro
                     focus-visible:border-violet-400 resize-none transition-colors placeholder:text-slate-300"
                 />
               </div>
+
+              {/* Swipe meaning */}
+              {activity.mechanic_id === 'swipe_battle' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 block">
+                    Swipe meaning{' '}
+                    <span className="text-slate-400 font-normal text-xs">optional</span>
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-emerald-600 font-medium">Swipe right means</label>
+                      <input
+                        type="text"
+                        value={rightLabel}
+                        onChange={(e) => setRightLabel(e.target.value)}
+                        placeholder={DEFAULT_RIGHT_LABEL}
+                        maxLength={40}
+                        className="w-full mt-1 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                          focus-visible:border-violet-400 transition-colors placeholder:text-slate-300"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-red-500 font-medium">Swipe left means</label>
+                      <input
+                        type="text"
+                        value={leftLabel}
+                        onChange={(e) => setLeftLabel(e.target.value)}
+                        placeholder={DEFAULT_LEFT_LABEL}
+                        maxLength={40}
+                        className="w-full mt-1 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                          focus-visible:border-violet-400 transition-colors placeholder:text-slate-300"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Timer */}
               <div className="space-y-2">

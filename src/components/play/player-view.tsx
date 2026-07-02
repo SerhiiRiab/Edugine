@@ -12,6 +12,7 @@ import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerCom
 import { SpeedMatchPlayerPanel } from '@/lib/mechanics/speed-match/PlayerComponent'
 import { SwipeBattlePlayerPanel } from '@/lib/mechanics/swipe-battle/PlayerComponent'
 import type { SwipeBattleResult } from '@/lib/mechanics/swipe-battle/PlayerComponent'
+import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL } from '@/lib/mechanics/swipe-battle/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimePlayerPanel } from '@/lib/mechanics/talk-time/PlayerComponent'
 import type { ContentBlockState } from '@/lib/mechanics/content-block/types'
@@ -101,6 +102,8 @@ interface LessonActivity {
   id: string
   mechanic_id: string
   mode: 'individual' | 'shared' | 'vote'
+  rightLabel?: string
+  leftLabel?: string
   items: CardItem[]
 }
 
@@ -204,6 +207,8 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Instructions (set by host at game start / activity advance) ───────────────
   const [currentInstructions, setCurrentInstructions] = useState<string | null>(null)
+  const [currentRightLabel, setCurrentRightLabel] = useState<string | null>(null)
+  const [currentLeftLabel, setCurrentLeftLabel] = useState<string | null>(null)
 
   // ── Completion state ─────────────────────────────────────────────────────────
   const [lastActivityResult, setLastActivityResult] = useState<SwipeBattleResult | null>(null)
@@ -692,7 +697,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -717,6 +722,8 @@ export function PlayerView({ session, lesson }: Props) {
         setJigsawReadingState(p.jigsawReadingState ?? null)
         setPredictVerifyState(p.predictVerifyState ?? null)
         setCurrentInstructions(p.instructions ?? null)
+        setCurrentRightLabel(p.rightLabel ?? null)
+        setCurrentLeftLabel(p.leftLabel ?? null)
         setPhase('playing')
       })
       .on('broadcast', { event: 'story_state_update' }, ({ payload }) => {
@@ -739,7 +746,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -762,6 +769,8 @@ export function PlayerView({ session, lesson }: Props) {
         setJigsawReadingState(p.jigsawReadingState ?? null)
         setPredictVerifyState(p.predictVerifyState ?? null)
         setCurrentInstructions(p.instructions ?? null)
+        setCurrentRightLabel(p.rightLabel ?? null)
+        setCurrentLeftLabel(p.leftLabel ?? null)
         setPhase('playing')
       })
       .on('broadcast', { event: 'word_bank_state_update' }, ({ payload }) => {
@@ -860,7 +869,7 @@ export function PlayerView({ session, lesson }: Props) {
     correct: number
     incorrect: number
     totalCards: number
-    swipes?: Array<{ word: string; translation: string; correct: boolean }>
+    swipes?: Array<{ word: string; translation?: string; correct: boolean }>
   }) => {
     setLastActivityResult({
       score: result.score,
@@ -1700,6 +1709,8 @@ export function PlayerView({ session, lesson }: Props) {
               participantId={participantId}
               nickname={nickname}
               items={currentItems}
+              rightLabel={currentRightLabel ?? currentActivity?.rightLabel ?? DEFAULT_RIGHT_LABEL}
+              leftLabel={currentLeftLabel ?? currentActivity?.leftLabel ?? DEFAULT_LEFT_LABEL}
               channelRef={channelRef}
               isLesson={isLesson}
               hostEnded={hostEnded}
@@ -1878,12 +1889,6 @@ export function PlayerView({ session, lesson }: Props) {
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-red-400">✗</span>
                         <span className="text-white">{s.word}</span>
-                        {s.translation && (
-                          <>
-                            <span className="text-slate-500">→</span>
-                            <span className="text-slate-300">{s.translation}</span>
-                          </>
-                        )}
                       </div>
                     ))}
                   </div>

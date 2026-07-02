@@ -58,6 +58,8 @@ export default async function HostPage({
         mode: act.mode as 'individual' | 'shared' | 'vote',
         content_set_title: act.content_sets?.title ?? '(deleted)',
         instructions: ((act.config as Record<string, unknown> | null)?.instructions as string | undefined) ?? undefined,
+        rightLabel: ((act.config as Record<string, unknown> | null)?.rightLabel as string | undefined) ?? undefined,
+        leftLabel: ((act.config as Record<string, unknown> | null)?.leftLabel as string | undefined) ?? undefined,
         items: (act.content_sets?.content_items ?? [])
           .sort((a, b) => a.position - b.position)
           .map((i) => ({
@@ -121,6 +123,8 @@ export default async function HostPage({
   const cs = session.content_sets as { id: string; title: string }
   const sessionConfig = (session.config as Record<string, unknown> | null) ?? {}
   const singleInstructions = sessionConfig.instructions as string | undefined
+  const singleRightLabel = sessionConfig.rightLabel as string | undefined
+  const singleLeftLabel = sessionConfig.leftLabel as string | undefined
   const singleVoteMode = sessionConfig.voteMode === true
   const singleSharedMode = sessionConfig.sharedMode === true
 
@@ -166,6 +170,8 @@ export default async function HostPage({
           mode: (singleVoteMode ? 'vote' : singleSharedMode ? 'shared' : 'individual') as 'individual' | 'shared' | 'vote',
           content_set_title: cs.title,
           instructions: singleInstructions,
+          rightLabel: singleRightLabel,
+          leftLabel: singleLeftLabel,
           items: mappedItems,
         }],
         initialActivityIndex: 0,

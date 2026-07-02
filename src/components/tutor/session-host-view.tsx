@@ -22,6 +22,7 @@ import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerCom
 import type { SpeedMatchProgress } from '@/lib/mechanics/speed-match/types'
 import { SpeedMatchHostPanel } from '@/lib/mechanics/speed-match/HostComponent'
 import { SwipeBattleHostPanel } from '@/lib/mechanics/swipe-battle/HostComponent'
+import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL } from '@/lib/mechanics/swipe-battle/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import { TalkTimeHostPanel, } from '@/lib/mechanics/talk-time/HostComponent'
 import { TalkTimePlayerPanel } from '@/lib/mechanics/talk-time/PlayerComponent'
@@ -148,6 +149,8 @@ interface LessonActivity {
   mode: 'individual' | 'shared' | 'vote'
   content_set_title: string
   instructions?: string
+  rightLabel?: string
+  leftLabel?: string
   items: CardItem[]
 }
 
@@ -1572,6 +1575,8 @@ export function SessionHostView({ session, lesson }: Props) {
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
+        const startRightLabel = lesson?.activities[currentActivityIndex]?.rightLabel
+        const startLeftLabel = lesson?.activities[currentActivityIndex]?.leftLabel
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_started',
@@ -1599,6 +1604,8 @@ export function SessionHostView({ session, lesson }: Props) {
             speakingChallengeState: newSpeakingChallengeState,
             predictVerifyState: newPredictVerifyState,
             instructions: startInstructions ?? null,
+            rightLabel: startRightLabel ?? null,
+            leftLabel: startLeftLabel ?? null,
           },
         })
         setPhase('active')
@@ -1834,6 +1841,8 @@ export function SessionHostView({ session, lesson }: Props) {
           speakingChallengeState: newSpeakingChallengeState,
           predictVerifyState: newPredictVerifyState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
+          rightLabel: lesson.activities[nextIndex]?.rightLabel ?? null,
+          leftLabel: lesson.activities[nextIndex]?.leftLabel ?? null,
         },
       })
       setCurrentActivityIndex(nextIndex)
@@ -4525,6 +4534,8 @@ export function SessionHostView({ session, lesson }: Props) {
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}
+                rightLabel={lesson?.activities[currentActivityIndex]?.rightLabel ?? DEFAULT_RIGHT_LABEL}
+                leftLabel={lesson?.activities[currentActivityIndex]?.leftLabel ?? DEFAULT_LEFT_LABEL}
                 elapsed={elapsed}
                 isEnding={isEnding}
                 isLesson={isLesson}

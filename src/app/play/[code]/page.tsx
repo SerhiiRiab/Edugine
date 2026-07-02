@@ -49,7 +49,7 @@ export default async function PlayPage({ params }: Props) {
       .select(`
         id, title,
         lesson_activities(
-          id, mechanic_id, mode, position,
+          id, mechanic_id, mode, position, config,
           content_sets(id, content_items(id, position, data))
         )
       `)
@@ -59,7 +59,7 @@ export default async function PlayPage({ params }: Props) {
     if (!lessonData) return <InvalidCodePage code={upperCode} />
 
     type RawAct = {
-      id: string; mechanic_id: string; mode: string; position: number
+      id: string; mechanic_id: string; mode: string; position: number; config: Record<string, unknown> | null
       content_sets: { id: string; content_items: RawItem[] } | null
     }
 
@@ -69,6 +69,8 @@ export default async function PlayPage({ params }: Props) {
         id: act.id,
         mechanic_id: act.mechanic_id,
         mode: act.mode as 'individual' | 'shared' | 'vote',
+        rightLabel: (act.config?.rightLabel as string | undefined) ?? undefined,
+        leftLabel: (act.config?.leftLabel as string | undefined) ?? undefined,
         items: (act.content_sets?.content_items ?? [])
           .sort((a, b) => a.position - b.position)
           .map((i) => ({
@@ -164,6 +166,8 @@ export default async function PlayPage({ params }: Props) {
     }
   })
 
+  const sessionConfig = (session.config as Record<string, unknown> | null) ?? {}
+
   return (
     <PlayerView
       session={{
@@ -178,7 +182,9 @@ export default async function PlayPage({ params }: Props) {
         activities: [{
           id: '',
           mechanic_id: session.mechanic_id ?? 'swipe_battle',
-          mode: ((session.config as Record<string, unknown> | null)?.voteMode === true ? 'vote' : (session.config as Record<string, unknown> | null)?.sharedMode === true ? 'shared' : 'individual') as 'individual' | 'shared' | 'vote',
+          mode: (sessionConfig.voteMode === true ? 'vote' : sessionConfig.sharedMode === true ? 'shared' : 'individual') as 'individual' | 'shared' | 'vote',
+          rightLabel: (sessionConfig.rightLabel as string | undefined) ?? undefined,
+          leftLabel: (sessionConfig.leftLabel as string | undefined) ?? undefined,
           items: mappedItems,
         }],
       }}

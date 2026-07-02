@@ -1,7 +1,7 @@
 'use client'
 
 // TODO: Implement SwipeBattle content editor
-// Lets tutors add/edit word + translation + isCorrect entries.
+// Lets tutors add/edit statement + explanation + isCorrect entries.
 
 import type { ContentEditorProps } from '@/lib/mechanics/types'
 import type { SwipeBattleItem } from './types'
