@@ -39,7 +39,10 @@ export interface SwipeBattleResult {
   correct: number
   incorrect: number
   totalCards: number
-  swipes: Array<{ word: string; translation: string; correct: boolean }>
+  swipes: Array<{ word: string; translation: string; correct: boolean; swipedRight: boolean }>
+  /** What swiping right/left meant on this activity — for showing "how they answered" in results */
+  rightLabel?: string
+  leftLabel?: string
 }
 
 export interface SwipeBattlePlayerPanelProps {
@@ -121,9 +124,12 @@ export function SwipeBattlePlayerPanel({
       incorrect: swipes.length - correct,
       score: scoreRef.current,
       swipes,
+      rightLabel,
+      leftLabel,
     }
 
-    // Persist to DB
+    // Persist to DB — includes the per-card breakdown so the host can still see
+    // it after a reload/reconnect, not just via the live broadcast below.
     if (participantIdRef.current) {
       createClient()
         .from('participant_progress')
@@ -134,7 +140,7 @@ export function SwipeBattlePlayerPanel({
             activity_index: activityIndexRef.current,
             score: scoreRef.current,
             current_card_index: swipes.length,
-            state: { correct, incorrect: result.incorrect, totalCards: swipes.length },
+            state: { correct, incorrect: result.incorrect, totalCards: swipes.length, swipes, rightLabel, leftLabel },
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'session_id,participant_id,activity_index' },
@@ -205,7 +211,7 @@ export function SwipeBattlePlayerPanel({
     setScore(newScore)
     if (correct) setCorrectCount(prev => prev + 1)
 
-    swipesRef.current.push({ word: item.word, translation: item.translation ?? '', correct })
+    swipesRef.current.push({ word: item.word, translation: item.translation ?? '', correct, swipedRight })
 
     setSwipeResult(correct ? 'correct' : 'wrong')
     setTimeout(() => setSwipeResult(null), 700)

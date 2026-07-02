@@ -7,12 +7,22 @@
 
 import { createClient } from '@/lib/supabase/client'
 
+export interface SwipeRecord {
+  word: string
+  translation?: string
+  swipedRight: boolean
+  correct: boolean
+}
+
 export interface ActivityProgress {
   activityIndex: number
   score: number
   correct: number
   incorrect: number
   totalCards: number
+  swipes?: SwipeRecord[]
+  rightLabel?: string
+  leftLabel?: string
 }
 
 // Shape stored in participant_progress.state JSONB
@@ -20,6 +30,9 @@ interface ProgressState {
   correct?: number
   incorrect?: number
   totalCards?: number
+  swipes?: SwipeRecord[]
+  rightLabel?: string
+  leftLabel?: string
 }
 
 function mapRow(row: {
@@ -34,6 +47,9 @@ function mapRow(row: {
     correct: st.correct ?? 0,
     incorrect: st.incorrect ?? 0,
     totalCards: st.totalCards ?? 0,
+    swipes: st.swipes,
+    rightLabel: st.rightLabel,
+    leftLabel: st.leftLabel,
   }
 }
 

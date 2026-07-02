@@ -17,6 +17,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   Target,
+  Info,
+  ChevronDown,
 } from 'lucide-react'
 import { createSession } from '@/lib/actions/sessions'
 import {
@@ -234,6 +236,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
   const [editingTitle, setEditingTitle] = useState(false)
   const [addingCard, setAddingCard] = useState(false)
   const [showBulkImport, setShowBulkImport] = useState(false)
+  const [showHowItWorks, setShowHowItWorks] = useState(true)
   const [startingSession, startSessionTransition] = useTransition()
   const [sessionInstructions, setSessionInstructions] = useState('')
   const [sessionRightLabel, setSessionRightLabel] = useState('')
@@ -529,6 +532,42 @@ export function ContentSetEditor({ set, initialItems }: Props) {
             focus:border-violet-400 outline-none resize-none py-1 text-sm transition-colors
             placeholder:text-slate-300"
         />
+
+        {/* How it works — swipe_battle only */}
+        {set.mechanic_id === 'swipe_battle' && (
+          <div className="mb-6 rounded-xl border border-violet-100 bg-violet-50/60">
+            <button
+              type="button"
+              onClick={() => setShowHowItWorks(v => !v)}
+              className="w-full flex items-center gap-2 px-4 py-3 text-left"
+            >
+              <Info className="w-4 h-4 text-violet-500 shrink-0" />
+              <span className="flex-1 text-sm font-semibold text-violet-700">How Swipe Battle works</span>
+              <ChevronDown className={`w-4 h-4 text-violet-400 transition-transform ${showHowItWorks ? 'rotate-180' : ''}`} />
+            </button>
+            {showHowItWorks && (
+              <div className="px-4 pb-4 space-y-2 text-xs text-violet-800/80 leading-relaxed">
+                <p>
+                  You can mix two kinds of cards in the same activity — students see them shuffled together.
+                </p>
+                <p>
+                  <span className="font-semibold">Word / Translation pairs</span> — fill in Translation. Students
+                  swipe right if the pair is a correct match, left if not. The Correct? toggle marks whether it
+                  really is a matching pair.
+                </p>
+                <p>
+                  <span className="font-semibold">Statement cards</span> — leave Translation blank. Students judge
+                  the statement itself using your own labels (set below, e.g. &quot;True&quot; / &quot;False&quot;).
+                  Correct? marks whether swiping right is the right judgment. Add an optional explanation, shown
+                  to students right after they swipe.
+                </p>
+                <p>
+                  Scoring: +10 for a correct swipe, −5 for a wrong one.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Column headers */}
         {items.length > 0 && (

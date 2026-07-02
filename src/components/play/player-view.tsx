@@ -869,7 +869,9 @@ export function PlayerView({ session, lesson }: Props) {
     correct: number
     incorrect: number
     totalCards: number
-    swipes?: Array<{ word: string; translation: string; correct: boolean }>
+    swipes?: Array<{ word: string; translation: string; correct: boolean; swipedRight: boolean }>
+    rightLabel?: string
+    leftLabel?: string
   }) => {
     setLastActivityResult({
       score: result.score,
@@ -877,6 +879,8 @@ export function PlayerView({ session, lesson }: Props) {
       incorrect: result.incorrect,
       totalCards: result.totalCards,
       swipes: result.swipes ?? [],
+      rightLabel: result.rightLabel,
+      leftLabel: result.leftLabel,
     })
     if (isLesson) {
       setTotalScore(prev => prev + result.score)
@@ -1886,18 +1890,28 @@ export function PlayerView({ session, lesson }: Props) {
                       Review these ({lastActivityResult.swipes.filter(s => !s.correct).length})
                     </p>
                     <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                      {lastActivityResult.swipes.filter(s => !s.correct).map((s, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-                          <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-                          <span className="text-white font-medium truncate">{s.word}</span>
-                          {s.translation && (
-                            <>
-                              <span className="text-slate-500 shrink-0">→</span>
-                              <span className="text-slate-300 truncate">{s.translation}</span>
-                            </>
-                          )}
-                        </div>
-                      ))}
+                      {lastActivityResult.swipes.filter(s => !s.correct).map((s, i) => {
+                        const right = lastActivityResult.rightLabel ?? DEFAULT_RIGHT_LABEL
+                        const left = lastActivityResult.leftLabel ?? DEFAULT_LEFT_LABEL
+                        return (
+                          <div key={i} className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 space-y-0.5">
+                            <div className="flex items-center gap-2 text-sm">
+                              <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                              <span className="text-white font-medium truncate">{s.word}</span>
+                              {s.translation && (
+                                <>
+                                  <span className="text-slate-500 shrink-0">→</span>
+                                  <span className="text-slate-300 truncate">{s.translation}</span>
+                                </>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 pl-6">
+                              You answered <span className="text-red-300 font-medium">{s.swipedRight ? right : left}</span>
+                              {' · '}Correct: <span className="text-emerald-300 font-medium">{s.swipedRight ? left : right}</span>
+                            </p>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

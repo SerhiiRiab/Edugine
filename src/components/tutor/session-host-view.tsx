@@ -134,13 +134,26 @@ interface SwipeRecord {
   timeTaken?: string
 }
 
+// Per-card breakdown for the end-of-activity results screens — a looser shape
+// than SwipeRecord (which backs the live per-swipe mirror view) since this one
+// comes from either the final game_complete broadcast or persisted DB state,
+// neither of which carries cardIndex/score/timeTaken per card.
+interface FinalSwipeRecord {
+  word: string
+  translation?: string
+  swipedRight: boolean
+  correct: boolean
+}
+
 interface GameResult {
   nickname: string
   totalCards: number
   correct: number
   incorrect: number
   score: number
-  swipes: SwipeRecord[]
+  swipes: FinalSwipeRecord[]
+  rightLabel?: string
+  leftLabel?: string
 }
 
 interface LessonActivity {
@@ -167,7 +180,9 @@ interface ActivityResult {
   correct: number
   incorrect: number
   totalCards: number
-  swipes?: SwipeRecord[]
+  swipes?: FinalSwipeRecord[]
+  rightLabel?: string
+  leftLabel?: string
 }
 
 // Per-participant runtime state tracked during an active game
@@ -1355,6 +1370,8 @@ export function SessionHostView({ session, lesson }: Props) {
                 incorrect: p.incorrect,
                 totalCards: p.totalCards,
                 swipes: p.swipes,
+                rightLabel: p.rightLabel,
+                leftLabel: p.leftLabel,
               }
               const without = existing.filter(r => r.activityIndex !== idx)
               return { ...prev, [pid]: [...without, entry].sort((a, b) => a.activityIndex - b.activityIndex) }
@@ -1923,7 +1940,14 @@ export function SessionHostView({ session, lesson }: Props) {
             } else {
               merged[pid] = merged[pid].map(r => {
                 const db = dbEntries.find(e => e.activityIndex === r.activityIndex)
-                return db ? { ...r, score: db.score } : r
+                if (!db) return r
+                return {
+                  ...r,
+                  score: db.score,
+                  swipes: r.swipes ?? db.swipes,
+                  rightLabel: r.rightLabel ?? db.rightLabel,
+                  leftLabel: r.leftLabel ?? db.leftLabel,
+                }
               })
               for (const db of dbEntries) {
                 if (!merged[pid].find(r => r.activityIndex === db.activityIndex)) {
@@ -3448,7 +3472,36 @@ export function SessionHostView({ session, lesson }: Props) {
           event: 'game_ended',
           payload: {},
         })
+
+        // Fall back to persisted per-card results for anyone whose live
+        // game_complete broadcast was missed (e.g. host reconnected) —
+        // read before endSession deletes participant_progress on cascade.
+        const studentIds = participants.map(p => p.id).filter(Boolean)
+        const byPid = await getAllStudentsProgress(session.id, studentIds)
+
         await endSession(session.id)
+
+        if (Object.keys(byPid).length > 0) {
+          setParticipants(prev => prev.map(p => {
+            if (p.gameResult) return p
+            const dbResult = byPid[p.id]?.[0]
+            if (!dbResult) return p
+            return {
+              ...p,
+              gameResult: {
+                nickname: p.nickname,
+                totalCards: dbResult.totalCards,
+                correct: dbResult.correct,
+                incorrect: dbResult.incorrect,
+                score: dbResult.score,
+                swipes: dbResult.swipes ?? [],
+                rightLabel: dbResult.rightLabel,
+                leftLabel: dbResult.leftLabel,
+              },
+            }
+          }))
+        }
+
         setPhase('finished')
         if (elapsedRef.current) clearInterval(elapsedRef.current)
         if (mirrorTimerRef.current) clearInterval(mirrorTimerRef.current)
@@ -4651,7 +4704,7 @@ export function SessionHostView({ session, lesson }: Props) {
                             </button>
                           )}
                         </div>
-                        {hasSwipes && expanded && <SwipeBreakdownList swipes={r!.swipes!} />}
+                        {hasSwipes && expanded && <SwipeBreakdownList swipes={r!.swipes!} rightLabel={r!.rightLabel} leftLabel={r!.leftLabel} />}
                       </div>
                     )
                   })}
@@ -4811,7 +4864,7 @@ export function SessionHostView({ session, lesson }: Props) {
                                       </button>
                                     )}
                                   </div>
-                                  {hasSwipes && expanded && <SwipeBreakdownList swipes={r.swipes!} />}
+                                  {hasSwipes && expanded && <SwipeBreakdownList swipes={r.swipes!} rightLabel={r.rightLabel} leftLabel={r.leftLabel} />}
                                 </div>
                               )
                             })}
@@ -4911,7 +4964,7 @@ export function SessionHostView({ session, lesson }: Props) {
                           <span className="text-slate-400 text-xs">did not finish</span>
                         )}
                       </div>
-                      {hasSwipes && expanded && <SwipeBreakdownList swipes={r!.swipes!} />}
+                      {hasSwipes && expanded && <SwipeBreakdownList swipes={r!.swipes!} rightLabel={r!.rightLabel} leftLabel={r!.leftLabel} />}
                     </div>
                   )
                 })}
@@ -4959,25 +5012,40 @@ export function SessionHostView({ session, lesson }: Props) {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function SwipeBreakdownList({ swipes }: { swipes: SwipeRecord[] }) {
-  const sorted = [...swipes].sort((a, b) => a.cardIndex - b.cardIndex)
+function SwipeBreakdownList({
+  swipes, rightLabel, leftLabel,
+}: {
+  swipes: FinalSwipeRecord[]
+  rightLabel?: string
+  leftLabel?: string
+}) {
+  const right = rightLabel ?? DEFAULT_RIGHT_LABEL
+  const left = leftLabel ?? DEFAULT_LEFT_LABEL
   return (
-    <div className="mt-2 space-y-1 rounded-xl bg-slate-50 border border-slate-100 p-3">
-      {sorted.map((s, i) => (
-        <div key={i} className="flex items-center gap-2 text-xs">
-          {s.correct ? (
-            <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-          ) : (
-            <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
-          )}
-          <span className={`font-medium truncate ${s.correct ? 'text-slate-700' : 'text-red-700'}`}>
-            {s.word}
-          </span>
-          {s.translation && (
-            <>
-              <span className="text-slate-300">→</span>
-              <span className="text-slate-500 truncate">{s.translation}</span>
-            </>
+    <div className="mt-2 space-y-1.5 rounded-xl bg-slate-50 border border-slate-100 p-3">
+      {swipes.map((s, i) => (
+        <div key={i} className="text-xs">
+          <div className="flex items-center gap-2">
+            {s.correct ? (
+              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+            ) : (
+              <X className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            )}
+            <span className={`font-medium truncate ${s.correct ? 'text-slate-700' : 'text-red-700'}`}>
+              {s.word}
+            </span>
+            {s.translation && (
+              <>
+                <span className="text-slate-300">→</span>
+                <span className="text-slate-500 truncate">{s.translation}</span>
+              </>
+            )}
+          </div>
+          {!s.correct && (
+            <p className="text-slate-400 pl-5">
+              Answered <span className="text-red-500 font-medium">{s.swipedRight ? right : left}</span>
+              {' · '}Correct: <span className="text-emerald-600 font-medium">{s.swipedRight ? left : right}</span>
+            </p>
           )}
         </div>
       ))}
