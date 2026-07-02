@@ -10,6 +10,7 @@ function validateSwipeBattleItem(data: unknown): data is SwipeBattleItem {
   const d = data as Record<string, unknown>
   return (
     typeof d.word === 'string' &&
+    (d.translation === undefined || typeof d.translation === 'string') &&
     (d.explanation === undefined || typeof d.explanation === 'string') &&
     typeof d.isCorrect === 'boolean'
   )
@@ -22,7 +23,7 @@ export const swipeBattleDefinition: MechanicDefinition<
 > = {
   id: 'swipe_battle',
   name: 'Swipe Battle',
-  description: 'Students swipe right or left to judge each card — the tutor decides what each direction means.',
+  description: 'Swipe right or left to judge vocabulary pairs or standalone statements — mix both in one activity.',
   skill_category: 'vocabulary',
   skill_categories: ['vocabulary'],
 
@@ -42,19 +43,28 @@ export const swipeBattleDefinition: MechanicDefinition<
   bulkImport: {
     enabled: true,
     fields: [
-      { key: 'word', label: 'Statement', required: true },
+      { key: 'word',        label: 'Word / Statement', required: true },
+      { key: 'translation', label: 'Translation',       required: false },
     ],
-    placeholder: 'Bats are blind\nThe Earth is flat\nGood advice: always test in production',
-    description: 'Paste one statement per line — set what "swipe right" and "swipe left" mean, and mark each card’s correct answer, in the activity settings',
+    placeholder: 'apple | яблуко\ndog | пес\nBats are blind\ncat | кіт',
+    description: 'Paste word pairs (word | translation), or single statements with no separator — mix both freely, one per line',
     defaultSeparator: 'pipe',
-    parseLine: (line) => {
-      const word = line.trim()
-      return word ? { word } : null
+    parseLine: (line, sep) => {
+      const idx = line.indexOf(sep)
+      if (idx === -1) {
+        // No separator — treat the whole line as a single-statement card
+        const word = line.trim()
+        return word ? { word } : null
+      }
+      const word        = line.slice(0, idx).trim()
+      const translation = line.slice(idx + 1).trim()
+      if (!word || !translation) return null
+      return { word, translation }
     },
     itemDefaults: { isCorrect: true },
     correctToggle: {
       field:   'isCorrect',
-      label:   'Mark all as swipe-right (correct) items',
+      label:   'Mark all as correct pairs / correct answers',
       hint:    'Swipe Battle: student swipes right',
       default: true,
     },

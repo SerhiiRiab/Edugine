@@ -11,6 +11,7 @@ import { X, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
+import { isStatementCard } from './types'
 import type { SwipeBattleState } from './types'
 
 // ── Registry stub — satisfies MechanicDefinition type ────────────────────────
@@ -23,11 +24,12 @@ export function SwipeBattlePlayerComponent(
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 const TIME_PER_CARD = 10
-const REVEAL_DURATION = 1400 // ms — how long the correct-answer reveal stays up after a swipe
+const REVEAL_DURATION = 1400 // ms — how long the correct-answer reveal stays up on statement cards
 
 interface CardItem {
   id: string
   word: string
+  translation?: string
   explanation?: string
   isCorrect: boolean
 }
@@ -37,7 +39,7 @@ export interface SwipeBattleResult {
   correct: number
   incorrect: number
   totalCards: number
-  swipes: Array<{ word: string; correct: boolean }>
+  swipes: Array<{ word: string; translation: string; correct: boolean }>
 }
 
 export interface SwipeBattlePlayerPanelProps {
@@ -46,9 +48,9 @@ export interface SwipeBattlePlayerPanelProps {
   participantId: string
   nickname: string
   items: CardItem[]
-  /** What swiping right means, e.g. "Correct", "I agree", "Real fact" */
+  /** Single-statement cards only — what swiping right means, e.g. "Correct", "I agree", "Real fact" */
   rightLabel: string
-  /** What swiping left means, e.g. "Incorrect", "I disagree", "Myth" */
+  /** Single-statement cards only — what swiping left means, e.g. "Incorrect", "I disagree", "Myth" */
   leftLabel: string
   channelRef: { current: RealtimeChannel | null }
   isLesson: boolean
@@ -203,7 +205,7 @@ export function SwipeBattlePlayerPanel({
     setScore(newScore)
     if (correct) setCorrectCount(prev => prev + 1)
 
-    swipesRef.current.push({ word: item.word, correct })
+    swipesRef.current.push({ word: item.word, translation: item.translation ?? '', correct })
 
     setSwipeResult(correct ? 'correct' : 'wrong')
     setTimeout(() => setSwipeResult(null), 700)
@@ -219,6 +221,7 @@ export function SwipeBattlePlayerPanel({
         nickname: stored.nickname ?? nickname,
         cardIndex: currentCardIndex,
         word: item.word,
+        translation: item.translation,
         swipedRight,
         correct,
         score: newScore,
@@ -246,8 +249,8 @@ export function SwipeBattlePlayerPanel({
         .then(undefined, () => {})
     }
 
-    setRevealCard(true)
-    exitDirRef.current = swipedRight ? 'right' : 'left'
+    const statement = isStatementCard(item)
+    if (statement) setRevealCard(true)
 
     const nextIndex = currentCardIndex + 1
     if (nextIndex >= items.length) {
@@ -255,8 +258,10 @@ export function SwipeBattlePlayerPanel({
       setTimeout(() => {
         setRevealCard(false)
         finishGameRef.current()
-      }, REVEAL_DURATION)
-    } else {
+      }, statement ? REVEAL_DURATION : 800)
+    } else if (statement) {
+      // Hold the card in place so the correct-answer reveal stays visible before advancing
+      exitDirRef.current = swipedRight ? 'right' : 'left'
       setTimeout(() => {
         // The host may have force-ended the game while the reveal was showing —
         // finishGame() already ran, so don't resurrect the playing state.
@@ -266,6 +271,13 @@ export function SwipeBattlePlayerPanel({
         isProcessingRef.current = false
         setIsProcessing(false)
       }, REVEAL_DURATION)
+    } else {
+      exitDirRef.current = swipedRight ? 'right' : 'left'
+      setCurrentCardIndex(nextIndex)
+      setTimeout(() => {
+        isProcessingRef.current = false
+        setIsProcessing(false)
+      }, 300)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCardIndex, items])
@@ -279,6 +291,7 @@ export function SwipeBattlePlayerPanel({
   }
 
   const currentItem = items[currentCardIndex]
+  const currentIsStatement = currentItem ? isStatementCard(currentItem) : false
 
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
@@ -337,10 +350,10 @@ export function SwipeBattlePlayerPanel({
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-2 relative">
         <div className="flex justify-between w-full max-w-sm mb-4 px-2">
           <div className="flex items-center gap-1.5 text-red-400 text-sm font-semibold opacity-60 truncate">
-            ← {leftLabel} ✗
+            {currentIsStatement ? `← ${leftLabel} ✗` : '← Wrong ✗'}
           </div>
           <div className="flex items-center gap-1.5 text-emerald-400 text-sm font-semibold opacity-60 truncate">
-            {rightLabel} ✓ →
+            {currentIsStatement ? `${rightLabel} ✓ →` : 'Correct ✓ →'}
           </div>
         </div>
 
@@ -388,7 +401,7 @@ export function SwipeBattlePlayerPanel({
             )}
           </AnimatePresence>
 
-          {/* Correct-answer reveal, shown briefly after each swipe */}
+          {/* Correct-answer reveal — single-statement cards only */}
           <AnimatePresence>
             {revealCard && currentItem && (
               <motion.div
@@ -462,7 +475,9 @@ export function SwipeBattlePlayerPanel({
 
       <div className="text-center pb-4 px-4">
         <p className="text-xs text-slate-600">
-          Swipe right for &ldquo;{rightLabel}&rdquo;, left for &ldquo;{leftLabel}&rdquo;
+          {currentIsStatement
+            ? `Swipe right for "${rightLabel}", left for "${leftLabel}"`
+            : "Swipe right if the translation is correct, left if it's wrong"}
         </p>
       </div>
     </div>
@@ -501,6 +516,8 @@ function SwipeCard({
     else if (info.offset.x < -THRESHOLD) onSwipe('left')
   }
 
+  const statement = isStatementCard(item)
+
   return (
     <motion.div
       style={{ x, rotate, backgroundColor: cardBg }}
@@ -518,7 +535,7 @@ function SwipeCard({
         className="absolute top-5 left-5 max-w-[40%] text-red-400 font-black text-lg
           border-2 border-red-500 px-3 py-1 rounded-lg -rotate-12 truncate"
       >
-        {leftLabel.toUpperCase()} ✗
+        {statement ? `${leftLabel.toUpperCase()} ✗` : 'WRONG ✗'}
       </motion.div>
 
       <motion.div
@@ -526,14 +543,26 @@ function SwipeCard({
         className="absolute top-5 right-5 max-w-[40%] text-emerald-400 font-black text-lg
           border-2 border-emerald-500 px-3 py-1 rounded-lg rotate-12 truncate"
       >
-        {rightLabel.toUpperCase()} ✓
+        {statement ? `${rightLabel.toUpperCase()} ✓` : 'CORRECT ✓'}
       </motion.div>
 
-      <div className="text-center px-2">
-        <p className="text-2xl font-black text-white leading-snug">
-          {item.word}
-        </p>
-      </div>
+      {statement ? (
+        <div className="text-center px-2">
+          <p className="text-2xl font-black text-white leading-snug">
+            {item.word}
+          </p>
+        </div>
+      ) : (
+        <div className="text-center space-y-3 px-4">
+          <div className="text-3xl font-black text-white leading-tight">
+            {item.word}
+          </div>
+          <div className="w-12 h-0.5 bg-slate-600 mx-auto rounded-full" />
+          <div className="text-2xl text-slate-300 font-semibold leading-tight">
+            {item.translation}
+          </div>
+        </div>
+      )}
 
       <p className="absolute bottom-4 text-xs text-slate-600 font-medium">
         ← drag to judge →

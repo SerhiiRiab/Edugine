@@ -47,7 +47,7 @@ import {
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { MECHANICS } from '@/lib/mechanics/registry'
 import type { MechanicId } from '@/lib/mechanics/types'
-import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL } from '@/lib/mechanics/swipe-battle/types'
+import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL, isStatementCard } from '@/lib/mechanics/swipe-battle/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +68,7 @@ interface RawItem {
 interface EditorItem {
   id: string
   word: string
+  translation: string
   explanation: string
   isCorrect: boolean
 }
@@ -77,10 +78,11 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function rawToEditor(item: RawItem): EditorItem {
-  const d = item.data as { word?: string; explanation?: string; isCorrect?: boolean }
+  const d = item.data as { word?: string; translation?: string; explanation?: string; isCorrect?: boolean }
   return {
     id: item.id,
     word: d.word ?? '',
+    translation: d.translation ?? '',
     explanation: d.explanation ?? '',
     isCorrect: d.isCorrect ?? true,
   }
@@ -106,6 +108,7 @@ interface CardRowProps {
 function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id })
+  const isStatement = isStatementCard(item)
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -138,13 +141,27 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
           {index + 1}
         </span>
 
-        {/* Statement */}
+        {/* Word / statement */}
         <input
           type="text"
           value={item.word}
           onChange={(e) => onUpdate(item.id, { word: e.target.value })}
-          placeholder="What should students judge? e.g. a claim, a piece of advice, a fact"
-          className="flex-1 text-sm text-slate-800 bg-slate-50 rounded-lg
+          placeholder="English word, or a standalone statement"
+          className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
+            border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+            outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
+        />
+
+        {/* Arrow */}
+        <span className="text-slate-300 shrink-0 select-none">→</span>
+
+        {/* Translation */}
+        <input
+          type="text"
+          value={item.translation}
+          onChange={(e) => onUpdate(item.id, { translation: e.target.value })}
+          placeholder="Translation (blank = standalone statement)"
+          className="flex-[3] text-sm text-slate-800 bg-slate-50 rounded-lg
             border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
             outline-none px-3 py-2 transition-colors placeholder:text-slate-300"
         />
@@ -154,7 +171,9 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
           <button
             type="button"
             onClick={() => onUpdate(item.id, { isCorrect: !item.isCorrect })}
-            title="Is the swipe-right answer correct for this card?"
+            title={isStatement
+              ? 'Is the swipe-right answer correct for this statement?'
+              : 'Is this a correct word pair? (students should swipe right)'}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
               ${item.isCorrect ? 'bg-emerald-400' : 'bg-slate-200'}`}
           >
@@ -180,18 +199,20 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
         </button>
       </div>
 
-      {/* Explanation — shown to students after they swipe */}
-      <div className="flex items-center gap-3 pl-11">
-        <input
-          type="text"
-          value={item.explanation}
-          onChange={(e) => onUpdate(item.id, { explanation: e.target.value })}
-          placeholder="Explanation shown after swipe (optional)"
-          className="flex-1 text-xs text-slate-600 bg-slate-50 rounded-lg
-            border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
-            outline-none px-3 py-1.5 transition-colors placeholder:text-slate-300"
-        />
-      </div>
+      {/* Explanation — single-statement cards only, shown to students after they swipe */}
+      {isStatement && (
+        <div className="flex items-center gap-3 pl-11">
+          <input
+            type="text"
+            value={item.explanation}
+            onChange={(e) => onUpdate(item.id, { explanation: e.target.value })}
+            placeholder="Explanation shown after swipe (optional)"
+            className="flex-1 text-xs text-slate-600 bg-slate-50 rounded-lg
+              border border-slate-200 focus:border-violet-400 focus:ring-2 focus:ring-violet-100
+              outline-none px-3 py-1.5 transition-colors placeholder:text-slate-300"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -293,6 +314,7 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       try {
         await updateContentItem(item.id, {
           word: item.word,
+          translation: item.translation,
           explanation: item.explanation,
           isCorrect: item.isCorrect,
         })
@@ -322,12 +344,13 @@ export function ContentSetEditor({ set, initialItems }: Props) {
     try {
       const created = await createContentItem(set.id, {
         word: '',
+        translation: '',
         explanation: '',
         isCorrect: true,
       })
       setItems((prev) => [
         ...prev,
-        { id: created.id, word: '', explanation: '', isCorrect: true },
+        { id: created.id, word: '', translation: '', explanation: '', isCorrect: true },
       ])
     } catch {
       toast.error('Failed to add card')
@@ -512,8 +535,10 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           <div className="flex items-center gap-3 mb-2 px-3 text-xs text-slate-400 font-semibold uppercase tracking-wide select-none">
             <span className="w-4 shrink-0" />
             <span className="w-5 shrink-0" />
-            <span className="flex-1">Statement</span>
-            <span className="w-28 text-center">Swipe-right answer?</span>
+            <span className="flex-[3]">Word / Statement</span>
+            <span className="w-3 shrink-0" />
+            <span className="flex-[3]">Translation (blank = statement)</span>
+            <span className="w-28 text-center">Correct?</span>
             <span className="w-8 shrink-0" />
           </div>
         )}
@@ -657,10 +682,11 @@ export function ContentSetEditor({ set, initialItems }: Props) {
           <p className="text-[10px] text-slate-300">Shown to students during the activity</p>
         </div>
 
-        {/* Swipe meaning — swipe_battle only */}
+        {/* Swipe meaning — swipe_battle only, applies to single-statement cards */}
         {set.mechanic_id === 'swipe_battle' && (
           <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4 space-y-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Swipe meaning</p>
+            <p className="text-[10px] text-slate-400">For standalone statement cards (blank translation)</p>
             <div>
               <label className="text-[10px] text-emerald-600 font-medium">Swipe right means</label>
               <input

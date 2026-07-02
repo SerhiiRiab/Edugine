@@ -869,7 +869,7 @@ export function PlayerView({ session, lesson }: Props) {
     correct: number
     incorrect: number
     totalCards: number
-    swipes?: Array<{ word: string; translation?: string; correct: boolean }>
+    swipes?: Array<{ word: string; translation: string; correct: boolean }>
   }) => {
     setLastActivityResult({
       score: result.score,
@@ -1889,6 +1889,12 @@ export function PlayerView({ session, lesson }: Props) {
                       <div key={i} className="flex items-center gap-2 text-sm">
                         <span className="text-red-400">✗</span>
                         <span className="text-white">{s.word}</span>
+                        {s.translation && (
+                          <>
+                            <span className="text-slate-500">→</span>
+                            <span className="text-slate-300">{s.translation}</span>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

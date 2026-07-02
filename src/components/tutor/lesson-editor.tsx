@@ -593,7 +593,7 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 block">
                     Swipe meaning{' '}
-                    <span className="text-slate-400 font-normal text-xs">optional</span>
+                    <span className="text-slate-400 font-normal text-xs">optional — for standalone statement cards</span>
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -922,7 +922,7 @@ function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalPro
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-slate-700 block">
                     Swipe meaning{' '}
-                    <span className="text-slate-400 font-normal text-xs">optional</span>
+                    <span className="text-slate-400 font-normal text-xs">optional — for standalone statement cards</span>
                   </label>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
