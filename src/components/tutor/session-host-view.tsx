@@ -458,7 +458,7 @@ export function SessionHostView({ session, lesson }: Props) {
           if (progRows && progRows.length > 0) {
             const restored: Record<string, SpeedMatchProgress> = {}
             for (const row of progRows) {
-              const st = row.state as { matched?: number; total?: number; elapsed?: number; wrongAttempts?: number } | null
+              const st = row.state as { matched?: number; total?: number; elapsed?: number; wrongAttempts?: number; matchedPairIds?: string[] } | null
               restored[row.participant_id] = {
                 matched: st?.matched ?? 0,
                 total: st?.total ?? 0,
@@ -466,6 +466,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 elapsed: st?.elapsed ?? 0,
                 wrongAttempts: st?.wrongAttempts ?? 0,
                 finished: true,
+                matchedPairIds: st?.matchedPairIds ?? [],
               }
             }
             setSpeedMatchProgress(restored)
@@ -1309,6 +1310,7 @@ export function SessionHostView({ session, lesson }: Props) {
             elapsed: p.elapsed,
             wrongAttempts: p.wrongAttempts,
             finished: p.finished,
+            matchedPairIds: p.matchedPairIds ?? [],
           },
         }))
         if (p.participantId) {
@@ -4130,6 +4132,7 @@ export function SessionHostView({ session, lesson }: Props) {
               <SpeedMatchHostPanel
                 participants={participants}
                 progress={speedMatchProgress}
+                items={currentActivityItems.map(i => ({ id: i.id, front: i.word, back: i.translation }))}
                 totalPairs={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}

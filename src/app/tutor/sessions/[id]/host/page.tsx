@@ -130,8 +130,8 @@ export default async function HostPage({
 
   const mappedItems = (items ?? []).map((i) => ({
     id: i.id,
-    word: (i.data as { word?: string }).word ?? '',
-    translation: (i.data as { translation?: string }).translation ?? '',
+    word: (i.data as { word?: string; front?: string }).word ?? (i.data as { front?: string }).front ?? '',
+    translation: (i.data as { translation?: string; back?: string }).translation ?? (i.data as { back?: string }).back ?? '',
     explanation: (i.data as { explanation?: string }).explanation,
     isCorrect: (i.data as { isCorrect?: boolean }).isCorrect ?? true,
     text: (i.data as { text?: string }).text,

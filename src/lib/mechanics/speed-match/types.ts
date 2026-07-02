@@ -18,6 +18,8 @@ export interface SpeedMatchProgress {
   elapsed: number        // seconds
   wrongAttempts: number
   finished: boolean
+  /** Ids of pairs matched so far (cumulative across batches) — lets the host show which pairs are done */
+  matchedPairIds?: string[]
 }
 
 // Shared realtime state (minimal — each player manages their own)

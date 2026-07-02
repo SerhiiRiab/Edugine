@@ -115,6 +115,7 @@ export function SpeedMatchPlayerPanel({
   const wrongRef = useRef(0)
   const elapsedRef = useRef(0)
   const batchIndexRef = useRef(0)
+  const matchedPairIdsRef = useRef<string[]>([])   // cumulative across batches — for the host's live view
 
   // Initialize first batch
   useEffect(() => {
@@ -145,14 +146,14 @@ export function SpeedMatchPlayerPanel({
       activity_index: activityIndex,
       score: finalScore,
       current_card_index: finalMatched,
-      state: { matched: finalMatched, total: totalPairs, elapsed: el, wrongAttempts: finalWrong },
+      state: { matched: finalMatched, total: totalPairs, elapsed: el, wrongAttempts: finalWrong, matchedPairIds: matchedPairIdsRef.current },
       updated_at: new Date().toISOString(),
     }, { onConflict: 'session_id,participant_id,activity_index' }).then(undefined, () => {})
 
     channelRef.current?.send({
       type: 'broadcast',
       event: 'speed_match_progress',
-      payload: { participantId, matched: finalMatched, total: totalPairs, score: finalScore, elapsed: el, wrongAttempts: finalWrong, finished: true },
+      payload: { participantId, matched: finalMatched, total: totalPairs, score: finalScore, elapsed: el, wrongAttempts: finalWrong, finished: true, matchedPairIds: matchedPairIdsRef.current },
     })
 
     // game_complete so host view knows this participant finished
@@ -205,7 +206,7 @@ export function SpeedMatchPlayerPanel({
     channelRef.current?.send({
       type: 'broadcast',
       event: 'speed_match_progress',
-      payload: { participantId, matched: currentMatched, total: totalPairs, score: currentScore, elapsed: elapsedRef.current, wrongAttempts: wrongRef.current, finished: false },
+      payload: { participantId, matched: currentMatched, total: totalPairs, score: currentScore, elapsed: elapsedRef.current, wrongAttempts: wrongRef.current, finished: false, matchedPairIds: matchedPairIdsRef.current },
     })
   }
 
@@ -223,6 +224,7 @@ export function SpeedMatchPlayerPanel({
       const newMatched = new Set([...matchedIds, pairId])
       setMatchedIds(newMatched)
       setSelectedLeft(null)
+      matchedPairIdsRef.current = [...matchedPairIdsRef.current, pairId]
 
       const newScore = scoreRef.current + POINTS_PER_MATCH
       scoreRef.current = newScore
@@ -245,7 +247,7 @@ export function SpeedMatchPlayerPanel({
         channelRef.current?.send({
           type: 'broadcast',
           event: 'speed_match_progress',
-          payload: { participantId, matched: newTotal, total: totalPairs, score: newScore, elapsed: elapsedRef.current, wrongAttempts: wrongRef.current, finished: false },
+          payload: { participantId, matched: newTotal, total: totalPairs, score: newScore, elapsed: elapsedRef.current, wrongAttempts: wrongRef.current, finished: false, matchedPairIds: matchedPairIdsRef.current },
         })
       }
     } else {

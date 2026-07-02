@@ -1,7 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Timer, Zap, Trophy, CheckCircle2, ChevronRight, StopCircle } from 'lucide-react'
+import { Timer, Zap, Trophy, CheckCircle2, ChevronDown, ChevronRight, StopCircle } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { SpeedMatchState, SpeedMatchProgress } from './types'
 
@@ -28,6 +29,7 @@ function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 export interface SpeedMatchHostPanelProps {
   participants: { id: string; nickname: string; online: boolean }[]
   progress: Record<string, SpeedMatchProgress>   // participantId → progress
+  items: { id: string; front: string; back: string }[]
   totalPairs: number
   isLastActivity: boolean
   isAdvancing: boolean
@@ -40,6 +42,7 @@ export interface SpeedMatchHostPanelProps {
 export function SpeedMatchHostPanel({
   participants,
   progress,
+  items,
   totalPairs,
   isLastActivity,
   isAdvancing,
@@ -50,6 +53,15 @@ export function SpeedMatchHostPanel({
 }: SpeedMatchHostPanelProps) {
   const finishedCount = participants.filter(p => progress[p.id]?.finished).length
   const allFinished = participants.length > 0 && finishedCount >= participants.length
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+
+  function toggleExpanded(id: string) {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   return (
     <div className="space-y-4">
@@ -106,6 +118,16 @@ export function SpeedMatchHostPanel({
                 <div className="flex items-center gap-2 shrink-0">
                   {isFinished && <CheckCircle2 className="w-4 h-4 text-emerald-500" />}
                   <span className={`w-2 h-2 rounded-full ${p.online ? 'bg-emerald-400' : 'bg-slate-300'}`} />
+                  {items.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => toggleExpanded(p.id)}
+                      className="flex items-center justify-center w-6 h-6 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors"
+                      title="Show pairs"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform ${expanded.has(p.id) ? 'rotate-180' : ''}`} />
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -143,6 +165,30 @@ export function SpeedMatchHostPanel({
                 <p className="text-[10px] text-red-400 mt-1">
                   {prog.wrongAttempts} wrong attempt{prog.wrongAttempts !== 1 ? 's' : ''}
                 </p>
+              )}
+
+              {/* Pair breakdown — the actual content, matched pairs highlighted */}
+              {expanded.has(p.id) && items.length > 0 && (
+                <div className="mt-2.5 pt-2.5 border-t border-slate-100 space-y-1">
+                  {items.map(item => {
+                    const isMatched = (prog?.matchedPairIds ?? []).includes(item.id)
+                    return (
+                      <div
+                        key={item.id}
+                        className={`flex items-center gap-2 text-xs px-2 py-1 rounded-lg ${
+                          isMatched ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500'
+                        }`}
+                      >
+                        {isMatched
+                          ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          : <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 shrink-0" />}
+                        <span className={`truncate ${isMatched ? 'font-medium' : ''}`}>{item.front}</span>
+                        <span className="text-slate-300 shrink-0">→</span>
+                        <span className="truncate">{item.back}</span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </motion.div>
           )
