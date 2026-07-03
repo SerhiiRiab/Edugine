@@ -148,9 +148,14 @@ export default async function PublicLessonPage({ params }: Props) {
       />
       {/* Top bar */}
       <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <GraduationCap className="w-5 h-5 text-violet-600" />
-          <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
+        <div className="flex items-center gap-4">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <GraduationCap className="w-5 h-5 text-violet-600" />
+            <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
+          </Link>
+          <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+            Browse lessons
+          </Link>
         </div>
         {user ? (
           <Link
