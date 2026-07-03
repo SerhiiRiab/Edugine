@@ -341,9 +341,9 @@ export function SpeakingChallengeHostPanel({
         </div>
       )}
 
-      {/* End button */}
+      {/* End button — ends this activity early (shows the finish screen), not the whole lesson */}
       <button
-        onClick={onEndLesson} disabled={isAdvancing || isBusy}
+        onClick={() => busy(onFinish)} disabled={isAdvancing || isBusy}
         className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl
           border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
           hover:text-red-600 text-slate-400 text-sm font-semibold disabled:opacity-50 transition-colors"
