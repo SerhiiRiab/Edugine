@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { ContentSetEditor } from '@/components/tutor/content-set-editor'
 import { StoryBuilderContentEditor } from '@/lib/mechanics/story-builder/ContentEditor'
 import { SpeedMatchContentEditorPage } from '@/lib/mechanics/speed-match/ContentEditor'
@@ -47,7 +47,9 @@ export default async function EditContentSetPage({
     .eq('owner_id', user!.id)
     .single()
 
-  if (error || !set) notFound()
+  // Deleted, or never belonged to this tutor — send them back to the list
+  // instead of a bare 404, since they're still logged in.
+  if (error || !set) redirect('/tutor/content-sets')
 
   const { data: items } = await supabase
     .from('content_items')

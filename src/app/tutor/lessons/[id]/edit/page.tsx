@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { LessonEditor } from '@/components/tutor/lesson-editor'
 import { LessonProgramsPanel } from '@/components/tutor/lesson-programs-panel'
@@ -55,7 +55,9 @@ export default async function LessonEditPage({
       .order('title'),
   ])
 
-  if (lessonResult.error || !lessonResult.data) notFound()
+  // Deleted, or never belonged to this tutor — send them back to the list
+  // instead of a bare 404, since they're still logged in.
+  if (lessonResult.error || !lessonResult.data) redirect('/tutor/lessons')
   const lesson = lessonResult.data
 
   const activities = ((lesson.lesson_activities ?? []) as unknown as RawActivity[])

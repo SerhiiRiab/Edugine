@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { ProgramDetail } from '@/components/tutor/program-detail'
@@ -23,7 +23,9 @@ export default async function ProgramDetailPage({
     .eq('tutor_id', user!.id)
     .single()
 
-  if (!program) notFound()
+  // Deleted, or never belonged to this tutor — send them back to the list
+  // instead of a bare 404, since they're still logged in.
+  if (!program) redirect('/tutor/programs')
 
   // Fetch lessons in this program (ordered)
   const { data: rawProgramLessons } = await supabase
