@@ -87,7 +87,7 @@ export function ElevatorPitchPlayerPanel({
       <div className="flex-1 flex flex-col items-center justify-center gap-5 p-6 text-center">
         <div className="text-4xl">🎉</div>
         <p className="text-white font-bold text-xl">Great pitching!</p>
-        <p className="text-slate-400 text-sm">The session has ended.</p>
+        <p className="text-slate-400 text-sm">Your teacher will continue the lesson</p>
       </div>
     )
   }
