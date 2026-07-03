@@ -115,13 +115,18 @@ export async function getTeamActivityResults(sessionId: string): Promise<TeamAct
     .select('activity_index, state')
     .eq('session_id', sessionId)
     .order('activity_index')
-  return (data ?? []).map(row => {
-    const s = (row.state ?? {}) as { teamScore?: number; wordBank?: Array<{ used: boolean }> }
-    return {
-      activityIndex: row.activity_index as number,
-      teamScore: s.teamScore ?? 0,
-      usedWordsCount: (s.wordBank ?? []).filter(w => w.used).length,
-      totalWords: (s.wordBank ?? []).length,
-    }
-  })
+  return (data ?? [])
+    .map(row => {
+      const s = (row.state ?? {}) as { teamScore?: number; wordBank?: Array<{ used: boolean }> }
+      return {
+        activityIndex: row.activity_index as number,
+        teamScore: s.teamScore ?? 0,
+        usedWordsCount: (s.wordBank ?? []).filter(w => w.used).length,
+        totalWords: (s.wordBank ?? []).length,
+      }
+    })
+    // Every shared activity has a shared_activity_state row for its own realtime
+    // state, but only story_builder/talk_time ever set a team bonus — skip the rest
+    // so they don't show a redundant "0 pts" entry alongside their individual score.
+    .filter(r => r.teamScore > 0 || r.totalWords > 0)
 }
