@@ -15,7 +15,6 @@ export interface TalkTimeState {
   timerRunning: boolean
   timerStartedAt: string | null  // ISO timestamp when timer was last started
   timeLeftAtStart: number        // seconds left when timer was started or paused
-  teamScore: number
   status: 'active' | 'finished'
 }
 

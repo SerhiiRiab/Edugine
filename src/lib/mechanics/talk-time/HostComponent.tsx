@@ -4,8 +4,8 @@ import { useState, useRef } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Mic, Play, Pause, RotateCcw, ChevronRight, SkipForward, Star,
-  StopCircle, Trophy, PartyPopper, Users, Timer,
+  Mic, Play, Pause, RotateCcw, ChevronRight, SkipForward,
+  StopCircle, PartyPopper, Users, Timer,
 } from 'lucide-react'
 import type { TalkTimeState } from './types'
 import { computeTimeLeft } from './types'
@@ -63,7 +63,6 @@ export interface TalkTimeHostPanelProps {
   onNextPrompt: () => Promise<void>
   onSkipTurn: () => Promise<void>
   onAssignTurn: (participantId: string) => Promise<void>
-  onBonusPoints: (amount: number) => Promise<void>
   onFinish: () => Promise<void>
 }
 
@@ -83,7 +82,6 @@ export function TalkTimeHostPanel({
   onNextPrompt,
   onSkipTurn,
   onAssignTurn,
-  onBonusPoints,
   onFinish,
 }: TalkTimeHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
@@ -117,14 +115,6 @@ export function TalkTimeHostPanel({
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4 flex items-center gap-4">
-          <Trophy className="w-10 h-10 text-yellow-500 shrink-0" />
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Team Score</p>
-            <p className="text-3xl font-bold text-slate-800">{state.teamScore} <span className="text-lg text-slate-400">pts</span></p>
-          </div>
-        </div>
-
         <div className="flex gap-3">
           <button
             onClick={onEndLesson}
@@ -155,21 +145,12 @@ export function TalkTimeHostPanel({
   return (
     <div className="max-w-3xl mx-auto space-y-4">
 
-      {/* Score + progress */}
+      {/* Progress */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Trophy className="w-5 h-5 text-yellow-500 shrink-0" />
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-none mb-0.5">Team Score</p>
-            <p className="text-xl font-bold text-slate-800 leading-none">{state.teamScore} <span className="text-sm text-slate-400">pts</span></p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-none mb-0.5">Prompt</p>
-          <p className="text-xl font-bold text-slate-800 leading-none">
-            {state.currentPromptIndex + 1}<span className="text-slate-400 text-sm">/{state.prompts.length}</span>
-          </p>
-        </div>
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-none">Prompt</p>
+        <p className="text-xl font-bold text-slate-800 leading-none">
+          {state.currentPromptIndex + 1}<span className="text-slate-400 text-sm">/{state.prompts.length}</span>
+        </p>
       </div>
 
       {/* Current prompt + timer */}
@@ -321,28 +302,6 @@ export function TalkTimeHostPanel({
           >
             <SkipForward className="w-3.5 h-3.5" />
             Skip turn
-          </button>
-          <button
-            onClick={() => busy(() => onBonusPoints(5))}
-            disabled={isBusy}
-            title="Give 5 bonus points"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border
-              border-yellow-200 bg-yellow-50 text-yellow-700 text-sm font-semibold
-              hover:bg-yellow-100 disabled:opacity-50 transition-colors"
-          >
-            <Star className="w-3.5 h-3.5" />
-            Bonus +5
-          </button>
-          <button
-            onClick={() => busy(() => onBonusPoints(10))}
-            disabled={isBusy}
-            title="Give 10 bonus points"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border
-              border-yellow-200 bg-yellow-50 text-yellow-700 text-sm font-semibold
-              hover:bg-yellow-100 disabled:opacity-50 transition-colors"
-          >
-            <Star className="w-3.5 h-3.5" />
-            Bonus +10
           </button>
         </div>
       </div>

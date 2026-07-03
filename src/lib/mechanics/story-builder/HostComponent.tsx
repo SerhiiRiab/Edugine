@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { BookOpen, Check, ChevronRight, SkipForward, Star, StopCircle, Trophy, Users, PartyPopper, PenLine } from 'lucide-react'
+import { BookOpen, Check, ChevronRight, SkipForward, StopCircle, Trophy, Users, PartyPopper, PenLine } from 'lucide-react'
 import type { StoryBuilderState } from './types'
 
 const AVATAR_COLORS = [
@@ -22,7 +22,6 @@ export interface StoryBuilderHostPanelProps {
   typingUser?: { participantId: string; name: string } | null
   onFinishStory: () => Promise<void>
   onSkipTurn: () => Promise<void>
-  onBonusPoints: (amount: number) => Promise<void>
   onAssignTurn: (participantId: string) => Promise<void>
 }
 
@@ -37,7 +36,6 @@ export function StoryBuilderHostPanel({
   typingUser,
   onFinishStory,
   onSkipTurn,
-  onBonusPoints,
   onAssignTurn,
 }: StoryBuilderHostPanelProps) {
   const [isBusy, setIsBusy] = useState(false)
@@ -331,28 +329,6 @@ export function StoryBuilderHostPanel({
       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-5 py-4">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Tutor Controls</p>
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => busy(() => onBonusPoints(5))}
-            disabled={isBusy}
-            title="Give 5 bonus points to the team"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border
-              border-yellow-200 bg-yellow-50 text-yellow-700 text-sm font-semibold
-              hover:bg-yellow-100 disabled:opacity-50 transition-colors"
-          >
-            <Star className="w-3.5 h-3.5" />
-            Bonus +5
-          </button>
-          <button
-            onClick={() => busy(() => onBonusPoints(10))}
-            disabled={isBusy}
-            title="Give 10 bonus points to the team"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border
-              border-yellow-200 bg-yellow-50 text-yellow-700 text-sm font-semibold
-              hover:bg-yellow-100 disabled:opacity-50 transition-colors"
-          >
-            <Star className="w-3.5 h-3.5" />
-            Bonus +10
-          </button>
           <button
             onClick={() => busy(() => onSkipTurn())}
             disabled={isBusy || storyState.turnOrder.length < 2}

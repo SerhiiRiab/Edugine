@@ -324,7 +324,6 @@ export async function initTalkTimeState(
     timerRunning: false,
     timerStartedAt: null,
     timeLeftAtStart: timerDuration,
-    teamScore: 0,
     status: 'active',
   }
 

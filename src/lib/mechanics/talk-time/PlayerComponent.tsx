@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Trophy, PartyPopper, Headphones } from 'lucide-react'
+import { PartyPopper, Headphones } from 'lucide-react'
 import type { TalkTimeState } from './types'
 import { computeTimeLeft } from './types'
 
@@ -103,19 +103,6 @@ export function TalkTimePlayerPanel({
           Your teacher will continue the lesson
         </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3, duration: 0.4 }}
-          className="w-full max-w-xs bg-gradient-to-r from-violet-900/60 to-purple-900/60
-            border border-violet-700/50 rounded-2xl px-5 py-4 flex items-center gap-4"
-        >
-          <Trophy className="w-8 h-8 text-yellow-400 shrink-0" />
-          <div>
-            <p className="text-xs text-violet-300 font-semibold uppercase tracking-wide">Team Score</p>
-            <p className="text-3xl font-bold text-white">{state.teamScore} <span className="text-lg text-violet-300">pts</span></p>
-          </div>
-        </motion.div>
       </div>
     )
   }
@@ -124,12 +111,8 @@ export function TalkTimePlayerPanel({
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-slate-900">
 
-      {/* Score + progress bar */}
-      <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-          <span className="text-xs font-bold text-white">Team: {state.teamScore} pts</span>
-        </div>
+      {/* Progress bar */}
+      <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-end">
         <span className="text-xs text-slate-400 font-medium">
           Prompt {state.currentPromptIndex + 1}/{state.prompts.length}
         </span>

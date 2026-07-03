@@ -2070,12 +2070,6 @@ export function SessionHostView({ session, lesson }: Props) {
     await storyStateUpdate({ ...storyState, currentTurnIndex: next })
   }
 
-  async function handleBonusPoints(amount: number) {
-    if (!storyState) return
-    const newScore = Math.max(0, (storyState.teamScore ?? 0) + amount)
-    await storyStateUpdate({ ...storyState, teamScore: newScore })
-  }
-
   // ── Talk Time handlers ────────────────────────────────────────────────────────
   async function talkTimeStateUpdate(newState: TalkTimeState) {
     const supabase = createClient()
@@ -2170,14 +2164,6 @@ export function SessionHostView({ session, lesson }: Props) {
       timerRunning: false,
       timerStartedAt: null,
       timeLeftAtStart: talkTimeState.timerDuration,
-    })
-  }
-
-  async function handleTalkTimeBonusPoints(amount: number) {
-    if (!talkTimeState) return
-    await talkTimeStateUpdate({
-      ...talkTimeState,
-      teamScore: Math.max(0, (talkTimeState.teamScore ?? 0) + amount),
     })
   }
 
@@ -4153,7 +4139,6 @@ export function SessionHostView({ session, lesson }: Props) {
                 typingUser={typingUser}
                 onFinishStory={handleFinishStory}
                 onSkipTurn={handleSkipTurn}
-                onBonusPoints={handleBonusPoints}
                 onAssignTurn={handleAssignTurn}
               />
             )}
@@ -4195,7 +4180,6 @@ export function SessionHostView({ session, lesson }: Props) {
                 onNextPrompt={handleTalkTimeNextPrompt}
                 onSkipTurn={handleTalkTimeSkipTurn}
                 onAssignTurn={handleTalkTimeAssignTurn}
-                onBonusPoints={handleTalkTimeBonusPoints}
                 onFinish={handleTalkTimeFinish}
               />
             )}
