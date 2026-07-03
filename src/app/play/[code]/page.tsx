@@ -50,7 +50,7 @@ export default async function PlayPage({ params }: Props) {
         id, title,
         lesson_activities(
           id, mechanic_id, mode, position, config,
-          content_sets(id, content_items(id, position, data))
+          content_sets(id, title, content_items(id, position, data))
         )
       `)
       .eq('id', session.lesson_id)
@@ -60,7 +60,7 @@ export default async function PlayPage({ params }: Props) {
 
     type RawAct = {
       id: string; mechanic_id: string; mode: string; position: number; config: Record<string, unknown> | null
-      content_sets: { id: string; content_items: RawItem[] } | null
+      content_sets: { id: string; title: string; content_items: RawItem[] } | null
     }
 
     const activities = ((lessonData.lesson_activities ?? []) as unknown as RawAct[])
@@ -69,6 +69,7 @@ export default async function PlayPage({ params }: Props) {
         id: act.id,
         mechanic_id: act.mechanic_id,
         mode: act.mode as 'individual' | 'shared' | 'vote',
+        content_set_title: act.content_sets?.title ?? '(deleted)',
         rightLabel: (act.config?.rightLabel as string | undefined) ?? undefined,
         leftLabel: (act.config?.leftLabel as string | undefined) ?? undefined,
         items: (act.content_sets?.content_items ?? [])

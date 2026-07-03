@@ -102,6 +102,7 @@ interface LessonActivity {
   id: string
   mechanic_id: string
   mode: 'individual' | 'shared' | 'vote'
+  content_set_title?: string
   rightLabel?: string
   leftLabel?: string
   items: CardItem[]
@@ -849,7 +850,7 @@ export function PlayerView({ session, lesson }: Props) {
           pid ? getSessionResults(session.id, pid) : Promise.resolve([]),
           getTeamActivityResults(session.id),
         ])
-        if (individualResults.length > 0) setCompletionData(individualResults)
+        setCompletionData(individualResults)
         if (teamResults.length > 0) setTeamCompletionData(teamResults)
       })
       .on('broadcast', { event: 'game_ended' }, () => {
@@ -1002,9 +1003,16 @@ export function PlayerView({ session, lesson }: Props) {
   }
 
   // ── Derived for render ───────────────────────────────────────────────────────
-  const completionEntries = completionData ?? activityScores.map((s, i) => ({
-    activityIndex: i, score: s, correct: 0, incorrect: 0, totalCards: 0,
-  }))
+  // Always show every activity in the lesson, even ones with no DB row yet
+  // (0 pts) — falls back to the locally-tracked scores only if the DB read
+  // itself never came back (completionData still null).
+  const completionEntries = isLesson && completionData
+    ? lesson.activities.map((_, i) => completionData.find(d => d.activityIndex === i) ?? {
+        activityIndex: i, score: 0, correct: 0, incorrect: 0, totalCards: 0,
+      })
+    : activityScores.map((s, i) => ({
+        activityIndex: i, score: s, correct: 0, incorrect: 0, totalCards: 0,
+      }))
   const completionTotal = completionEntries.reduce((sum, d) => sum + d.score, 0)
 
   const displayParticipants: Array<WaitingParticipant & { isSelf: boolean }> =
@@ -1797,15 +1805,7 @@ export function PlayerView({ session, lesson }: Props) {
                     </p>
                     {completionEntries.map((entry, i) => {
                       const act = lesson.activities[entry.activityIndex]
-                      const label = act?.mechanic_id === 'story_builder'
-                        ? 'Group Story Builder'
-                        : act?.mechanic_id === 'speed_match'
-                        ? 'Speed Match'
-                        : act?.mechanic_id === 'true_false'
-                        ? 'True or False'
-                        : act?.mechanic_id === 'multiple_choice'
-                        ? 'Multiple Choice'
-                        : `Activity ${entry.activityIndex + 1}`
+                      const label = act?.content_set_title ?? `Activity ${entry.activityIndex + 1}`
                       return (
                         <div key={i} className="flex items-center justify-between text-sm">
                           <span className="text-slate-400">{label}</span>
@@ -1827,9 +1827,7 @@ export function PlayerView({ session, lesson }: Props) {
                     </p>
                     {teamCompletionData.map((r) => {
                       const act = lesson.activities[r.activityIndex]
-                      const label = act?.mechanic_id === 'story_builder'
-                        ? 'Group Story Builder'
-                        : `Activity ${r.activityIndex + 1}`
+                      const label = act?.content_set_title ?? `Activity ${r.activityIndex + 1}`
                       return (
                         <div key={r.activityIndex} className="flex items-center justify-between text-sm">
                           <div>

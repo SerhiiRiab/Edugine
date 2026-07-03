@@ -4893,16 +4893,20 @@ export function SessionHostView({ session, lesson }: Props) {
                 <div className="space-y-4">
                   {[...participants]
                     .map((student, originalIndex) => {
-                      // Shared-mode activities are excluded unless they carry per-student
-                      // data of their own (participation points or a computed group score)
-                      // — team-wide bonus scores are shown separately below, in Team Activities.
-                      const results = (perStudentResults[student.id] ?? [])
-                        .filter(r => {
-                          const act = lesson!.activities[r.activityIndex]
-                          if (act?.mode !== 'shared') return true
-                          return PARTICIPATION_POINTS[act.mechanic_id as MechanicId] !== undefined
-                            || GROUP_SCORED_SHARED_MECHANICS.has(act.mechanic_id as MechanicId)
+                      // Every activity shows up, even with no DB row yet (0 pts) — except
+                      // shared-mode activities with no per-student data of their own
+                      // (participation points or a computed group score), which are purely
+                      // team-scored and shown separately below, in Team Activities.
+                      const studentResults = perStudentResults[student.id] ?? []
+                      const results = lesson!.activities
+                        .map((act, i) => {
+                          if (act.mode === 'shared'
+                            && PARTICIPATION_POINTS[act.mechanic_id as MechanicId] === undefined
+                            && !GROUP_SCORED_SHARED_MECHANICS.has(act.mechanic_id as MechanicId)) return null
+                          return studentResults.find(r => r.activityIndex === i)
+                            ?? { activityIndex: i, score: 0, correct: 0, incorrect: 0, totalCards: 0 }
                         })
+                        .filter((r): r is ActivityResult => r !== null)
                       const total = results.reduce((s, r) => s + r.score, 0)
                       return { student, originalIndex, results, total }
                     })
