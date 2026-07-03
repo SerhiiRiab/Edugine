@@ -1673,11 +1673,10 @@ export function SessionHostView({ session, lesson }: Props) {
   // activity being left, since these mechanics never write their own score rows.
   async function awardParticipationPoints(activityIndex: number, mechanicId: string | undefined) {
     const points = mechanicId ? PARTICIPATION_POINTS[mechanicId as MechanicId] : undefined
-    const onlineParticipants = participants.filter(p => p.online)
-    if (!points || onlineParticipants.length === 0) return
+    if (!points || participants.length === 0) return
     const supabase = createClient()
-    await supabase.from('participant_progress').upsert(
-      onlineParticipants.map(p => ({
+    const { error } = await supabase.from('participant_progress').upsert(
+      participants.map(p => ({
         session_id: session.id,
         participant_id: p.id,
         activity_index: activityIndex,
@@ -1686,6 +1685,7 @@ export function SessionHostView({ session, lesson }: Props) {
       })),
       { onConflict: 'session_id,participant_id,activity_index' },
     )
+    if (error) console.error('awardParticipationPoints failed:', error.message, error.details, error.hint)
   }
 
   async function handleNextActivity(targetIndex?: number) {
