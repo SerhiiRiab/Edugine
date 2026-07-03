@@ -1,6 +1,12 @@
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { TutorShell } from '@/components/tutor/tutor-shell'
+
+// Everything under /tutor is an authenticated dashboard — never search content.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 export default async function TutorLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()

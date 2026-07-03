@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import AdminClient from './admin-client'
@@ -6,6 +7,9 @@ import AdminClient from './admin-client'
 const ADMIN_EMAIL = 'ryabushey@gmail.com'
 
 export const dynamic = 'force-dynamic'
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+}
 
 export default async function AdminPage() {
   const supabase = await createClient()

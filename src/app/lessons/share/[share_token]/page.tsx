@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import {
   GraduationCap,
@@ -37,11 +38,46 @@ const MECHANIC_META: Record<MechanicId, { label: string; Icon: React.ComponentTy
   word_bank:          { label: 'Word Bank',           Icon: Library },
 }
 
+type Props = { params: Promise<{ share_token: string }> }
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { share_token } = await params
+  const supabase = await createClient()
+  const { data: lesson } = await supabase
+    .from('lessons')
+    .select('title, description')
+    .eq('share_token', share_token)
+    .eq('visibility', 'unlisted')
+    .single()
+
+  if (!lesson) return { title: 'Lesson not found — Edugine', robots: { index: false, follow: false } }
+
+  const title = `${lesson.title} — Edugine`
+  const description = lesson.description ?? 'A lesson shared on Edugine — interactive lessons for online tutors.'
+
+  return {
+    title,
+    description,
+    // Unlisted share links are for whoever holds the link, not search results.
+    robots: { index: false, follow: false },
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ['https://edugine.app/og-image.png'],
+    },
+  }
+}
+
 export default async function LessonSharePage({
   params,
-}: {
-  params: Promise<{ share_token: string }>
-}) {
+}: Props) {
   const { share_token } = await params
   const supabase = await createClient()
 

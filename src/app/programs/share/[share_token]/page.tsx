@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { share_token } = await params
   const program = await fetchProgram(share_token)
 
-  if (!program) return { title: 'Program not found — Edugine' }
+  if (!program) return { title: 'Program not found — Edugine', robots: { index: false, follow: false } }
 
   const title = `${program.title} — Edugine`
   const description = program.description ?? 'A learning program on Edugine — interactive lessons for online tutors.'
@@ -39,6 +39,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title,
     description,
+    // Unlisted share links are for whoever holds the link, not search results.
+    robots: { index: false, follow: false },
     openGraph: {
       type: 'website',
       title,

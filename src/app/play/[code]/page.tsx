@@ -1,9 +1,15 @@
+import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { XCircle } from 'lucide-react'
 import { PlayerView } from '@/components/play/player-view'
 
 interface Props {
   params: Promise<{ code: string }>
+}
+
+// Live session codes are ephemeral and single-use — never search content.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
 }
 
 const CODE_REGEX = /^[A-HJ-NP-Z2-9]{6}$/

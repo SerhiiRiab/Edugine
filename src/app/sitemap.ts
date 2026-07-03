@@ -17,11 +17,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // DB unavailable during build — static routes still emit
   }
 
+  // /login and /signup are noindex (see their generateMetadata) — not content
+  // pages, so they're intentionally left out of the sitemap.
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: BASE,               lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
     { url: `${BASE}/library`,  lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
-    { url: `${BASE}/signup`,   lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.8 },
-    { url: `${BASE}/login`,    lastModified: new Date(), changeFrequency: 'yearly',  priority: 0.5 },
   ]
 
   const lessonRoutes: MetadataRoute.Sitemap = (lessons ?? []).map(lesson => ({
