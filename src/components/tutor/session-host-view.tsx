@@ -1702,21 +1702,27 @@ export function SessionHostView({ session, lesson }: Props) {
   }
 
   // Points for mechanics with no inherent scoring of their own — flat participation
-  // credit (see PARTICIPATION_POINTS) for activities with no right/wrong answer, or
-  // a computed group score (see computeSharedGroupScore) for shared collaborative
-  // quiz-style activities — awarded to every current participant for the activity
-  // being left, since these mechanics never write their own score rows.
+  // credit (see PARTICIPATION_POINTS) for activities with no right/wrong answer, a
+  // computed group score (see computeSharedGroupScore) for shared collaborative
+  // quiz-style activities, or a per-student running tally (vote mode's
+  // correctCounts, 10 pts/correct vote — same rule as individual mode) — awarded
+  // for the activity being left, since these paths never write their own score
+  // rows the way individual-mode PlayerComponents do.
   async function awardParticipationPoints(activityIndex: number, mechanicId: string | undefined) {
+    const activity = lesson?.activities[activityIndex]
     const flatPoints = mechanicId ? PARTICIPATION_POINTS[mechanicId as MechanicId] : undefined
-    const points = flatPoints ?? computeSharedGroupScore(activityIndex)
-    if (points === undefined || participants.length === 0) return
+    const groupScore = flatPoints === undefined ? computeSharedGroupScore(activityIndex) : undefined
+    const isVoteMode = flatPoints === undefined && groupScore === undefined && activity?.mode === 'vote' && !!voteState
+    if (participants.length === 0 || (flatPoints === undefined && groupScore === undefined && !isVoteMode)) return
+    const scoreFor = (participantId: string): number =>
+      flatPoints ?? groupScore ?? (isVoteMode ? (voteState!.correctCounts[participantId] ?? 0) * 10 : 0)
     const supabase = createClient()
     const { error } = await supabase.from('participant_progress').upsert(
       participants.map(p => ({
         session_id: session.id,
         participant_id: p.id,
         activity_index: activityIndex,
-        score: points,
+        score: scoreFor(p.id),
         updated_at: new Date().toISOString(),
       })),
       { onConflict: 'session_id,participant_id,activity_index' },
@@ -2201,8 +2207,15 @@ export function SessionHostView({ session, lesson }: Props) {
   }
 
   async function handleVoteReveal() {
-    if (!voteState) return
-    await voteStateUpdate({ ...voteState, revealed: true })
+    if (!voteState || voteState.revealed) return
+    const item = currentActivityItems[voteState.currentQuestionIndex]
+    const isCorrectVote = (vote: number | boolean) =>
+      voteState.mechanic === 'true_false' ? vote === item?.isTrue : vote === item?.correctIndex
+    const correctCounts = { ...voteState.correctCounts }
+    for (const [participantId, vote] of Object.entries(voteState.votes)) {
+      if (isCorrectVote(vote)) correctCounts[participantId] = (correctCounts[participantId] ?? 0) + 1
+    }
+    await voteStateUpdate({ ...voteState, revealed: true, correctCounts })
   }
 
   async function handleVoteNextQuestion() {

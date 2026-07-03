@@ -429,6 +429,7 @@ export async function initVoteState(
     revealed: false,
     status: 'active',
     totalQuestions,
+    correctCounts: {},
   }
 
   await supabase.from('shared_activity_state').upsert(
