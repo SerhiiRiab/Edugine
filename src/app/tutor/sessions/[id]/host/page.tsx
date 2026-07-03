@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { SessionHostView } from '@/components/tutor/session-host-view'
 
 type RawActivity = {
@@ -32,7 +32,9 @@ export default async function HostPage({
     .eq('host_id', user.id)
     .single()
 
-  if (!session) notFound()
+  // Session already ended (or never belonged to this tutor) — send them
+  // somewhere useful instead of a bare 404, since they're still logged in.
+  if (!session) redirect('/tutor/dashboard')
 
   // ── Lesson mode ─────────────────────────────────────────────────────────────
   if (session.lesson_id) {
@@ -48,7 +50,7 @@ export default async function HostPage({
       .eq('id', session.lesson_id)
       .single()
 
-    if (!lessonData) notFound()
+    if (!lessonData) redirect('/tutor/dashboard')
 
     const activities = ((lessonData.lesson_activities ?? []) as unknown as RawActivity[])
       .sort((a, b) => a.position - b.position)
