@@ -16,7 +16,7 @@ import { createClient } from '@/lib/supabase/client'
 import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
-import { PARTICIPATION_POINTS } from '@/lib/mechanics/types'
+import { PARTICIPATION_POINTS, GROUP_SCORED_SHARED_MECHANICS } from '@/lib/mechanics/types'
 import type { MechanicId } from '@/lib/mechanics/types'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostComponent'
@@ -45,6 +45,7 @@ import { WordChoiceIndividualHostPanel, WordChoiceSharedHostPanel } from '@/lib/
 import { WordChoiceSharedPlayerPanel } from '@/lib/mechanics/word-choice/PlayerComponent'
 import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } from '@/lib/mechanics/correct-the-mistake/types'
 import { CorrectTheMistakeIndividualHostPanel, CorrectTheMistakeSharedHostPanel } from '@/lib/mechanics/correct-the-mistake/HostComponent'
+import { computeWordDiff } from '@/lib/mechanics/correct-the-mistake/diff'
 import { CorrectTheMistakeSharedPlayerPanel } from '@/lib/mechanics/correct-the-mistake/PlayerComponent'
 import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostComponent'
@@ -1668,12 +1669,47 @@ export function SessionHostView({ session, lesson }: Props) {
     })
   }
 
-  // Flat participation points for mechanics with no inherent scoring of their own
-  // (see PARTICIPATION_POINTS) — awarded to every current participant for the
-  // activity being left, since these mechanics never write their own score rows.
+  // word_bank / word_choice / correct_the_mistake in shared mode have no per-student
+  // answer — everyone edits one collaborative attempt — so there's no individual score
+  // to persist. Score it like the individual variants (1 point per correct blank/
+  // sentence) and credit every participant with that same group-earned number.
+  function computeSharedGroupScore(activityIndex: number): number | undefined {
+    const activity = lesson?.activities[activityIndex]
+    if (!activity || activity.mode !== 'shared') return undefined
+    if (activity.mechanic_id === 'word_bank' && wordBankSharedState) {
+      const blanks = activity.items.flatMap(i => i.blanks ?? [])
+      return blanks.filter((b, i) =>
+        (wordBankSharedState.fills[i] ?? '').trim().toLowerCase() === (b.answer ?? '').trim().toLowerCase()
+      ).length
+    }
+    if (activity.mechanic_id === 'word_choice' && wordChoiceSharedState) {
+      const blanks = activity.items.flatMap(i => (i.blanks ?? []) as Array<{ answer?: string; correctIndex?: number }>)
+      return blanks.filter((b, i) => wordChoiceSharedState.fills[i] === (b.correctIndex ?? -1)).length
+    }
+    if (activity.mechanic_id === 'correct_the_mistake' && ctmSharedState) {
+      let correct = 0
+      activity.items.forEach((it, itemIdx) => {
+        const segments = computeWordDiff(it.incorrect ?? '', it.correct ?? '')
+        segments.forEach((seg, segIdx) => {
+          if (seg.type !== 'change') return
+          const fix = ctmSharedState.fixes[`${itemIdx}_${segIdx}`] ?? ''
+          if (fix.trim().toLowerCase() === seg.cWords.join(' ').toLowerCase()) correct++
+        })
+      })
+      return correct
+    }
+    return undefined
+  }
+
+  // Points for mechanics with no inherent scoring of their own — flat participation
+  // credit (see PARTICIPATION_POINTS) for activities with no right/wrong answer, or
+  // a computed group score (see computeSharedGroupScore) for shared collaborative
+  // quiz-style activities — awarded to every current participant for the activity
+  // being left, since these mechanics never write their own score rows.
   async function awardParticipationPoints(activityIndex: number, mechanicId: string | undefined) {
-    const points = mechanicId ? PARTICIPATION_POINTS[mechanicId as MechanicId] : undefined
-    if (!points || participants.length === 0) return
+    const flatPoints = mechanicId ? PARTICIPATION_POINTS[mechanicId as MechanicId] : undefined
+    const points = flatPoints ?? computeSharedGroupScore(activityIndex)
+    if (points === undefined || participants.length === 0) return
     const supabase = createClient()
     const { error } = await supabase.from('participant_progress').upsert(
       participants.map(p => ({
@@ -4845,11 +4881,15 @@ export function SessionHostView({ session, lesson }: Props) {
                   {[...participants]
                     .map((student, originalIndex) => {
                       // Shared-mode activities are excluded unless they carry per-student
-                      // data of their own (e.g. participation points) — team-wide bonus
-                      // scores are shown separately below, in Team Activities.
+                      // data of their own (participation points or a computed group score)
+                      // — team-wide bonus scores are shown separately below, in Team Activities.
                       const results = (perStudentResults[student.id] ?? [])
-                        .filter(r => lesson!.activities[r.activityIndex]?.mode !== 'shared'
-                          || PARTICIPATION_POINTS[lesson!.activities[r.activityIndex]?.mechanic_id as MechanicId] !== undefined)
+                        .filter(r => {
+                          const act = lesson!.activities[r.activityIndex]
+                          if (act?.mode !== 'shared') return true
+                          return PARTICIPATION_POINTS[act.mechanic_id as MechanicId] !== undefined
+                            || GROUP_SCORED_SHARED_MECHANICS.has(act.mechanic_id as MechanicId)
+                        })
                       const total = results.reduce((s, r) => s + r.score, 0)
                       return { student, originalIndex, results, total }
                     })

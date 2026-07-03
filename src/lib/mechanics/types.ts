@@ -32,8 +32,12 @@ export type MechanicId =
 // Flat points awarded to every participant when the host advances past an
 // activity using one of these mechanics. Only for mechanics with no inherent
 // right/wrong answer of their own — mechanics that already compute a score
-// (swipe_battle, speed_match, true_false, multiple_choice, fill_the_gap,
-// word_bank, word_choice, correct_the_mistake) are intentionally absent.
+// in individual mode (swipe_battle, speed_match, true_false, multiple_choice,
+// fill_the_gap, word_bank, word_choice, correct_the_mistake) are intentionally
+// absent. word_bank/word_choice/correct_the_mistake in *shared* mode have no
+// per-student answer to score, so they instead get a computed group score —
+// see GROUP_SCORED_SHARED_MECHANICS and computeSharedGroupScore in
+// session-host-view.tsx.
 export const PARTICIPATION_POINTS: Partial<Record<MechanicId, number>> = {
   talk_time: 10,
   elevator_pitch: 10,
@@ -50,6 +54,15 @@ export const PARTICIPATION_POINTS: Partial<Record<MechanicId, number>> = {
   drama_event: 20,
   story_builder: 20,
 }
+
+// Shared-mode mechanics with a quiz-style right/wrong answer but no per-student
+// attempt (one collaborative fill shared by the whole class) — scored as a
+// computed group score rather than a flat participation credit.
+export const GROUP_SCORED_SHARED_MECHANICS: ReadonlySet<MechanicId> = new Set([
+  'word_bank',
+  'word_choice',
+  'correct_the_mistake',
+])
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 
