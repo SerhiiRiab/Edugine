@@ -317,7 +317,7 @@ export function TalkTimeHostPanel({
             disabled:opacity-50 transition-colors"
         >
           <StopCircle className="w-4 h-4" />
-          End
+          {isLesson ? 'End lesson' : 'End activity'}
         </button>
         <button
           onClick={() => busy(onFinish)}
