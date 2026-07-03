@@ -38,6 +38,22 @@ export const metadata: Metadata = {
   },
 };
 
+const organizationJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'Edugine',
+  url: 'https://edugine.app',
+  logo: 'https://edugine.app/og-image.png',
+  description: 'Create interactive multiplayer lessons for small groups. Activity library, lesson builder and live sessions for ESL tutors and educators.',
+}
+
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Edugine',
+  url: 'https://edugine.app',
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -46,6 +62,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
+        />
         {children}
         <Toaster richColors position="bottom-right" />
       </body>

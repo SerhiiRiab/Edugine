@@ -128,8 +128,24 @@ export default async function PublicLessonPage({ params }: Props) {
 
   const levelColor = lesson.level ? (LEVEL_COLORS[lesson.level] ?? '') : ''
 
+  const lessonJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'LearningResource',
+    name: lesson.title,
+    description: lesson.description ?? 'A public lesson on Edugine — interactive lessons for online tutors.',
+    url: `https://edugine.app/lessons/${slug}`,
+    ...(lesson.level ? { educationalLevel: lesson.level } : {}),
+    learningResourceType: 'Interactive lesson',
+    provider: { '@type': 'Organization', name: 'Edugine', url: 'https://edugine.app' },
+    ...(creatorProfile?.full_name ? { author: { '@type': 'Person', name: creatorProfile.full_name } } : {}),
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50/30 flex flex-col">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(lessonJsonLd) }}
+      />
       {/* Top bar */}
       <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
