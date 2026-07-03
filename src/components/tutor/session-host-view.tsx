@@ -16,6 +16,8 @@ import { createClient } from '@/lib/supabase/client'
 import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
+import { PARTICIPATION_POINTS } from '@/lib/mechanics/types'
+import type { MechanicId } from '@/lib/mechanics/types'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import { StoryBuilderHostPanel } from '@/lib/mechanics/story-builder/HostComponent'
 import { StoryBuilderPlayerPanel } from '@/lib/mechanics/story-builder/PlayerComponent'
@@ -1666,6 +1668,26 @@ export function SessionHostView({ session, lesson }: Props) {
     })
   }
 
+  // Flat participation points for mechanics with no inherent scoring of their own
+  // (see PARTICIPATION_POINTS) — awarded to every current participant for the
+  // activity being left, since these mechanics never write their own score rows.
+  async function awardParticipationPoints(activityIndex: number, mechanicId: string | undefined) {
+    const points = mechanicId ? PARTICIPATION_POINTS[mechanicId as MechanicId] : undefined
+    const onlineParticipants = participants.filter(p => p.online)
+    if (!points || onlineParticipants.length === 0) return
+    const supabase = createClient()
+    await supabase.from('participant_progress').upsert(
+      onlineParticipants.map(p => ({
+        session_id: session.id,
+        participant_id: p.id,
+        activity_index: activityIndex,
+        score: points,
+        updated_at: new Date().toISOString(),
+      })),
+      { onConflict: 'session_id,participant_id,activity_index' },
+    )
+  }
+
   async function handleNextActivity(targetIndex?: number) {
     if (!lesson) return
     // `onNextActivity` is passed as a bare `() => void` prop into many mechanic HostComponents,
@@ -1675,6 +1697,7 @@ export function SessionHostView({ session, lesson }: Props) {
     setIsAdvancing(true)
     try {
       await advanceActivity(session.id, nextIndex)
+      await awardParticipationPoints(currentActivityIndex, lesson.activities[currentActivityIndex]?.mechanic_id)
       const nextActivity = lesson.activities[nextIndex]
 
       // Init state for next activity depending on mechanic
@@ -1919,6 +1942,7 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!lesson) return
     setIsAdvancing(true)
     try {
+      await awardParticipationPoints(currentActivityIndex, lesson.activities[currentActivityIndex]?.mechanic_id)
       await channelRef.current?.send({
         type: 'broadcast',
         event: 'lesson_complete',
@@ -4820,8 +4844,12 @@ export function SessionHostView({ session, lesson }: Props) {
                 <div className="space-y-4">
                   {[...participants]
                     .map((student, originalIndex) => {
+                      // Shared-mode activities are excluded unless they carry per-student
+                      // data of their own (e.g. participation points) — team-wide bonus
+                      // scores are shown separately below, in Team Activities.
                       const results = (perStudentResults[student.id] ?? [])
-                        .filter(r => lesson!.activities[r.activityIndex]?.mode !== 'shared')
+                        .filter(r => lesson!.activities[r.activityIndex]?.mode !== 'shared'
+                          || PARTICIPATION_POINTS[lesson!.activities[r.activityIndex]?.mechanic_id as MechanicId] !== undefined)
                       const total = results.reduce((s, r) => s + r.score, 0)
                       return { student, originalIndex, results, total }
                     })

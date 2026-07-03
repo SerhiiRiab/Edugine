@@ -28,6 +28,29 @@ export type MechanicId =
   | 'jigsaw_reading'
   | 'predict_verify'
 
+// ── Participation points ─────────────────────────────────────────────────────
+// Flat points awarded to every participant when the host advances past an
+// activity using one of these mechanics. Only for mechanics with no inherent
+// right/wrong answer of their own — mechanics that already compute a score
+// (swipe_battle, speed_match, true_false, multiple_choice, fill_the_gap,
+// word_bank, word_choice, correct_the_mistake) are intentionally absent.
+export const PARTICIPATION_POINTS: Partial<Record<MechanicId, number>> = {
+  talk_time: 10,
+  elevator_pitch: 10,
+  speaking_challenge: 10,
+  content_block: 10,
+  debate_roulette: 15,
+  speed_debate: 15,
+  taboo: 15,
+  jigsaw_reading: 15,
+  predict_verify: 15,
+  roleplay_quest: 20,
+  mission_briefing: 20,
+  hidden_role: 20,
+  drama_event: 20,
+  story_builder: 20,
+}
+
 // ── Shared prop interfaces ───────────────────────────────────────────────────
 
 export interface MechanicHostProps<TState = unknown> {
