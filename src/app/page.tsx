@@ -1,7 +1,12 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Fragment } from 'react'
 import { Zap, Users, Play, BookOpen, ArrowRight, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+
+export const metadata: Metadata = {
+  alternates: { canonical: 'https://edugine.app' },
+}
 
 export default async function Home() {
   const supabase = await createClient()

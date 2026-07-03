@@ -8,6 +8,23 @@ export const metadata: Metadata = {
   title: 'Lesson Library — Free Interactive English Lessons | Edugine',
   description:
     'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
+  alternates: { canonical: 'https://edugine.app/library' },
+  openGraph: {
+    type: 'website',
+    url: 'https://edugine.app/library',
+    siteName: 'Edugine',
+    title: 'Lesson Library — Free Interactive English Lessons | Edugine',
+    description:
+      'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
+    images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: 'Edugine Lesson Library' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Lesson Library — Free Interactive English Lessons | Edugine',
+    description:
+      'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
+    images: ['https://edugine.app/og-image.png'],
+  },
 }
 
 export type LibraryLesson = {
