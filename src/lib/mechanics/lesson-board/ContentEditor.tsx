@@ -9,7 +9,7 @@ import {
   LayoutDashboard, X,
 } from 'lucide-react'
 import {
-  updateContentSet, createContentItem, updateContentItem, deleteContentItem,
+  updateContentSet, createContentItem, updateContentItem,
 } from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
 import { lessonBoardSnapshotHasContent, type LessonBoardItem, type LessonBoardSnapshot } from './types'
@@ -157,18 +157,14 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
     return () => { cancelled = true }
   }, [preparedSnapshot])
 
-  async function handleSelectMode(mode: BoardSetupMode) {
+  // Switching this is just choosing which section to show right now — it must
+  // never delete the prepared board itself. Losing a teacher's work because
+  // they clicked a radio button (even by accident, or just to look around)
+  // would be exactly the kind of silent data loss this UI should never cause.
+  // Switching back to "prepare" always restores the same board from local
+  // state, since nothing was ever touched in the database.
+  function handleSelectMode(mode: BoardSetupMode) {
     setBoardMode(mode)
-    if (mode === 'empty' && itemIdRef.current) {
-      const id = itemIdRef.current
-      itemIdRef.current = null
-      setPreparedSnapshot(null)
-      setSaveStatus('saving')
-      try {
-        await deleteContentItem(id)
-        markSaved()
-      } catch { setSaveStatus('error') }
-    }
   }
 
   function handleStartSession() {
