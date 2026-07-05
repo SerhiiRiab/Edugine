@@ -2951,7 +2951,9 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur) return
     tabooStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
       .then(() => {
-        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+        if (isLesson) {
+          if (isLastActivity) { handleEndLesson() } else { handleNextActivity() }
+        } else { handleEndGame() }
       })
       .catch(() => {})
   }
@@ -3043,7 +3045,9 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur) return
     elevatorPitchStateUpdate({ ...cur, phase: 'finished', timerRunning: false, timerStartedAt: null })
       .then(() => {
-        if (isLesson) { handleEndLesson() } else { handleEndGame() }
+        if (isLesson) {
+          if (isLastActivity) { handleEndLesson() } else { handleNextActivity() }
+        } else { handleEndGame() }
       })
       .catch(() => {})
   }
