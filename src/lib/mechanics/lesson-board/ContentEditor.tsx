@@ -355,8 +355,12 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
       </div>
 
       {/* ── Board editor overlay ─────────────────────────────────────── */}
+      {/* z-[110]: above the fixed z-[100] BackToLessonBanner/LessonReturnBanner
+          that can be showing on this page — otherwise those banners render on
+          top of this fullscreen editor and cover its header (including the
+          Save button) with their own "Changes save automatically" bar. */}
       {editorOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col">
+        <div className="fixed inset-0 z-[110] bg-slate-900 flex flex-col">
           <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
             <PenLine className="w-4 h-4 text-orange-400" />
             <p className="text-white font-semibold text-sm">Prepare your board</p>
