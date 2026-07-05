@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Check, AlertCircle, Loader2, PenLine, Rocket, CheckCircle2,
-  LayoutDashboard, X,
+  LayoutDashboard,
 } from 'lucide-react'
 import {
   updateContentSet, createContentItem, updateContentItem,
@@ -367,7 +367,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700
                 text-slate-200 text-sm font-semibold transition-colors"
             >
-              <X className="w-3.5 h-3.5" />Done
+              <Check className="w-3.5 h-3.5" />Save
             </button>
           </div>
           <div className="flex-1 relative bg-white">
