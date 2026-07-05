@@ -10,12 +10,14 @@ import type { BinaryFileData } from '@excalidraw/excalidraw/types'
 import '@excalidraw/excalidraw/index.css'
 import { isUsableLessonBoardSnapshot, lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import ZoomControls from './ZoomControls'
+import LaserPointerDot from './LaserPointerDot'
 
 interface Props {
   snapshot: LessonBoardSnapshot | null
+  laserPointer?: { x: number; y: number } | null
 }
 
-export default function ExcalidrawPlayerCanvas({ snapshot }: Props) {
+export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null }: Props) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
@@ -95,6 +97,7 @@ export default function ExcalidrawPlayerCanvas({ snapshot }: Props) {
         viewModeEnabled
       />
       <ZoomControls api={api} containerRef={containerRef} />
+      <LaserPointerDot api={api} containerRef={containerRef} position={laserPointer} />
     </div>
   )
 }

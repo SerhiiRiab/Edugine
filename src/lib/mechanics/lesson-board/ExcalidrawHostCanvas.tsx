@@ -5,6 +5,7 @@ import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
 import type {
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
+  ExcalidrawProps,
   BinaryFiles,
 } from '@excalidraw/excalidraw/types'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
@@ -19,6 +20,11 @@ interface Props {
   // gesture there) — omitted for the prepare-before-class editor, where the
   // tutor is actually drawing content, not pointing at nothing yet.
   defaultTool?: 'freedraw' | 'laser'
+  // Scene-space (x, y) while the laser tool is active — throttled by the
+  // caller's choosing before hitting Realtime. Never persisted; purely for
+  // live sync, so omit it entirely (e.g. in the prepare-before-class editor)
+  // where there's no one watching live.
+  onLaserPointerMove?: (x: number, y: number) => void
 }
 
 // Debounce: persisting/broadcasting on every single pointer-move while the
@@ -26,7 +32,12 @@ interface Props {
 // students without spamming writes on every stroke.
 const SNAPSHOT_DEBOUNCE_MS = 500
 
-export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw' }: Props) {
+// Laser pointer position is a separate, ephemeral broadcast (never written
+// to the DB) — 30fps is smooth to watch without flooding the channel the
+// way forwarding every raw pointermove event would.
+const LASER_THROTTLE_MS = 1000 / 30
+
+export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
   // behavior) — captured here anyway as a defensive habit, and to run the
   // malformed-snapshot guard before Excalidraw ever sees the data.
@@ -56,6 +67,15 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   const containerRef = useRef<HTMLDivElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
+  const lastLaserSentAtRef = useRef(0)
+
+  // Cancel any pending debounced save on unmount — otherwise a save
+  // scheduled right before switching away from this activity fires later
+  // against whatever activity/session state is current *then*, not the one
+  // it was actually captured from.
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+  }, [])
 
   // A board prepared before class starts with whatever pan/zoom it was last
   // saved at, which can easily leave content outside the host's viewport at
@@ -90,6 +110,19 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     })
     return () => cancelAnimationFrame(raf)
   }, [api, defaultTool])
+
+  // Pointer coordinates here are already in scene space (Excalidraw
+  // converts from client coords internally before calling this), so they
+  // stay meaningful to a student viewing the board at a different pan/zoom
+  // than the host's. Only forwarded while the laser tool is actually
+  // active — this fires on every pointer move regardless of tool.
+  const handlePointerUpdate = useCallback<NonNullable<ExcalidrawProps['onPointerUpdate']>>((payload) => {
+    if (!onLaserPointerMove || payload.pointer.tool !== 'laser') return
+    const now = performance.now()
+    if (now - lastLaserSentAtRef.current < LASER_THROTTLE_MS) return
+    lastLaserSentAtRef.current = now
+    onLaserPointerMove(payload.pointer.x, payload.pointer.y)
+  }, [onLaserPointerMove])
 
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],
@@ -141,6 +174,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
       <Excalidraw
         initialData={snapshotAtMount}
         onChange={handleChange}
+        onPointerUpdate={handlePointerUpdate}
         excalidrawAPI={setApi}
       >
         {/* Custom menu — omits Excalidraw's default "Socials" item (GitHub,

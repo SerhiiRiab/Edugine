@@ -3275,6 +3275,16 @@ export function SessionHostView({ session, lesson }: Props) {
     })
   }
 
+  // Ephemeral — Realtime broadcast only, no DB write. The laser pointer is
+  // live-only; there's nothing worth persisting once it moves on.
+  function handleLessonBoardLaserPointer(x: number, y: number) {
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'laser_pointer',
+      payload: { x, y },
+    })
+  }
+
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -4654,6 +4664,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
                 onSnapshotChange={handleLessonBoardSnapshotChange}
+                onLaserPointerMove={handleLessonBoardLaserPointer}
               />
             )}
 

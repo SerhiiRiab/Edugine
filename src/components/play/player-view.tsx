@@ -200,6 +200,15 @@ export function PlayerView({ session, lesson }: Props) {
   const [predictVerifyState, setPredictVerifyState] = useState<PredictVerifyState | null>(null)
   // ── Lesson Board ─────────────────────────────────────────────────────────────
   const [lessonBoardState, setLessonBoardState] = useState<LessonBoardState | null>(null)
+  const [laserPointer, setLaserPointer] = useState<{ x: number; y: number } | null>(null)
+  const laserFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Ephemeral only — never persisted, so there's nothing to restore on
+  // reconnect. Cleared 100ms after the last broadcast so a stalled/closed
+  // tutor connection doesn't leave a stale dot frozen on screen.
+  useEffect(() => () => {
+    if (laserFadeTimeoutRef.current) clearTimeout(laserFadeTimeoutRef.current)
+  }, [])
 
   // ── Speed Debate ──────────────────────────────────────────────────────────────
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -853,6 +862,12 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'lesson_board_state_update' }, ({ payload }) => {
         const p = payload as { state: LessonBoardState }
         if (p.state) setLessonBoardState(p.state)
+      })
+      .on('broadcast', { event: 'laser_pointer' }, ({ payload }) => {
+        const p = payload as { x: number; y: number }
+        setLaserPointer({ x: p.x, y: p.y })
+        if (laserFadeTimeoutRef.current) clearTimeout(laserFadeTimeoutRef.current)
+        laserFadeTimeoutRef.current = setTimeout(() => setLaserPointer(null), 100)
       })
       .on('broadcast', { event: 'drama_event_ended' }, ({ payload }) => {
         const p = payload as { state: DramaEventState }
@@ -1744,7 +1759,7 @@ export function PlayerView({ session, lesson }: Props) {
           {/* Lesson Board */}
           {currentMechanicId === 'lesson_board' && participantId && (
             lessonBoardState
-              ? <LessonBoardPlayerPanel state={lessonBoardState} />
+              ? <LessonBoardPlayerPanel state={lessonBoardState} laserPointer={laserPointer} />
               : (
                 <div className="flex-1 flex items-center justify-center p-6">
                   <p className="text-slate-400 animate-pulse">Loading…</p>

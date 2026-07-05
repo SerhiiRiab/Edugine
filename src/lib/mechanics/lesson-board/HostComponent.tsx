@@ -22,6 +22,7 @@ export interface LessonBoardHostPanelProps {
   onNextActivity: () => void
   onEndLesson: () => void
   onSnapshotChange: (snapshot: LessonBoardSnapshot) => void
+  onLaserPointerMove?: (x: number, y: number) => void
 }
 
 export function LessonBoardHostPanel({
@@ -32,6 +33,7 @@ export function LessonBoardHostPanel({
   onNextActivity,
   onEndLesson,
   onSnapshotChange,
+  onLaserPointerMove,
 }: LessonBoardHostPanelProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-4">
@@ -47,7 +49,12 @@ export function LessonBoardHostPanel({
 
       <div className="h-[60vh] min-h-[420px] rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative bg-white">
         <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
-          <ExcalidrawHostCanvas initialSnapshot={state.snapshot} onSnapshotChange={onSnapshotChange} defaultTool="laser" />
+          <ExcalidrawHostCanvas
+            initialSnapshot={state.snapshot}
+            onSnapshotChange={onSnapshotChange}
+            defaultTool="laser"
+            onLaserPointerMove={onLaserPointerMove}
+          />
         </ErrorBoundary>
       </div>
 

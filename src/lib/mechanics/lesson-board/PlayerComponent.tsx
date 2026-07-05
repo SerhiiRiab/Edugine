@@ -16,9 +16,10 @@ const ExcalidrawPlayerCanvas = dynamic(() => import('./ExcalidrawPlayerCanvas'),
 
 export interface LessonBoardPlayerPanelProps {
   state: LessonBoardState
+  laserPointer?: { x: number; y: number } | null
 }
 
-export function LessonBoardPlayerPanel({ state }: LessonBoardPlayerPanelProps) {
+export function LessonBoardPlayerPanel({ state, laserPointer = null }: LessonBoardPlayerPanelProps) {
   if (!state.snapshot) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
@@ -34,7 +35,7 @@ export function LessonBoardPlayerPanel({ state }: LessonBoardPlayerPanelProps) {
   return (
     <div className="flex-1 relative bg-white">
       <ErrorBoundary fallback="The board view crashed — try again to reload it.">
-        <ExcalidrawPlayerCanvas snapshot={state.snapshot} />
+        <ExcalidrawPlayerCanvas snapshot={state.snapshot} laserPointer={laserPointer} />
       </ErrorBoundary>
     </div>
   )
