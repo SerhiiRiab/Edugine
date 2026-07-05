@@ -1,12 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, MIME_TYPES } from '@excalidraw/excalidraw'
 import type {
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
   ExcalidrawProps,
+  BinaryFileData,
   BinaryFiles,
+  DataURL,
 } from '@excalidraw/excalidraw/types'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import '@excalidraw/excalidraw/index.css'
@@ -36,6 +38,17 @@ const SNAPSHOT_DEBOUNCE_MS = 500
 // to the DB) — 30fps is smooth to watch without flooding the channel the
 // way forwarding every raw pointermove event would.
 const LASER_THROTTLE_MS = 1000 / 30
+
+// A phone-camera photo can easily be several MB — and since every save
+// resends the *whole* scene (not a diff), one big image gets retransmitted
+// on every subsequent stroke too, in both the DB write and the Realtime
+// broadcast, which is large enough to stall or silently drop. Downscaling
+// on insert keeps every later save small regardless of what was dropped in.
+const MAX_IMAGE_DIMENSION = 1200
+const IMAGE_JPEG_QUALITY = 0.7
+// Skip re-encoding anything already reasonably small — no point trading
+// quality for savings that aren't there.
+const SKIP_COMPRESSION_UNDER_BYTES = 300_000
 
 export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
@@ -68,6 +81,10 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
   const lastLaserSentAtRef = useRef(0)
+  // Every image fileId seen so far, so a newly-inserted photo is only
+  // downscaled once, not on every subsequent throttle tick that still
+  // includes it.
+  const seenImageFileIdsRef = useRef<Set<string>>(new Set())
 
   // Cancel any pending debounced save on unmount — otherwise a save
   // scheduled right before switching away from this activity fires later
@@ -124,11 +141,42 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     onLaserPointerMove(payload.pointer.x, payload.pointer.y)
   }, [onLaserPointerMove])
 
+  // Downscales one image in place via a scratch <canvas>, then hands the
+  // smaller version back to Excalidraw under the same fileId — so this
+  // replaces the oversized original everywhere it's used (the host's own
+  // view included), not just in what gets synced onward.
+  const compressImageFile = useCallback((fileId: string, file: BinaryFileData) => {
+    if (file.dataURL.length < SKIP_COMPRESSION_UNDER_BYTES) return
+    const img = new Image()
+    img.onload = () => {
+      const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(img.width, img.height))
+      if (scale >= 1) return
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.round(img.width * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      const resizedDataURL = canvas.toDataURL(MIME_TYPES.jpg, IMAGE_JPEG_QUALITY) as DataURL
+      api?.addFiles([{ ...file, dataURL: resizedDataURL, mimeType: MIME_TYPES.jpg }])
+    }
+    img.onerror = () => {
+      console.warn('[LessonBoard] Failed to downscale inserted image, keeping original size')
+    }
+    img.src = file.dataURL
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api])
+
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],
     _appState: unknown,
     files: BinaryFiles,
   ) => {
+    for (const [fileId, file] of Object.entries(files)) {
+      if (seenImageFileIdsRef.current.has(fileId)) continue
+      seenImageFileIdsRef.current.add(fileId)
+      compressImageFile(fileId, file)
+    }
     pendingRef.current = { elements: elements as unknown[], files: files as Record<string, unknown> }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
@@ -139,7 +187,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
         console.warn('[LessonBoard] Failed to save snapshot, skipping this save', err)
       }
     }, SNAPSHOT_DEBOUNCE_MS)
-  }, [onSnapshotChange])
+  }, [onSnapshotChange, compressImageFile])
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>

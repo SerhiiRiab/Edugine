@@ -17,3 +17,4 @@ create policy "Anyone can view lesson board images"
 on storage.objects for select
 using (bucket_id = 'lesson-board-images');
 
+
