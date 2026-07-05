@@ -32,6 +32,7 @@ export default function TldrawHostCanvas({ initialSnapshot, onSnapshotChange }: 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       snapshot={initialSnapshot as any}
       onMount={handleMount}
+      initialState="draw"
     />
   )
 }
