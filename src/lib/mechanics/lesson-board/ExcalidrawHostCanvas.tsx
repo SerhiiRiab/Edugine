@@ -15,6 +15,10 @@ import ZoomControls from './ZoomControls'
 interface Props {
   initialSnapshot: LessonBoardSnapshot | null
   onSnapshotChange: (snapshot: LessonBoardSnapshot) => void
+  // 'laser' for the live activity (point-and-explain is the natural first
+  // gesture there) — omitted for the prepare-before-class editor, where the
+  // tutor is actually drawing content, not pointing at nothing yet.
+  defaultTool?: 'freedraw' | 'laser'
 }
 
 // Debounce: persisting/broadcasting on every single pointer-move while the
@@ -22,14 +26,17 @@ interface Props {
 // students without spamming writes on every stroke.
 const SNAPSHOT_DEBOUNCE_MS = 500
 
-export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange }: Props) {
+export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw' }: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
   // behavior) — captured here anyway as a defensive habit, and to run the
   // malformed-snapshot guard before Excalidraw ever sees the data.
   const [snapshotAtMount] = useState<ExcalidrawInitialDataState>(() => {
     // Default to the pencil rather than the selection tool — the natural
     // first gesture on a "whiteboard" is to click-and-drag to draw, and
-    // selection-tool drags over an empty canvas do nothing.
+    // selection-tool drags over an empty canvas do nothing. (The laser
+    // pointer default, when requested, is applied imperatively below —
+    // Excalidraw's own initialData restoration silently rejects "laser" as
+    // an initial tool and falls back to "selection".)
     const appState: ExcalidrawInitialDataState['appState'] = {
       activeTool: { type: 'freedraw', customType: null, locked: false, lastActiveTool: null },
     }
@@ -71,6 +78,18 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     return unsubscribe
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api])
+
+  // Deferred one frame past `api` becoming available: calling setActiveTool
+  // synchronously inside the excalidrawAPI callback throws ("Can't call
+  // setState on unmounted component") since Excalidraw hands over the API
+  // before it's actually done mounting.
+  useEffect(() => {
+    if (!api || defaultTool !== 'laser') return
+    const raf = requestAnimationFrame(() => {
+      api.setActiveTool({ type: 'laser' })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [api, defaultTool])
 
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],

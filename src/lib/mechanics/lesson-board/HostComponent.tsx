@@ -47,7 +47,7 @@ export function LessonBoardHostPanel({
 
       <div className="h-[60vh] min-h-[420px] rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative bg-white">
         <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
-          <ExcalidrawHostCanvas initialSnapshot={state.snapshot} onSnapshotChange={onSnapshotChange} />
+          <ExcalidrawHostCanvas initialSnapshot={state.snapshot} onSnapshotChange={onSnapshotChange} defaultTool="laser" />
         </ErrorBoundary>
       </div>
 
