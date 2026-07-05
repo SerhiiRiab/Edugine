@@ -205,6 +205,14 @@ const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap'])
 const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette', 'hidden_role'])
 // Mechanics that support individual OR vote mode
 const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
+// Mechanics whose init*State server action actually reads config.timerSeconds.
+// Showing the "Time limit" field for any other mechanic would silently do
+// nothing — either the mechanic has no timer concept at all, or it manages
+// its own timer duration inside its dedicated content editor instead.
+const TIMER_SUPPORTED = new Set([
+  'talk_time', 'speed_debate', 'debate_roulette', 'hidden_role',
+  'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch',
+])
 
 // ── Save indicator ────────────────────────────────────────────────────────────
 
@@ -955,27 +963,29 @@ function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalPro
                 </div>
               )}
 
-              {/* Timer */}
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 block">
-                  Time limit{' '}
-                  <span className="text-slate-400 font-normal text-xs">optional</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="10"
-                    max="3600"
-                    value={timerSeconds}
-                    onChange={(e) => setTimerSeconds(e.target.value)}
-                    placeholder="e.g. 120"
-                    className="w-28 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                      focus-visible:border-violet-400 transition-colors"
-                  />
-                  <span className="text-sm text-slate-400">seconds</span>
+              {/* Timer — only for mechanics that actually read it back */}
+              {TIMER_SUPPORTED.has(activity.mechanic_id) && (
+                <div className="space-y-2">
+                  <label className="text-sm font-semibold text-slate-700 block">
+                    Time limit{' '}
+                    <span className="text-slate-400 font-normal text-xs">optional</span>
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="10"
+                      max="3600"
+                      value={timerSeconds}
+                      onChange={(e) => setTimerSeconds(e.target.value)}
+                      placeholder="e.g. 120"
+                      className="w-28 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
+                        focus-visible:border-violet-400 transition-colors"
+                    />
+                    <span className="text-sm text-slate-400">seconds</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </>
           )}
 
@@ -1062,7 +1072,8 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
   const style = { transform: CSS.Transform.toString(transform), transition }
   const mechanic = MECHANIC_META[activity.mechanic_id]
   const ActivityIcon = mechanic?.Icon ?? Gamepad2
-  const timer = typeof activity.config.timerSeconds === 'number' ? activity.config.timerSeconds : null
+  const timer = TIMER_SUPPORTED.has(activity.mechanic_id) && typeof activity.config.timerSeconds === 'number'
+    ? activity.config.timerSeconds : null
   const hasInstructions = typeof activity.config.instructions === 'string' && activity.config.instructions.length > 0
   const displayMode: 'individual' | 'shared' | 'vote' =
     SHARED_ONLY.has(activity.mechanic_id) ? 'shared' :
