@@ -30,9 +30,15 @@ interface Props {
 }
 
 // Debounce: persisting/broadcasting on every single pointer-move while the
-// host draws would flood realtime + the DB. 500ms gives near-instant feel to
-// students without spamming writes on every stroke.
-const SNAPSHOT_DEBOUNCE_MS = 500
+// host draws would flood realtime + the DB. Every save rewrites the *whole*
+// row (not a diff) — including any embedded images that haven't changed at
+// all — and Supabase meters disk writes against a burst budget (see the
+// 2026-07 incident: repeated multi-MB rewrites while continuing to draw
+// with images already on the board drained it, degrading disk throughput
+// for the whole project, not just this table). 1500ms trades a little
+// live-feel for meaningfully fewer rewrites per minute of continuous
+// drawing.
+const SNAPSHOT_DEBOUNCE_MS = 1500
 
 // Laser pointer position is a separate, ephemeral broadcast (never written
 // to the DB) — 30fps is smooth to watch without flooding the channel the
@@ -44,17 +50,22 @@ const LASER_THROTTLE_MS = 1000 / 30
 // on every subsequent stroke too, in both the DB write and the Realtime
 // broadcast, which is large enough to stall or silently drop. Downscaling
 // on insert keeps every later save small regardless of what was dropped in.
-const MAX_IMAGE_DIMENSION = 1200
-const IMAGE_JPEG_QUALITY = 0.7
+// Kept aggressive (rather than just-under-the-DB-limit) because the real
+// cost isn't one save being oversized — it's the *same* image bytes getting
+// rewritten to disk on every subsequent save for as long as the tutor keeps
+// drawing, which is what actually drained Supabase's disk I/O budget.
+const MAX_IMAGE_DIMENSION = 900
+const IMAGE_JPEG_QUALITY = 0.55
 // Skip re-encoding anything already reasonably small — no point trading
 // quality for savings that aren't there.
-const SKIP_COMPRESSION_UNDER_BYTES = 300_000
+const SKIP_COMPRESSION_UNDER_BYTES = 200_000
 
-// Matches the `state_size_limit` CHECK constraint on shared_activity_state.state
-// (migration 049) — checked here too, before the save even happens, so the
-// tutor gets a visible warning instead of a save silently failing against
-// the DB once the scene is already too big to shrink after the fact.
-const MAX_SNAPSHOT_BYTES = 4_500_000
+// Well under the `state_size_limit` CHECK constraint (5MB, migration 049) —
+// intentionally not "just under the DB limit," since a save near that limit
+// firing every 1.5s during continuous drawing is exactly what exhausted
+// Supabase's disk I/O budget. Checked here so the tutor gets a visible
+// warning instead of the save just silently failing later.
+const MAX_SNAPSHOT_BYTES = 1_500_000
 
 export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
