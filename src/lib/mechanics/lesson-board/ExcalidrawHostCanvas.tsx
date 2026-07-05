@@ -65,6 +65,16 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
 
   return (
     <div style={{ position: 'absolute', inset: 0 }}>
+      {/* No prop exists to disable these — Excalidraw doesn't expose a
+          UIOptions toggle for the public-library feature or the Help
+          dialog's link row, so this is the documented CSS-override escape
+          hatch. Selectors come from Excalidraw's own (stable, BEM-style)
+          class names, verified against the rendered DOM. */}
+      <style>{`
+        .layer-ui__wrapper__top-right { display: none !important; }
+        .library-menu-browse-button { display: none !important; }
+        .HelpDialog__header { display: none !important; }
+      `}</style>
       <Excalidraw
         initialData={snapshotAtMount}
         onChange={handleChange}
