@@ -13,6 +13,7 @@ import {
 } from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
 import type { LessonBoardItem } from './types'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 const TldrawHostCanvas = dynamic(() => import('./TldrawHostCanvas'), {
   ssr: false,
@@ -344,7 +345,9 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
             </button>
           </div>
           <div className="flex-1 relative bg-white">
-            <TldrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardSnapshotChange} />
+            <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
+              <TldrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardSnapshotChange} />
+            </ErrorBoundary>
           </div>
         </div>
       )}

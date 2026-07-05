@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic'
 import { PenLine } from 'lucide-react'
 import type { LessonBoardState } from './types'
+import { ErrorBoundary } from '@/components/error-boundary'
 
 const TldrawPlayerCanvas = dynamic(() => import('./TldrawPlayerCanvas'), {
   ssr: false,
@@ -32,7 +33,9 @@ export function LessonBoardPlayerPanel({ state }: LessonBoardPlayerPanelProps) {
 
   return (
     <div className="flex-1 relative bg-white">
-      <TldrawPlayerCanvas snapshot={state.snapshot} />
+      <ErrorBoundary fallback="The board view crashed — try again to reload it.">
+        <TldrawPlayerCanvas snapshot={state.snapshot} />
+      </ErrorBoundary>
     </div>
   )
 }

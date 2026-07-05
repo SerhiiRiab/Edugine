@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
+import { isUsableLessonBoardSnapshot } from './types'
 
 interface Props {
   initialSnapshot: unknown | null
@@ -22,14 +23,24 @@ export default function TldrawHostCanvas({ initialSnapshot, onSnapshotChange }: 
   // away and rebuild the store mid-stroke, resetting the camera and looking like
   // the canvas "clears" while drawing. Capture it once at mount and never react
   // to later prop changes.
-  const [snapshotAtMount] = useState(() => initialSnapshot)
+  const [snapshotAtMount] = useState(() => {
+    if (initialSnapshot && !isUsableLessonBoardSnapshot(initialSnapshot)) {
+      console.warn('[LessonBoard] Discarding malformed saved snapshot, starting from an empty board', initialSnapshot)
+      return null
+    }
+    return initialSnapshot
+  })
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMount = useCallback((editor: Editor) => {
     editor.store.listen(() => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
-        onSnapshotChange(editor.store.getStoreSnapshot('document'))
+        try {
+          onSnapshotChange(editor.store.getStoreSnapshot('document'))
+        } catch (err) {
+          console.warn('[LessonBoard] Failed to capture snapshot, skipping this save', err)
+        }
       }, SNAPSHOT_DEBOUNCE_MS)
     }, { source: 'user', scope: 'document' })
     // eslint-disable-next-line react-hooks/exhaustive-deps
