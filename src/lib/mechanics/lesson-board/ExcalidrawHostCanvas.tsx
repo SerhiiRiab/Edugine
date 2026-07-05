@@ -27,20 +27,17 @@ interface Props {
   onLaserPointerMove?: (x: number, y: number) => void
 }
 
-// `onChange` fires on every pointer-move while drawing — calling the parent
-// on every one of those would flood Realtime. This throttles to 30fps
-// (smooth enough to watch live) with a trailing call so a change made right
-// at the end of a burst still gets sent, not dropped.
-const CHANGE_THROTTLE_MS = 1000 / 30
+// Debounce: persisting/broadcasting on every single pointer-move while the
+// host draws would flood realtime + the DB. 500ms gives near-instant feel to
+// students without spamming writes on every stroke.
+const SNAPSHOT_DEBOUNCE_MS = 500
 
 // Laser pointer position is a separate, ephemeral broadcast (never written
 // to the DB) — 30fps is smooth to watch without flooding the channel the
 // way forwarding every raw pointermove event would.
 const LASER_THROTTLE_MS = 1000 / 30
 
-export default function ExcalidrawHostCanvas({
-  initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove,
-}: Props) {
+export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
   // behavior) — captured here anyway as a defensive habit, and to run the
   // malformed-snapshot guard before Excalidraw ever sees the data.
@@ -68,17 +65,16 @@ export default function ExcalidrawHostCanvas({
 
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastFiredAtRef = useRef(0)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
   const lastLaserSentAtRef = useRef(0)
 
-  // Cancel any pending throttled call on unmount — otherwise one scheduled
-  // right before switching away from this activity fires later against
-  // whatever activity/session state is current *then*, not the one it was
-  // actually captured from.
+  // Cancel any pending debounced save on unmount — otherwise a save
+  // scheduled right before switching away from this activity fires later
+  // against whatever activity/session state is current *then*, not the one
+  // it was actually captured from.
   useEffect(() => () => {
-    if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
   }, [])
 
   // A board prepared before class starts with whatever pan/zoom it was last
@@ -134,26 +130,15 @@ export default function ExcalidrawHostCanvas({
     files: BinaryFiles,
   ) => {
     pendingRef.current = { elements: elements as unknown[], files: files as Record<string, unknown> }
-    const now = Date.now()
-    const elapsed = now - lastFiredAtRef.current
-    const fire = () => {
-      lastFiredAtRef.current = Date.now()
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
       if (!pendingRef.current) return
       try {
         onSnapshotChange(pendingRef.current)
       } catch (err) {
-        console.warn('[LessonBoard] Failed to sync snapshot, skipping this update', err)
+        console.warn('[LessonBoard] Failed to save snapshot, skipping this save', err)
       }
-    }
-    if (elapsed >= CHANGE_THROTTLE_MS) {
-      if (throttleTimerRef.current) { clearTimeout(throttleTimerRef.current); throttleTimerRef.current = null }
-      fire()
-    } else if (!throttleTimerRef.current) {
-      throttleTimerRef.current = setTimeout(() => {
-        throttleTimerRef.current = null
-        fire()
-      }, CHANGE_THROTTLE_MS - elapsed)
-    }
+    }, SNAPSHOT_DEBOUNCE_MS)
   }, [onSnapshotChange])
 
   return (

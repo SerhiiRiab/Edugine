@@ -3257,37 +3257,22 @@ export function SessionHostView({ session, lesson }: Props) {
   }
 
   // ── Lesson Board handlers ─────────────────────────────────────────────────────
-  // Called on every throttled canvas change (~30fps while drawing) —
-  // broadcast + local state only, no DB write. Drawing generates far more
-  // updates per second than any other mechanic's state changes, so writing
-  // each one to the DB was the main source of session slowdowns/freezes
-  // while Lesson Board was active.
-  function handleLessonBoardLiveChange(snapshot: LessonBoardState['snapshot']) {
+  async function handleLessonBoardSnapshotChange(snapshot: LessonBoardState['snapshot']) {
     const cur = lessonBoardStateRef.current
     if (!cur) return
     const newState: LessonBoardState = { ...cur, snapshot, updatedAt: new Date().toISOString() }
     setLessonBoardState(newState)
     lessonBoardStateRef.current = newState
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndexRef.current)
     channelRef.current?.send({
       type: 'broadcast',
       event: 'lesson_board_state_update',
       payload: { state: newState },
     })
-  }
-
-  // The one DB write for the board's contents — called right before leaving
-  // the activity (Next Activity / End Lesson) so the final state survives a
-  // page reload or a late-joining student, without persisting every stroke
-  // along the way. `lessonBoardStateRef` already holds the latest snapshot
-  // from the broadcast above, so there's nothing to read back from Excalidraw.
-  async function handleLessonBoardSaveSnapshot() {
-    const cur = lessonBoardStateRef.current
-    if (!cur) return
-    const supabase = createClient()
-    await supabase.from('shared_activity_state')
-      .update({ state: cur as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
-      .eq('session_id', session.id)
-      .eq('activity_index', currentActivityIndexRef.current)
   }
 
   // Ephemeral — Realtime broadcast only, no DB write. The laser pointer is
@@ -4678,8 +4663,7 @@ export function SessionHostView({ session, lesson }: Props) {
                 isLesson={isLesson}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
-                onLiveChange={handleLessonBoardLiveChange}
-                onSaveSnapshot={handleLessonBoardSaveSnapshot}
+                onSnapshotChange={handleLessonBoardSnapshotChange}
                 onLaserPointerMove={handleLessonBoardLaserPointer}
               />
             )}
