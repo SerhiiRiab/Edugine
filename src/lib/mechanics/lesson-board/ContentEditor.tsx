@@ -118,24 +118,36 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
     }, 1200)
   }
 
-  const handleBoardSnapshotChange = useCallback(async (snapshot: LessonBoardSnapshot) => {
+  // Fires on every throttled canvas change (~30fps while drawing) — just
+  // tracks the latest board locally. No DB write here: unlike a live
+  // session there's no one else watching this get broadcast to, so the
+  // only reason to persist at all is so the "Save" button (below) has
+  // something current to write once the tutor is done editing.
+  const handleBoardLiveChange = useCallback((snapshot: LessonBoardSnapshot) => {
     setPreparedSnapshot(snapshot)
+  }, [])
+
+  const handleBoardEditorClose = useCallback(async () => {
+    setEditorOpen(false)
+    if (!preparedSnapshot) return
     setSaveStatus('saving')
     try {
       if (itemIdRef.current) {
-        await updateContentItem(itemIdRef.current, { snapshot })
+        await updateContentItem(itemIdRef.current, { snapshot: preparedSnapshot })
       } else {
-        const created = await createContentItem(set.id, { snapshot })
+        const created = await createContentItem(set.id, { snapshot: preparedSnapshot })
         itemIdRef.current = created.id
       }
       markSaved()
     } catch { setSaveStatus('error') }
-  }, [set.id, markSaved])
+  }, [preparedSnapshot, set.id, markSaved])
 
-  // Re-render the thumbnail whenever the prepared board changes — dynamically
-  // imported so exportToSvg (and the rest of Excalidraw) stays out of this
-  // page's own bundle, matching the canvas component's code-splitting.
+  // Re-render the thumbnail once the editor closes, not on every one of the
+  // ~30 changes/sec it emits while open — exportToSvg re-serializes the
+  // whole scene, which isn't free, and nothing shows this preview while the
+  // editor itself is open anyway (it's only visible on the closed list view).
   useEffect(() => {
+    if (editorOpen) return
     let cancelled = false
     if (!lessonBoardSnapshotHasContent(preparedSnapshot)) {
       setPreviewSvg(null)
@@ -155,7 +167,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
       setPreviewSvg(svg.outerHTML)
     }).catch(() => { if (!cancelled) setPreviewSvg(null) })
     return () => { cancelled = true }
-  }, [preparedSnapshot])
+  }, [preparedSnapshot, editorOpen])
 
   // Switching this is just choosing which section to show right now — it must
   // never delete the prepared board itself. Losing a teacher's work because
@@ -364,10 +376,10 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
           <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
             <PenLine className="w-4 h-4 text-orange-400" />
             <p className="text-white font-semibold text-sm">Prepare your board</p>
-            <span className="text-xs text-slate-500">Changes save automatically</span>
+            <span className="text-xs text-slate-500">Click Save when you&apos;re done</span>
             <button
               type="button"
-              onClick={() => setEditorOpen(false)}
+              onClick={handleBoardEditorClose}
               className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700
                 text-slate-200 text-sm font-semibold transition-colors"
             >
@@ -376,7 +388,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
           </div>
           <div className="flex-1 relative bg-white">
             <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
-              <ExcalidrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardSnapshotChange} />
+              <ExcalidrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardLiveChange} />
             </ErrorBoundary>
           </div>
         </div>

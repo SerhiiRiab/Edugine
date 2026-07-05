@@ -6,12 +6,17 @@ import type {
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
   ExcalidrawProps,
+  BinaryFileData,
   BinaryFiles,
+  DataURL,
 } from '@excalidraw/excalidraw/types'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import '@excalidraw/excalidraw/index.css'
+import { createClient } from '@/lib/supabase/client'
 import { isUsableLessonBoardSnapshot, lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import ZoomControls from './ZoomControls'
+
+const IMAGE_BUCKET = 'lesson-board-images'
 
 interface Props {
   initialSnapshot: LessonBoardSnapshot | null
@@ -27,17 +32,20 @@ interface Props {
   onLaserPointerMove?: (x: number, y: number) => void
 }
 
-// Debounce: persisting/broadcasting on every single pointer-move while the
-// host draws would flood realtime + the DB. 500ms gives near-instant feel to
-// students without spamming writes on every stroke.
-const SNAPSHOT_DEBOUNCE_MS = 500
+// `onChange` fires on every pointer-move while drawing — calling the parent
+// on every one of those would flood Realtime. This throttles to 30fps
+// (smooth enough to watch live) with a trailing call so a change made right
+// at the end of a burst still gets sent, not dropped.
+const CHANGE_THROTTLE_MS = 1000 / 30
 
 // Laser pointer position is a separate, ephemeral broadcast (never written
 // to the DB) — 30fps is smooth to watch without flooding the channel the
 // way forwarding every raw pointermove event would.
 const LASER_THROTTLE_MS = 1000 / 30
 
-export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
+export default function ExcalidrawHostCanvas({
+  initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove,
+}: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
   // behavior) — captured here anyway as a defensive habit, and to run the
   // malformed-snapshot guard before Excalidraw ever sees the data.
@@ -65,16 +73,23 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
 
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const throttleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastFiredAtRef = useRef(0)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
   const lastLaserSentAtRef = useRef(0)
 
-  // Cancel any pending debounced save on unmount — otherwise a save
-  // scheduled right before switching away from this activity fires later
-  // against whatever activity/session state is current *then*, not the one
-  // it was actually captured from.
+  // fileId -> resolved Storage URL, so an image already uploaded this
+  // session isn't re-uploaded on every subsequent throttle tick that still
+  // includes it.
+  const uploadedFileUrlsRef = useRef<Map<string, string>>(new Map())
+  const uploadingFileIdsRef = useRef<Set<string>>(new Set())
+
+  // Cancel any pending throttled call on unmount — otherwise one scheduled
+  // right before switching away from this activity fires later against
+  // whatever activity/session state is current *then*, not the one it was
+  // actually captured from.
   useEffect(() => () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (throttleTimerRef.current) clearTimeout(throttleTimerRef.current)
   }, [])
 
   // A board prepared before class starts with whatever pan/zoom it was last
@@ -124,22 +139,84 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     onLaserPointerMove(payload.pointer.x, payload.pointer.y)
   }, [onLaserPointerMove])
 
+  // Images are embedded as base64 in Excalidraw's own scene state (needed
+  // for the host's local rendering), but that's megabytes of data no
+  // Realtime broadcast or DB row should carry on every stroke. Upload each
+  // new image to Storage once and swap in its public URL for anything sent
+  // onward — Excalidraw only ever uses `dataURL` as an <img> source, so a
+  // real URL there renders exactly the same as an inline data: URL.
+  const resolveFilesForSync = useCallback((files: BinaryFiles): Record<string, unknown> => {
+    const resolved: Record<string, BinaryFileData> = {}
+    for (const [fileId, file] of Object.entries(files)) {
+      const uploadedUrl = uploadedFileUrlsRef.current.get(fileId)
+      if (uploadedUrl) {
+        resolved[fileId] = { ...file, dataURL: uploadedUrl as DataURL }
+        continue
+      }
+      if (!file.dataURL.startsWith('data:')) {
+        // Already a real URL — e.g. restored from a previous save.
+        uploadedFileUrlsRef.current.set(fileId, file.dataURL)
+        resolved[fileId] = file
+        continue
+      }
+      // Still uploading (or not started yet) — omit from this tick rather
+      // than ship the full base64 payload; the next tick after upload
+      // finishes will include the resolved URL instead.
+      if (!uploadingFileIdsRef.current.has(fileId)) {
+        uploadingFileIdsRef.current.add(fileId)
+        uploadImageFile(fileId, file)
+      }
+    }
+    return resolved
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  async function uploadImageFile(fileId: string, file: BinaryFileData) {
+    try {
+      const blob = await (await fetch(file.dataURL)).blob()
+      const ext = file.mimeType.split('/')[1] ?? 'png'
+      const path = `${fileId}.${ext}`
+      const supabase = createClient()
+      const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, blob, {
+        contentType: file.mimeType,
+        upsert: true,
+      })
+      if (error) throw error
+      const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path)
+      uploadedFileUrlsRef.current.set(fileId, data.publicUrl)
+    } catch (err) {
+      console.warn('[LessonBoard] Failed to upload image to storage, will retry on next change', err)
+      uploadingFileIdsRef.current.delete(fileId)
+    }
+  }
+
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],
     _appState: unknown,
     files: BinaryFiles,
   ) => {
-    pendingRef.current = { elements: elements as unknown[], files: files as Record<string, unknown> }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
+    pendingRef.current = { elements: elements as unknown[], files: resolveFilesForSync(files) }
+    const now = Date.now()
+    const elapsed = now - lastFiredAtRef.current
+    const fire = () => {
+      lastFiredAtRef.current = Date.now()
       if (!pendingRef.current) return
       try {
         onSnapshotChange(pendingRef.current)
       } catch (err) {
-        console.warn('[LessonBoard] Failed to save snapshot, skipping this save', err)
+        console.warn('[LessonBoard] Failed to sync snapshot, skipping this update', err)
       }
-    }, SNAPSHOT_DEBOUNCE_MS)
-  }, [onSnapshotChange])
+    }
+    if (elapsed >= CHANGE_THROTTLE_MS) {
+      if (throttleTimerRef.current) { clearTimeout(throttleTimerRef.current); throttleTimerRef.current = null }
+      fire()
+    } else if (!throttleTimerRef.current) {
+      throttleTimerRef.current = setTimeout(() => {
+        throttleTimerRef.current = null
+        fire()
+      }, CHANGE_THROTTLE_MS - elapsed)
+    }
+  }, [onSnapshotChange, resolveFilesForSync])
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>

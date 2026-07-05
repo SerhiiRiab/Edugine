@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { PenLine, StopCircle, ChevronRight } from 'lucide-react'
 import type { LessonBoardState, LessonBoardSnapshot } from './types'
@@ -21,7 +22,12 @@ export interface LessonBoardHostPanelProps {
   isLesson?: boolean
   onNextActivity: () => void
   onEndLesson: () => void
-  onSnapshotChange: (snapshot: LessonBoardSnapshot) => void
+  // Fires on every throttled canvas change (~30fps while drawing) —
+  // broadcast-only, cheap, never touches the DB.
+  onLiveChange: (snapshot: LessonBoardSnapshot) => void
+  // Persists the current board to the DB — called once, right before
+  // leaving the activity, instead of on every stroke.
+  onSaveSnapshot: () => Promise<void>
   onLaserPointerMove?: (x: number, y: number) => void
 }
 
@@ -32,9 +38,23 @@ export function LessonBoardHostPanel({
   isLesson = true,
   onNextActivity,
   onEndLesson,
-  onSnapshotChange,
+  onLiveChange,
+  onSaveSnapshot,
   onLaserPointerMove,
 }: LessonBoardHostPanelProps) {
+  const [isSaving, setIsSaving] = useState(false)
+  const busy = isAdvancing || isSaving
+
+  async function flushThenRun(next: () => void) {
+    setIsSaving(true)
+    try {
+      await onSaveSnapshot()
+    } finally {
+      setIsSaving(false)
+    }
+    next()
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
@@ -51,7 +71,7 @@ export function LessonBoardHostPanel({
         <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
           <ExcalidrawHostCanvas
             initialSnapshot={state.snapshot}
-            onSnapshotChange={onSnapshotChange}
+            onSnapshotChange={onLiveChange}
             defaultTool="laser"
             onLaserPointerMove={onLaserPointerMove}
           />
@@ -60,25 +80,25 @@ export function LessonBoardHostPanel({
 
       <div className="flex gap-3">
         <button
-          onClick={onEndLesson}
-          disabled={isAdvancing}
+          onClick={() => flushThenRun(onEndLesson)}
+          disabled={busy}
           className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl
             border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200
             hover:text-red-600 text-slate-400 text-sm font-semibold
             disabled:opacity-50 transition-colors"
         >
           <StopCircle className="w-4 h-4" />
-          {isLesson ? 'End lesson' : 'End activity'}
+          {isSaving ? 'Saving...' : isLesson ? 'End lesson' : 'End activity'}
         </button>
         <button
-          onClick={onNextActivity}
-          disabled={isAdvancing}
+          onClick={() => flushThenRun(onNextActivity)}
+          disabled={busy}
           className="flex-1 flex items-center justify-center gap-2 bg-violet-600
             hover:bg-violet-700 disabled:opacity-50 text-white font-bold
             px-6 py-3 rounded-xl text-sm transition-colors shadow-sm"
         >
-          {isAdvancing
-            ? 'Loading...'
+          {busy
+            ? isSaving ? 'Saving...' : 'Loading...'
             : isLastActivity
               ? isLesson ? 'Finish lesson!' : 'Finish'
               : <>Next activity <ChevronRight className="w-4 h-4" /></>
