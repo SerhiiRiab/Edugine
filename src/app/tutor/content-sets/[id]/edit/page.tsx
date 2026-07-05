@@ -115,7 +115,7 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'elevator_pitch')       return <ElevatorPitchContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'jigsaw_reading')       return <JigsawReadingContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'predict_verify')       return <PredictVerifyContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'lesson_board')         return <LessonBoardContentEditor set={set} />
+    if (set.mechanic_id === 'lesson_board')         return <LessonBoardContentEditor set={set} initialItems={items ?? []} />
     return <ContentSetEditor set={set} initialItems={items ?? []} />
   }
 

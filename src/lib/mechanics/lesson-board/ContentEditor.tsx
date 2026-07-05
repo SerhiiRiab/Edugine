@@ -1,13 +1,30 @@
 'use client'
 
 import { useState, useRef, useCallback, useTransition } from 'react'
+import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Check, AlertCircle, Loader2, PenLine, Rocket, CheckCircle2 } from 'lucide-react'
-import { updateContentSet } from '@/lib/actions/content-sets'
+import {
+  ArrowLeft, Check, AlertCircle, Loader2, PenLine, Rocket, CheckCircle2,
+  LayoutDashboard, X,
+} from 'lucide-react'
+import {
+  updateContentSet, createContentItem, updateContentItem, deleteContentItem,
+} from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
+import type { LessonBoardItem } from './types'
+
+const TldrawHostCanvas = dynamic(() => import('./TldrawHostCanvas'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+      Loading canvas…
+    </div>
+  ),
+})
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
+type BoardSetupMode = 'empty' | 'prepare'
 
 interface ContentSet {
   id: string
@@ -17,8 +34,24 @@ interface ContentSet {
   language: string
 }
 
+interface RawItem {
+  id: string
+  position: number
+  data: Record<string, unknown>
+}
+
 interface Props {
   set: ContentSet
+  initialItems: RawItem[]
+}
+
+// A document-scope tldraw snapshot has no shape records until something is
+// actually drawn — used to decide whether to show "Board prepared".
+function hasDrawnContent(snapshot: unknown): boolean {
+  if (!snapshot || typeof snapshot !== 'object') return false
+  const store = (snapshot as { store?: Record<string, { typeName?: string }> }).store
+  if (!store) return false
+  return Object.values(store).some(record => record?.typeName === 'shape')
 }
 
 function SaveIndicator({ status, savedAt }: { status: SaveStatus; savedAt: Date | null }) {
@@ -44,14 +77,22 @@ function SaveIndicator({ status, savedAt }: { status: SaveStatus; savedAt: Date 
   return null
 }
 
-export function LessonBoardContentEditor({ set }: Props) {
+export function LessonBoardContentEditor({ set, initialItems }: Props) {
   const router = useRouter()
+  const rawItem = initialItems[0] ?? null
+  const initialSnapshot = (rawItem?.data.snapshot as LessonBoardItem['snapshot'] | undefined) ?? null
+
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
   const [description, setDescription] = useState(set.description ?? '')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [startingSession, startSessionTransition] = useTransition()
+
+  const [boardMode, setBoardMode] = useState<BoardSetupMode>(initialSnapshot ? 'prepare' : 'empty')
+  const [preparedSnapshot, setPreparedSnapshot] = useState<unknown | null>(initialSnapshot)
+  const [editorOpen, setEditorOpen] = useState(false)
+  const itemIdRef = useRef<string | null>(rawItem?.id ?? null)
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const descTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -84,11 +125,41 @@ export function LessonBoardContentEditor({ set }: Props) {
     }, 1200)
   }
 
+  const handleBoardSnapshotChange = useCallback(async (snapshot: unknown) => {
+    setPreparedSnapshot(snapshot)
+    setSaveStatus('saving')
+    try {
+      if (itemIdRef.current) {
+        await updateContentItem(itemIdRef.current, { snapshot })
+      } else {
+        const created = await createContentItem(set.id, { snapshot })
+        itemIdRef.current = created.id
+      }
+      markSaved()
+    } catch { setSaveStatus('error') }
+  }, [set.id, markSaved])
+
+  async function handleSelectMode(mode: BoardSetupMode) {
+    setBoardMode(mode)
+    if (mode === 'empty' && itemIdRef.current) {
+      const id = itemIdRef.current
+      itemIdRef.current = null
+      setPreparedSnapshot(null)
+      setSaveStatus('saving')
+      try {
+        await deleteContentItem(id)
+        markSaved()
+      } catch { setSaveStatus('error') }
+    }
+  }
+
   function handleStartSession() {
     startSessionTransition(async () => {
       try { await createSession(set.id) } catch { /* redirect expected */ }
     })
   }
+
+  const boardPrepared = hasDrawnContent(preparedSnapshot)
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -164,14 +235,77 @@ export function LessonBoardContentEditor({ set }: Props) {
 
       {/* ── Body ──────────────────────────────────────────────────── */}
       <div className="max-w-2xl mx-auto px-6 pt-8 space-y-6">
-        <div className="bg-orange-50 border border-orange-200 rounded-2xl px-5 py-4">
-          <p className="text-sm text-orange-800 leading-relaxed">
-            <span className="font-semibold">Lesson Board</span> is a live shared whiteboard. There&apos;s
-            nothing to prepare here — once you start the session you get a full drawing canvas to
-            sketch, write and explain on. Students see everything you draw in real time.
+
+        {/* Hero */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-2">
+          <div className="flex items-center gap-2">
+            <LayoutDashboard className="w-5 h-5 text-orange-500" />
+            <h2 className="text-lg font-extrabold text-slate-800">Lesson Board</h2>
+          </div>
+          <p className="text-sm font-semibold text-slate-600">Your shared workspace throughout the lesson.</p>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Teachers can prepare diagrams, mind maps, vocabulary, images and notes before class,
+            then continue working on the same board live during the lesson. Students will see your
+            board update in real time as you teach.
           </p>
         </div>
 
+        {/* Board Setup */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+          <p className="text-sm font-semibold text-slate-700">Board Setup</p>
+
+          <label className={`flex items-start gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors ${
+            boardMode === 'empty' ? 'border-orange-400 bg-orange-50' : 'border-slate-200 hover:border-slate-300'
+          }`}>
+            <input
+              type="radio"
+              name="board-setup"
+              checked={boardMode === 'empty'}
+              onChange={() => handleSelectMode('empty')}
+              className="mt-0.5 accent-orange-500"
+            />
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Start with an empty board</p>
+              <p className="text-xs text-slate-400">The canvas begins blank — you draw everything live during the session.</p>
+            </div>
+          </label>
+
+          <label className={`flex items-start gap-3 rounded-xl border-2 px-4 py-3 cursor-pointer transition-colors ${
+            boardMode === 'prepare' ? 'border-orange-400 bg-orange-50' : 'border-slate-200 hover:border-slate-300'
+          }`}>
+            <input
+              type="radio"
+              name="board-setup"
+              checked={boardMode === 'prepare'}
+              onChange={() => handleSelectMode('prepare')}
+              className="mt-0.5 accent-orange-500"
+            />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-slate-800">Prepare board before class</p>
+              <p className="text-xs text-slate-400">Sketch out diagrams, vocabulary or notes now. The session starts from this board.</p>
+            </div>
+          </label>
+
+          {boardMode === 'prepare' && (
+            <div className="pt-1 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setEditorOpen(true)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600
+                  text-white font-semibold text-sm transition-colors"
+              >
+                <PenLine className="w-4 h-4" />Open Board Editor
+              </button>
+              {boardPrepared && (
+                <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" />Board prepared
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Notes */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-2">
           <p className="text-sm font-semibold text-slate-700">
             Notes <span className="text-xs font-normal text-slate-400">(optional, for your own reference)</span>
@@ -192,6 +326,28 @@ export function LessonBoardContentEditor({ set }: Props) {
           <span className="inline-flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" />Ready to use!</span>
         </div>
       </div>
+
+      {/* ── Board editor overlay ─────────────────────────────────────── */}
+      {editorOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col">
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
+            <PenLine className="w-4 h-4 text-orange-400" />
+            <p className="text-white font-semibold text-sm">Prepare your board</p>
+            <span className="text-xs text-slate-500">Changes save automatically</span>
+            <button
+              type="button"
+              onClick={() => setEditorOpen(false)}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700
+                text-slate-200 text-sm font-semibold transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />Done
+            </button>
+          </div>
+          <div className="flex-1 relative bg-white">
+            <TldrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardSnapshotChange} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

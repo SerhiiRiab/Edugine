@@ -5,9 +5,11 @@ export interface LessonBoardConfig {
   // reserved
 }
 
-// No pre-created content — the canvas is drawn live during the session.
+// Optional single item holding a board the tutor prepared before class —
+// its snapshot becomes the starting canvas when the session begins.
+// Absent (no content items) means "start with an empty board".
 export interface LessonBoardItem {
-  // reserved
+  snapshot: unknown | null
 }
 
 export interface LessonBoardState {
