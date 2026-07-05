@@ -8,7 +8,7 @@ import type {
 } from '@excalidraw/excalidraw/types'
 import type { BinaryFileData } from '@excalidraw/excalidraw/types'
 import '@excalidraw/excalidraw/index.css'
-import { isUsableLessonBoardSnapshot, type LessonBoardSnapshot } from './types'
+import { isUsableLessonBoardSnapshot, lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import ZoomControls from './ZoomControls'
 
 interface Props {
@@ -31,6 +31,30 @@ export default function ExcalidrawPlayerCanvas({ snapshot }: Props) {
       files: snapshot.files as ExcalidrawInitialDataState['files'],
     }
   })
+
+  // Captured once, from the same initial `snapshot` value as
+  // `snapshotAtMount` above — whether *this join* started with prepared
+  // content, independent of whatever broadcasts arrive afterwards.
+  const [hadInitialContent] = useState(() => lessonBoardSnapshotHasContent(snapshot))
+
+  // Fit prepared content into view on join, matching the host's own
+  // fit-on-start — otherwise the student's first view is whatever pan/zoom
+  // the board was last saved at, which can leave content off-screen.
+  //
+  // Waits for the first `onChange` rather than fitting as soon as `api` is
+  // available: Excalidraw hands over the API before it finishes restoring
+  // `initialData` into the scene, so calling scrollToContent immediately
+  // fits against zero elements and does nothing.
+  useEffect(() => {
+    if (!api || !hadInitialContent) return
+    let didFit = false
+    const unsubscribe = api.onChange((elements) => {
+      if (didFit || elements.length === 0) return
+      didFit = true
+      api.scrollToContent(undefined, { fitToContent: true })
+    })
+    return unsubscribe
+  }, [api, hadInitialContent])
 
   // Later snapshots arrive as broadcasts — push elements only, with
   // captureUpdate: NEVER (Excalidraw's documented mechanism for remote

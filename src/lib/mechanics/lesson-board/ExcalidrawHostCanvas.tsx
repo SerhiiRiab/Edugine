@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
 import type {
   ExcalidrawImperativeAPI,
@@ -9,7 +9,7 @@ import type {
 } from '@excalidraw/excalidraw/types'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import '@excalidraw/excalidraw/index.css'
-import { isUsableLessonBoardSnapshot, type LessonBoardSnapshot } from './types'
+import { isUsableLessonBoardSnapshot, lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import ZoomControls from './ZoomControls'
 
 interface Props {
@@ -49,6 +49,28 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   const containerRef = useRef<HTMLDivElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
+
+  // A board prepared before class starts with whatever pan/zoom it was last
+  // saved at, which can easily leave content outside the host's viewport at
+  // session start. Fit it into view once, right when the canvas mounts —
+  // an empty board has nothing to fit, so this only kicks in when there's
+  // prepared content.
+  //
+  // Waits for the first `onChange` rather than fitting as soon as `api` is
+  // available: Excalidraw hands over the API before it finishes restoring
+  // `initialData` into the scene, so calling scrollToContent immediately
+  // fits against zero elements and does nothing.
+  useEffect(() => {
+    if (!api || !lessonBoardSnapshotHasContent(initialSnapshot)) return
+    let didFit = false
+    const unsubscribe = api.onChange((elements) => {
+      if (didFit || elements.length === 0) return
+      didFit = true
+      api.scrollToContent(undefined, { fitToContent: true })
+    })
+    return unsubscribe
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api])
 
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],
