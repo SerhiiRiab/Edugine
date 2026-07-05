@@ -16,7 +16,7 @@ const ExcalidrawPlayerCanvas = dynamic(() => import('./ExcalidrawPlayerCanvas'),
 
 export interface LessonBoardPlayerPanelProps {
   state: LessonBoardState
-  laserPointer?: { x: number; y: number } | null
+  laserPointer?: { x: number; y: number }[] | null
 }
 
 export function LessonBoardPlayerPanel({ state, laserPointer = null }: LessonBoardPlayerPanelProps) {

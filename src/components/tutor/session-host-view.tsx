@@ -259,6 +259,13 @@ function avatarBg(index: number) {
   return AVATAR_COLORS[index % AVATAR_COLORS.length]
 }
 
+// Lesson Board laser pointer: how many recent positions ride along in each
+// broadcast (rendered as a fading trail on the student side), and how long
+// a gap since the last move means "the trail should restart," not "keep
+// stitching onto the old one."
+const LASER_TRAIL_MAX = 5
+const LASER_TRAIL_RESET_GAP_MS = 150
+
 export function SessionHostView({ session, lesson }: Props) {
   const isLesson = !!lesson && !!lesson.id
   const isMultiActivity = isLesson && (lesson?.activities.length ?? 0) > 1
@@ -389,6 +396,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const jigsawReadingStateRef = useRef<JigsawReadingState | null>(null)
   const predictVerifyStateRef = useRef<PredictVerifyState | null>(null)
   const lessonBoardStateRef = useRef<LessonBoardState | null>(null)
+  const laserTrailRef = useRef<{ x: number; y: number }[]>([])
+  const lastLaserMoveAtRef = useRef(0)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -3277,11 +3286,24 @@ export function SessionHostView({ session, lesson }: Props) {
 
   // Ephemeral — Realtime broadcast only, no DB write. The laser pointer is
   // live-only; there's nothing worth persisting once it moves on.
+  //
+  // Broadcasts a rolling trail of the last few positions (newest first),
+  // not just the latest point, so the student side can render a fading
+  // trail and a single dropped Realtime message doesn't make the pointer
+  // feel jumpy. Resets the trail if there's a gap since the last move
+  // (laser lifted and reapplied elsewhere) so old and new positions never
+  // get stitched into one fake trail.
   function handleLessonBoardLaserPointer(x: number, y: number) {
+    const now = performance.now()
+    if (now - lastLaserMoveAtRef.current > LASER_TRAIL_RESET_GAP_MS) {
+      laserTrailRef.current = []
+    }
+    lastLaserMoveAtRef.current = now
+    laserTrailRef.current = [{ x, y }, ...laserTrailRef.current].slice(0, LASER_TRAIL_MAX)
     channelRef.current?.send({
       type: 'broadcast',
       event: 'laser_pointer',
-      payload: { x, y },
+      payload: { points: laserTrailRef.current },
     })
   }
 

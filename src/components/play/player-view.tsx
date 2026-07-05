@@ -200,12 +200,14 @@ export function PlayerView({ session, lesson }: Props) {
   const [predictVerifyState, setPredictVerifyState] = useState<PredictVerifyState | null>(null)
   // ── Lesson Board ─────────────────────────────────────────────────────────────
   const [lessonBoardState, setLessonBoardState] = useState<LessonBoardState | null>(null)
-  const [laserPointer, setLaserPointer] = useState<{ x: number; y: number } | null>(null)
+  // Newest-first trail of recent scene-space positions from the host's
+  // broadcast (up to 5) — rendered as fading dots, not just a single dot.
+  const [laserPointer, setLaserPointer] = useState<{ x: number; y: number }[] | null>(null)
   const laserFadeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Ephemeral only — never persisted, so there's nothing to restore on
-  // reconnect. Cleared 100ms after the last broadcast so a stalled/closed
-  // tutor connection doesn't leave a stale dot frozen on screen.
+  // reconnect. Cleared 150ms after the last broadcast so a stalled/closed
+  // tutor connection doesn't leave a stale trail frozen on screen.
   useEffect(() => () => {
     if (laserFadeTimeoutRef.current) clearTimeout(laserFadeTimeoutRef.current)
   }, [])
@@ -864,10 +866,10 @@ export function PlayerView({ session, lesson }: Props) {
         if (p.state) setLessonBoardState(p.state)
       })
       .on('broadcast', { event: 'laser_pointer' }, ({ payload }) => {
-        const p = payload as { x: number; y: number }
-        setLaserPointer({ x: p.x, y: p.y })
+        const p = payload as { points: { x: number; y: number }[] }
+        setLaserPointer(p.points ?? null)
         if (laserFadeTimeoutRef.current) clearTimeout(laserFadeTimeoutRef.current)
-        laserFadeTimeoutRef.current = setTimeout(() => setLaserPointer(null), 100)
+        laserFadeTimeoutRef.current = setTimeout(() => setLaserPointer(null), 150)
       })
       .on('broadcast', { event: 'drama_event_ended' }, ({ payload }) => {
         const p = payload as { state: DramaEventState }
