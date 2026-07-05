@@ -12,8 +12,11 @@ import type {
 } from '@excalidraw/excalidraw/types'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import '@excalidraw/excalidraw/index.css'
+import { createClient } from '@/lib/supabase/client'
 import { isUsableLessonBoardSnapshot, lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import ZoomControls from './ZoomControls'
+
+const IMAGE_BUCKET = 'lesson-board-images'
 
 interface Props {
   initialSnapshot: LessonBoardSnapshot | null
@@ -45,26 +48,22 @@ const SNAPSHOT_DEBOUNCE_MS = 1500
 // way forwarding every raw pointermove event would.
 const LASER_THROTTLE_MS = 1000 / 30
 
-// A phone-camera photo can easily be several MB — and since every save
-// resends the *whole* scene (not a diff), one big image gets retransmitted
-// on every subsequent stroke too, in both the DB write and the Realtime
-// broadcast, which is large enough to stall or silently drop. Downscaling
-// on insert keeps every later save small regardless of what was dropped in.
-// Kept aggressive (rather than just-under-the-DB-limit) because the real
-// cost isn't one save being oversized — it's the *same* image bytes getting
-// rewritten to disk on every subsequent save for as long as the tutor keeps
-// drawing, which is what actually drained Supabase's disk I/O budget.
+// Images are uploaded to Storage once (below) and only their URL is ever
+// synced — but the host's own local view still renders whatever dataURL is
+// in Excalidraw's own file store, so a phone-camera photo is downscaled
+// in place for that view (and to keep the uploaded object itself small),
+// independent of the sync-payload problem Storage now solves.
 const MAX_IMAGE_DIMENSION = 900
 const IMAGE_JPEG_QUALITY = 0.55
 // Skip re-encoding anything already reasonably small — no point trading
 // quality for savings that aren't there.
 const SKIP_COMPRESSION_UNDER_BYTES = 200_000
 
-// Well under the `state_size_limit` CHECK constraint (5MB, migration 049) —
-// intentionally not "just under the DB limit," since a save near that limit
-// firing every 1.5s during continuous drawing is exactly what exhausted
-// Supabase's disk I/O budget. Checked here so the tutor gets a visible
-// warning instead of the save just silently failing later.
+// A generous backstop, not a routine ceiling — once images are Storage
+// URLs instead of embedded base64, a save is normally just element data
+// and short URL strings. Checked here so the tutor gets a visible warning
+// instead of the save just silently failing against the DB's own
+// `state_size_limit` CHECK constraint (5MB, migration 049).
 const MAX_SNAPSHOT_BYTES = 1_500_000
 
 export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
@@ -105,11 +104,24 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   const seenImageFileIdsRef = useRef<Set<string>>(new Set())
   // FileIds currently mid-downscale. A debounced save is held back entirely
   // while this is non-empty — decoding + re-encoding a phone photo isn't
-  // instant, and without this guard the 500ms debounce can fire first and
+  // instant, and without this guard the debounce can fire first and
   // synchronously JSON.stringify + save the still-full-size original (the
   // very thing compression exists to prevent), racing the compression that
   // was supposed to have already replaced it.
   const compressingFileIdsRef = useRef<Set<string>>(new Set())
+  // fileId -> public Storage URL, once uploaded. Swapped in for whatever
+  // actually gets persisted/broadcast, so a save carries a short URL
+  // string instead of the image's bytes. This is what actually fixes the
+  // 2026-07 disk-I/O incident: every save rewrites the *whole* row
+  // regardless of what changed, so an embedded image's bytes were getting
+  // rewritten to disk on every debounce tick for as long as the tutor kept
+  // drawing — draining Supabase's disk I/O budget for the whole project,
+  // not just this table.
+  const uploadedFileUrlsRef = useRef<Map<string, string>>(new Map())
+  // FileIds currently mid-upload — held back the same way as
+  // compressingFileIdsRef, so a save never syncs a still-embedded original
+  // while its Storage upload is in flight.
+  const uploadingFileIdsRef = useRef<Set<string>>(new Set())
 
   // Cancel any pending debounced save on unmount — otherwise a save
   // scheduled right before switching away from this activity fires later
@@ -166,35 +178,125 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     onLaserPointerMove(payload.pointer.x, payload.pointer.y)
   }, [onLaserPointerMove])
 
-  // Downscales one image in place via a scratch <canvas>, then hands the
-  // smaller version back to Excalidraw under the same fileId — so this
-  // replaces the oversized original everywhere it's used (the host's own
-  // view included), not just in what gets synced onward.
+  // Builds the files record that actually gets persisted/broadcast: any
+  // file already uploaded to Storage is swapped from its (host-local-only)
+  // base64 dataURL to the resolved public URL — Excalidraw renders a real
+  // URL identically to an inline data: URL, so this is transparent on both
+  // the host's and students' views. Returns null if any file is still being
+  // compressed or uploaded, telling the caller to skip this save entirely
+  // rather than sync a still-full-size original in the meantime.
+  const resolveFilesForSync = useCallback((files: Record<string, unknown>) => {
+    const resolved: Record<string, unknown> = {}
+    for (const fileId of Object.keys(files)) {
+      if (compressingFileIdsRef.current.has(fileId) || uploadingFileIdsRef.current.has(fileId)) {
+        return null
+      }
+      const uploadedUrl = uploadedFileUrlsRef.current.get(fileId)
+      resolved[fileId] = uploadedUrl
+        ? { ...(files[fileId] as object), dataURL: uploadedUrl }
+        : files[fileId]
+    }
+    return resolved
+  }, [])
+
+  const scheduleSave = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      if (!pendingRef.current) return
+      const resolvedFiles = resolveFilesForSync(pendingRef.current.files as Record<string, unknown>)
+      if (resolvedFiles === null) {
+        // Something's still compressing or uploading — don't sync a
+        // still-full-size original in the meantime. uploadImageFile's
+        // `finally` retries this once the upload settles, so this isn't
+        // lost, just deferred.
+        return
+      }
+      const toSync: LessonBoardSnapshot = { elements: pendingRef.current.elements, files: resolvedFiles }
+      // .length is UTF-16 code units, not bytes — close enough here since a
+      // snapshot's bulk is JSON punctuation and (now short) URL strings,
+      // both single-code-unit ASCII, and this only needs to catch gross
+      // oversize, not enforce byte-exact parity with the DB's octet_length
+      // check.
+      const approxBytes = JSON.stringify(toSync).length
+      if (approxBytes > MAX_SNAPSHOT_BYTES) {
+        console.warn(`[LessonBoard] Snapshot too large to save (${approxBytes} bytes), skipping this save`)
+        setOversized(true)
+        return
+      }
+      setOversized(false)
+      try {
+        onSnapshotChange(toSync)
+      } catch (err) {
+        console.warn('[LessonBoard] Failed to save snapshot, skipping this save', err)
+      }
+    }, SNAPSHOT_DEBOUNCE_MS)
+  }, [onSnapshotChange, resolveFilesForSync])
+
+  // Uploads one image's final bytes to Storage once, then retries whatever
+  // save was held back for it — necessary because nothing else re-fires
+  // once the upload settles if the tutor has stopped drawing in the
+  // meantime. Falls back to leaving the image embedded inline on failure
+  // (rather than omitting it) so it still reaches students at all, just
+  // heavier than ideal — silently dropping it forever is the bug that sank
+  // the first attempt at this (the Storage bucket migration hadn't been
+  // applied to the live DB yet, so every upload failed and the image was
+  // never included in any save again).
+  const uploadImageFile = useCallback(async (fileId: string, dataURL: string, mimeType: string) => {
+    uploadingFileIdsRef.current.add(fileId)
+    try {
+      const blob = await (await fetch(dataURL)).blob()
+      const ext = mimeType.split('/')[1] ?? 'png'
+      const path = `${fileId}.${ext}`
+      const supabase = createClient()
+      const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, blob, {
+        contentType: mimeType,
+        upsert: true,
+      })
+      if (error) throw error
+      const { data } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(path)
+      uploadedFileUrlsRef.current.set(fileId, data.publicUrl)
+    } catch (err) {
+      console.warn('[LessonBoard] Failed to upload image to Storage, syncing it inline instead', err)
+    } finally {
+      uploadingFileIdsRef.current.delete(fileId)
+      scheduleSave()
+    }
+  }, [scheduleSave])
+
+  // Downscales one image in place via a scratch <canvas> for the host's own
+  // local view (and to keep the uploaded object itself small), then uploads
+  // the final bytes to Storage — so what actually gets synced onward is a
+  // short URL, never the image itself.
   const compressImageFile = useCallback((fileId: string, file: BinaryFileData) => {
-    if (file.dataURL.length < SKIP_COMPRESSION_UNDER_BYTES) return
+    if (file.dataURL.length < SKIP_COMPRESSION_UNDER_BYTES) {
+      uploadImageFile(fileId, file.dataURL, file.mimeType)
+      return
+    }
     compressingFileIdsRef.current.add(fileId)
     const done = () => compressingFileIdsRef.current.delete(fileId)
     const img = new Image()
     img.onload = () => {
       const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(img.width, img.height))
-      if (scale >= 1) { done(); return }
+      if (scale >= 1) { done(); uploadImageFile(fileId, file.dataURL, file.mimeType); return }
       const canvas = document.createElement('canvas')
       canvas.width = Math.round(img.width * scale)
       canvas.height = Math.round(img.height * scale)
       const ctx = canvas.getContext('2d')
-      if (!ctx) { done(); return }
+      if (!ctx) { done(); uploadImageFile(fileId, file.dataURL, file.mimeType); return }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       const resizedDataURL = canvas.toDataURL(MIME_TYPES.jpg, IMAGE_JPEG_QUALITY) as DataURL
       api?.addFiles([{ ...file, dataURL: resizedDataURL, mimeType: MIME_TYPES.jpg }])
       done()
+      uploadImageFile(fileId, resizedDataURL, MIME_TYPES.jpg)
     }
     img.onerror = () => {
-      console.warn('[LessonBoard] Failed to downscale inserted image, keeping original size')
+      console.warn('[LessonBoard] Failed to downscale inserted image, uploading it at original size')
       done()
+      uploadImageFile(fileId, file.dataURL, file.mimeType)
     }
     img.src = file.dataURL
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api])
+  }, [api, uploadImageFile])
 
   const handleChange = useCallback((
     elements: readonly OrderedExcalidrawElement[],
@@ -204,38 +306,19 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     for (const [fileId, file] of Object.entries(files)) {
       if (seenImageFileIdsRef.current.has(fileId)) continue
       seenImageFileIdsRef.current.add(fileId)
+      if (!file.dataURL.startsWith('data:')) {
+        // Already a Storage URL from a previous save (e.g. reopening a
+        // previously-prepared board) — nothing to compress or upload, and
+        // loading it back through <canvas> here would taint the canvas as
+        // cross-origin pixel data, breaking compression's own toDataURL().
+        uploadedFileUrlsRef.current.set(fileId, file.dataURL)
+        continue
+      }
       compressImageFile(fileId, file)
     }
     pendingRef.current = { elements: elements as unknown[], files: files as Record<string, unknown> }
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      if (!pendingRef.current) return
-      if (compressingFileIdsRef.current.size > 0) {
-        // A just-inserted image hasn't finished downscaling yet, so the
-        // scene Excalidraw handed us still carries the full-size original.
-        // Skip this save rather than sync it — api.addFiles() (fired once
-        // compression finishes) triggers its own onChange, which schedules
-        // a fresh save carrying the now-small version instead.
-        return
-      }
-      // .length is UTF-16 code units, not bytes — close enough here since a
-      // snapshot's bulk is base64 image data and JSON punctuation, both
-      // single-code-unit ASCII, and this only needs to catch gross oversize,
-      // not enforce byte-exact parity with the DB's octet_length check.
-      const approxBytes = JSON.stringify(pendingRef.current).length
-      if (approxBytes > MAX_SNAPSHOT_BYTES) {
-        console.warn(`[LessonBoard] Snapshot too large to save (${approxBytes} bytes), skipping this save`)
-        setOversized(true)
-        return
-      }
-      setOversized(false)
-      try {
-        onSnapshotChange(pendingRef.current)
-      } catch (err) {
-        console.warn('[LessonBoard] Failed to save snapshot, skipping this save', err)
-      }
-    }, SNAPSHOT_DEBOUNCE_MS)
-  }, [onSnapshotChange, compressImageFile])
+    scheduleSave()
+  }, [scheduleSave, compressImageFile])
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>
@@ -270,7 +353,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
       {oversized && (
         <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg
           bg-red-600 text-white text-xs font-semibold shadow-lg">
-          Board too large to save — remove a recent image or drawing to keep syncing
+          Board too large to save — remove some content to keep syncing
         </div>
       )}
       <Excalidraw
