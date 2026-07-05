@@ -76,11 +76,18 @@ export default function ExcalidrawPlayerCanvas({ snapshot }: Props) {
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>
-      {/* Excalidraw's own zoom controls unmount themselves below ~730px
-          width (its own "mobile" breakpoint) — hidden here and replaced by
-          <ZoomControls>, which renders identically at every viewport size. */}
+      {/* Students only ever view the board, never need Excalidraw's own
+          chrome — hide the hamburger menu (with its Discord/GitHub links,
+          Help, dark mode toggle) and the standalone Help "?" button
+          entirely, leaving just the canvas and our own <ZoomControls>.
+          Excalidraw's own zoom controls unmount themselves below ~730px
+          width (its own "mobile" breakpoint) too — hidden here and
+          replaced by <ZoomControls>, which renders identically at every
+          viewport size. */}
       <style>{`
         .zoom-actions { display: none !important; }
+        .main-menu-trigger { display: none !important; }
+        .help-icon { display: none !important; }
       `}</style>
       <Excalidraw
         initialData={snapshotAtMount}
