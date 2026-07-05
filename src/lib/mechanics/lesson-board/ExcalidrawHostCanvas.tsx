@@ -3,12 +3,14 @@
 import { useCallback, useRef, useState } from 'react'
 import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
 import type {
+  ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
   BinaryFiles,
 } from '@excalidraw/excalidraw/types'
 import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
 import '@excalidraw/excalidraw/index.css'
 import { isUsableLessonBoardSnapshot, type LessonBoardSnapshot } from './types'
+import ZoomControls from './ZoomControls'
 
 interface Props {
   initialSnapshot: LessonBoardSnapshot | null
@@ -43,6 +45,8 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     }
   })
 
+  const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
 
@@ -64,20 +68,25 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   }, [onSnapshotChange])
 
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
+    <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>
       {/* No prop exists to disable these — Excalidraw doesn't expose a
           UIOptions toggle for the public-library feature or the Help
           dialog's link row, so this is the documented CSS-override escape
           hatch. Selectors come from Excalidraw's own (stable, BEM-style)
-          class names, verified against the rendered DOM. */}
+          class names, verified against the rendered DOM.
+          `.zoom-actions` (Excalidraw's own zoom controls) is hidden because
+          it unmounts itself below ~730px width — replaced below by
+          <ZoomControls>, which renders identically at every viewport size. */}
       <style>{`
         .layer-ui__wrapper__top-right { display: none !important; }
         .library-menu-browse-button { display: none !important; }
         .HelpDialog__header { display: none !important; }
+        .zoom-actions { display: none !important; }
       `}</style>
       <Excalidraw
         initialData={snapshotAtMount}
         onChange={handleChange}
+        excalidrawAPI={setApi}
       >
         {/* Custom menu — omits Excalidraw's default "Socials" item (GitHub,
             X/Twitter, Discord) and file-based load/save, which don't apply
@@ -91,6 +100,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
           <MainMenu.DefaultItems.Help />
         </MainMenu>
       </Excalidraw>
+      <ZoomControls api={api} containerRef={containerRef} />
     </div>
   )
 }
