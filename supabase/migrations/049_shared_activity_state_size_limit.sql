@@ -9,6 +9,11 @@
 -- database enforces — client-side JS can always be bypassed or fail. This
 -- constraint is the backstop: no single activity's shared state can exceed
 -- 5MB, regardless of which mechanic or client wrote it.
+--
+-- NOTE: run this manually in the Supabase SQL Editor FIRST, before applying
+-- this migration, or the ADD CONSTRAINT below will fail against any row
+-- left over from the incident:
+--   DELETE FROM shared_activity_state WHERE octet_length(state::text) > 5242880;
 ALTER TABLE shared_activity_state
-  ADD CONSTRAINT shared_activity_state_size_limit
+  ADD CONSTRAINT state_size_limit
   CHECK (octet_length(state::text) <= 5242880);

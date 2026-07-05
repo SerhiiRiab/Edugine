@@ -50,6 +50,12 @@ const IMAGE_JPEG_QUALITY = 0.7
 // quality for savings that aren't there.
 const SKIP_COMPRESSION_UNDER_BYTES = 300_000
 
+// Matches the `state_size_limit` CHECK constraint on shared_activity_state.state
+// (migration 049) — checked here too, before the save even happens, so the
+// tutor gets a visible warning instead of a save silently failing against
+// the DB once the scene is already too big to shrink after the fact.
+const MAX_SNAPSHOT_BYTES = 4_500_000
+
 export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange, defaultTool = 'freedraw', onLaserPointerMove }: Props) {
   // `initialData` is only read once at mount (documented Excalidraw
   // behavior) — captured here anyway as a defensive habit, and to run the
@@ -77,6 +83,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   })
 
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
+  const [oversized, setOversized] = useState(false)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingRef = useRef<LessonBoardSnapshot | null>(null)
@@ -181,6 +188,17 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       if (!pendingRef.current) return
+      // .length is UTF-16 code units, not bytes — close enough here since a
+      // snapshot's bulk is base64 image data and JSON punctuation, both
+      // single-code-unit ASCII, and this only needs to catch gross oversize,
+      // not enforce byte-exact parity with the DB's octet_length check.
+      const approxBytes = JSON.stringify(pendingRef.current).length
+      if (approxBytes > MAX_SNAPSHOT_BYTES) {
+        console.warn(`[LessonBoard] Snapshot too large to save (${approxBytes} bytes), skipping this save`)
+        setOversized(true)
+        return
+      }
+      setOversized(false)
       try {
         onSnapshotChange(pendingRef.current)
       } catch (err) {
@@ -219,6 +237,12 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
         .ToolIcon__lock { display: none !important; }
         label:has(> input[data-testid="toolbar-hand"]) { display: none !important; }
       `}</style>
+      {oversized && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg
+          bg-red-600 text-white text-xs font-semibold shadow-lg">
+          Board too large to save — remove a recent image or drawing to keep syncing
+        </div>
+      )}
       <Excalidraw
         initialData={snapshotAtMount}
         onChange={handleChange}
