@@ -92,6 +92,13 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   // downscaled once, not on every subsequent throttle tick that still
   // includes it.
   const seenImageFileIdsRef = useRef<Set<string>>(new Set())
+  // FileIds currently mid-downscale. A debounced save is held back entirely
+  // while this is non-empty — decoding + re-encoding a phone photo isn't
+  // instant, and without this guard the 500ms debounce can fire first and
+  // synchronously JSON.stringify + save the still-full-size original (the
+  // very thing compression exists to prevent), racing the compression that
+  // was supposed to have already replaced it.
+  const compressingFileIdsRef = useRef<Set<string>>(new Set())
 
   // Cancel any pending debounced save on unmount — otherwise a save
   // scheduled right before switching away from this activity fires later
@@ -154,21 +161,25 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   // view included), not just in what gets synced onward.
   const compressImageFile = useCallback((fileId: string, file: BinaryFileData) => {
     if (file.dataURL.length < SKIP_COMPRESSION_UNDER_BYTES) return
+    compressingFileIdsRef.current.add(fileId)
+    const done = () => compressingFileIdsRef.current.delete(fileId)
     const img = new Image()
     img.onload = () => {
       const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(img.width, img.height))
-      if (scale >= 1) return
+      if (scale >= 1) { done(); return }
       const canvas = document.createElement('canvas')
       canvas.width = Math.round(img.width * scale)
       canvas.height = Math.round(img.height * scale)
       const ctx = canvas.getContext('2d')
-      if (!ctx) return
+      if (!ctx) { done(); return }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
       const resizedDataURL = canvas.toDataURL(MIME_TYPES.jpg, IMAGE_JPEG_QUALITY) as DataURL
       api?.addFiles([{ ...file, dataURL: resizedDataURL, mimeType: MIME_TYPES.jpg }])
+      done()
     }
     img.onerror = () => {
       console.warn('[LessonBoard] Failed to downscale inserted image, keeping original size')
+      done()
     }
     img.src = file.dataURL
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -188,6 +199,14 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     if (debounceRef.current) clearTimeout(debounceRef.current)
     debounceRef.current = setTimeout(() => {
       if (!pendingRef.current) return
+      if (compressingFileIdsRef.current.size > 0) {
+        // A just-inserted image hasn't finished downscaling yet, so the
+        // scene Excalidraw handed us still carries the full-size original.
+        // Skip this save rather than sync it — api.addFiles() (fired once
+        // compression finishes) triggers its own onChange, which schedules
+        // a fresh save carrying the now-small version instead.
+        return
+      }
       // .length is UTF-16 code units, not bytes — close enough here since a
       // snapshot's bulk is base64 image data and JSON punctuation, both
       // single-code-unit ASCII, and this only needs to catch gross oversize,
