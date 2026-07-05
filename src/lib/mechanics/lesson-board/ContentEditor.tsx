@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useTransition } from 'react'
+import { useState, useRef, useCallback, useTransition, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -84,6 +84,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
   const [boardMode, setBoardMode] = useState<BoardSetupMode>(initialSnapshot ? 'prepare' : 'empty')
   const [preparedSnapshot, setPreparedSnapshot] = useState<LessonBoardSnapshot | null>(initialSnapshot)
   const [editorOpen, setEditorOpen] = useState(false)
+  const [previewSvg, setPreviewSvg] = useState<string | null>(null)
   const itemIdRef = useRef<string | null>(rawItem?.id ?? null)
 
   const metaTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -130,6 +131,31 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
       markSaved()
     } catch { setSaveStatus('error') }
   }, [set.id, markSaved])
+
+  // Re-render the thumbnail whenever the prepared board changes — dynamically
+  // imported so exportToSvg (and the rest of Excalidraw) stays out of this
+  // page's own bundle, matching the canvas component's code-splitting.
+  useEffect(() => {
+    let cancelled = false
+    if (!lessonBoardSnapshotHasContent(preparedSnapshot)) {
+      setPreviewSvg(null)
+      return
+    }
+    import('@excalidraw/excalidraw').then(({ exportToSvg }) => exportToSvg({
+      elements: preparedSnapshot!.elements as never,
+      files: preparedSnapshot!.files as never,
+      appState: { exportBackground: true, viewBackgroundColor: '#ffffff' },
+    })).then(svg => {
+      if (cancelled) return
+      svg.removeAttribute('width')
+      svg.removeAttribute('height')
+      svg.setAttribute('preserveAspectRatio', 'xMidYMid meet')
+      svg.style.width = '100%'
+      svg.style.height = '100%'
+      setPreviewSvg(svg.outerHTML)
+    }).catch(() => { if (!cancelled) setPreviewSvg(null) })
+    return () => { cancelled = true }
+  }, [preparedSnapshot])
 
   async function handleSelectMode(mode: BoardSetupMode) {
     setBoardMode(mode)
@@ -279,19 +305,32 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
           </label>
 
           {boardMode === 'prepare' && (
-            <div className="pt-1 flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setEditorOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600
-                  text-white font-semibold text-sm transition-colors"
-              >
-                <PenLine className="w-4 h-4" />Open Board Editor
-              </button>
-              {boardPrepared && (
-                <span className="flex items-center gap-1 text-xs font-medium text-emerald-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" />Board prepared
-                </span>
+            <div className="pt-1">
+              {boardPrepared && previewSvg ? (
+                <button
+                  type="button"
+                  onClick={() => setEditorOpen(true)}
+                  className="block w-full rounded-xl border-2 border-slate-200 hover:border-orange-300
+                    bg-white overflow-hidden transition-colors group text-left"
+                >
+                  <div
+                    className="h-40 flex items-center justify-center bg-slate-50 p-3 [&_svg]:max-h-full [&_svg]:max-w-full"
+                    dangerouslySetInnerHTML={{ __html: previewSvg }}
+                  />
+                  <div className="flex items-center justify-center gap-2 py-2.5 bg-orange-50
+                    group-hover:bg-orange-100 text-orange-700 font-semibold text-sm transition-colors">
+                    <PenLine className="w-4 h-4" />Edit board
+                  </div>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setEditorOpen(true)}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600
+                    text-white font-semibold text-sm transition-colors"
+                >
+                  <PenLine className="w-4 h-4" />Open Board Editor
+                </button>
               )}
             </div>
           )}
