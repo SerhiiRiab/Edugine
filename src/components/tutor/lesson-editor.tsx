@@ -1333,6 +1333,18 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
 
   // ── Edit ───────────────────────────────────────────────────────────────────
 
+  // Lesson Board has no "Mode" (individual/shared/vote) or per-student timer
+  // the way quiz-style mechanics do — the generic Settings modal doesn't
+  // apply to it at all. Skip straight to its own content editor (the
+  // Excalidraw canvas setup page) instead of opening that modal.
+  function handleActivityEditClick(activity: ActivityRow) {
+    if (activity.mechanic_id === 'lesson_board') {
+      router.push(`/tutor/content-sets/${activity.content_set_id}/edit?returnToLesson=${lesson.id}`)
+      return
+    }
+    setEditingActivity(activity)
+  }
+
   async function handleEditActivity(
     id: string,
     data: { mode: 'individual' | 'shared' | 'vote'; config: Record<string, unknown> },
@@ -1623,7 +1635,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                   <SortableActivityCard
                     activity={activity}
                     index={index}
-                    onEdit={setEditingActivity}
+                    onEdit={handleActivityEditClick}
                     onDelete={handleDeleteActivity}
                   />
                   {index < activities.length - 1 && (
