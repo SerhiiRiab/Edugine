@@ -3253,7 +3253,7 @@ export function SessionHostView({ session, lesson }: Props) {
   }
 
   // ── Lesson Board handlers ─────────────────────────────────────────────────────
-  async function handleLessonBoardSnapshotChange(snapshot: unknown) {
+  async function handleLessonBoardSnapshotChange(snapshot: LessonBoardState['snapshot']) {
     const cur = lessonBoardStateRef.current
     if (!cur) return
     const newState: LessonBoardState = { ...cur, snapshot, updatedAt: new Date().toISOString() }

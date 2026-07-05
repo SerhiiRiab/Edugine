@@ -12,10 +12,10 @@ import {
   updateContentSet, createContentItem, updateContentItem, deleteContentItem,
 } from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
-import type { LessonBoardItem } from './types'
+import { lessonBoardSnapshotHasContent, type LessonBoardItem, type LessonBoardSnapshot } from './types'
 import { ErrorBoundary } from '@/components/error-boundary'
 
-const TldrawHostCanvas = dynamic(() => import('./TldrawHostCanvas'), {
+const ExcalidrawHostCanvas = dynamic(() => import('./ExcalidrawHostCanvas'), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
@@ -44,15 +44,6 @@ interface RawItem {
 interface Props {
   set: ContentSet
   initialItems: RawItem[]
-}
-
-// A document-scope tldraw snapshot has no shape records until something is
-// actually drawn — used to decide whether to show "Board prepared".
-function hasDrawnContent(snapshot: unknown): boolean {
-  if (!snapshot || typeof snapshot !== 'object') return false
-  const store = (snapshot as { store?: Record<string, { typeName?: string }> }).store
-  if (!store) return false
-  return Object.values(store).some(record => record?.typeName === 'shape')
 }
 
 function SaveIndicator({ status, savedAt }: { status: SaveStatus; savedAt: Date | null }) {
@@ -91,7 +82,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
   const [startingSession, startSessionTransition] = useTransition()
 
   const [boardMode, setBoardMode] = useState<BoardSetupMode>(initialSnapshot ? 'prepare' : 'empty')
-  const [preparedSnapshot, setPreparedSnapshot] = useState<unknown | null>(initialSnapshot)
+  const [preparedSnapshot, setPreparedSnapshot] = useState<LessonBoardSnapshot | null>(initialSnapshot)
   const [editorOpen, setEditorOpen] = useState(false)
   const itemIdRef = useRef<string | null>(rawItem?.id ?? null)
 
@@ -126,7 +117,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
     }, 1200)
   }
 
-  const handleBoardSnapshotChange = useCallback(async (snapshot: unknown) => {
+  const handleBoardSnapshotChange = useCallback(async (snapshot: LessonBoardSnapshot) => {
     setPreparedSnapshot(snapshot)
     setSaveStatus('saving')
     try {
@@ -160,7 +151,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
     })
   }
 
-  const boardPrepared = hasDrawnContent(preparedSnapshot)
+  const boardPrepared = lessonBoardSnapshotHasContent(preparedSnapshot)
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20">
@@ -346,7 +337,7 @@ export function LessonBoardContentEditor({ set, initialItems }: Props) {
           </div>
           <div className="flex-1 relative bg-white">
             <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
-              <TldrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardSnapshotChange} />
+              <ExcalidrawHostCanvas initialSnapshot={preparedSnapshot} onSnapshotChange={handleBoardSnapshotChange} />
             </ErrorBoundary>
           </div>
         </div>

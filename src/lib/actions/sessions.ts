@@ -452,7 +452,7 @@ export async function initLessonBoardState(
     .single()
 
   const rawItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown> }>
-  const preparedSnapshot = rawItems[0]?.data?.snapshot ?? null
+  const preparedSnapshot = (rawItems[0]?.data?.snapshot as LessonBoardState['snapshot'] | undefined) ?? null
 
   const initialState: LessonBoardState = {
     status: 'active',

@@ -1,0 +1,74 @@
+'use client'
+
+import { useCallback, useRef, useState } from 'react'
+import { Excalidraw } from '@excalidraw/excalidraw'
+import type {
+  ExcalidrawInitialDataState,
+  BinaryFiles,
+} from '@excalidraw/excalidraw/types'
+import type { OrderedExcalidrawElement } from '@excalidraw/excalidraw/element/types'
+import '@excalidraw/excalidraw/index.css'
+import { isUsableLessonBoardSnapshot, type LessonBoardSnapshot } from './types'
+
+interface Props {
+  initialSnapshot: LessonBoardSnapshot | null
+  onSnapshotChange: (snapshot: LessonBoardSnapshot) => void
+}
+
+// Debounce: persisting/broadcasting on every single pointer-move while the
+// host draws would flood realtime + the DB. 500ms gives near-instant feel to
+// students without spamming writes on every stroke.
+const SNAPSHOT_DEBOUNCE_MS = 500
+
+export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange }: Props) {
+  // `initialData` is only read once at mount (documented Excalidraw
+  // behavior) — captured here anyway as a defensive habit, and to run the
+  // malformed-snapshot guard before Excalidraw ever sees the data.
+  const [snapshotAtMount] = useState<ExcalidrawInitialDataState>(() => {
+    // Default to the pencil rather than the selection tool — the natural
+    // first gesture on a "whiteboard" is to click-and-drag to draw, and
+    // selection-tool drags over an empty canvas do nothing.
+    const appState: ExcalidrawInitialDataState['appState'] = {
+      activeTool: { type: 'freedraw', customType: null, locked: false, lastActiveTool: null },
+    }
+    if (initialSnapshot && !isUsableLessonBoardSnapshot(initialSnapshot)) {
+      console.warn('[LessonBoard] Discarding malformed saved snapshot, starting from an empty board', initialSnapshot)
+      return { appState }
+    }
+    if (!initialSnapshot) return { appState }
+    return {
+      elements: initialSnapshot.elements as ExcalidrawInitialDataState['elements'],
+      files: initialSnapshot.files as ExcalidrawInitialDataState['files'],
+      appState,
+    }
+  })
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingRef = useRef<LessonBoardSnapshot | null>(null)
+
+  const handleChange = useCallback((
+    elements: readonly OrderedExcalidrawElement[],
+    _appState: unknown,
+    files: BinaryFiles,
+  ) => {
+    pendingRef.current = { elements: elements as unknown[], files: files as Record<string, unknown> }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => {
+      if (!pendingRef.current) return
+      try {
+        onSnapshotChange(pendingRef.current)
+      } catch (err) {
+        console.warn('[LessonBoard] Failed to save snapshot, skipping this save', err)
+      }
+    }, SNAPSHOT_DEBOUNCE_MS)
+  }, [onSnapshotChange])
+
+  return (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <Excalidraw
+        initialData={snapshotAtMount}
+        onChange={handleChange}
+      />
+    </div>
+  )
+}

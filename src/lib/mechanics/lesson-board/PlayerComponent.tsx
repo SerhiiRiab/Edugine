@@ -5,7 +5,7 @@ import { PenLine } from 'lucide-react'
 import type { LessonBoardState } from './types'
 import { ErrorBoundary } from '@/components/error-boundary'
 
-const TldrawPlayerCanvas = dynamic(() => import('./TldrawPlayerCanvas'), {
+const ExcalidrawPlayerCanvas = dynamic(() => import('./ExcalidrawPlayerCanvas'), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
@@ -34,7 +34,7 @@ export function LessonBoardPlayerPanel({ state }: LessonBoardPlayerPanelProps) {
   return (
     <div className="flex-1 relative bg-white">
       <ErrorBoundary fallback="The board view crashed — try again to reload it.">
-        <TldrawPlayerCanvas snapshot={state.snapshot} />
+        <ExcalidrawPlayerCanvas snapshot={state.snapshot} />
       </ErrorBoundary>
     </div>
   )

@@ -2,10 +2,10 @@
 
 import dynamic from 'next/dynamic'
 import { PenLine, StopCircle, ChevronRight } from 'lucide-react'
-import type { LessonBoardState } from './types'
+import type { LessonBoardState, LessonBoardSnapshot } from './types'
 import { ErrorBoundary } from '@/components/error-boundary'
 
-const TldrawHostCanvas = dynamic(() => import('./TldrawHostCanvas'), {
+const ExcalidrawHostCanvas = dynamic(() => import('./ExcalidrawHostCanvas'), {
   ssr: false,
   loading: () => (
     <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
@@ -21,7 +21,7 @@ export interface LessonBoardHostPanelProps {
   isLesson?: boolean
   onNextActivity: () => void
   onEndLesson: () => void
-  onSnapshotChange: (snapshot: unknown) => void
+  onSnapshotChange: (snapshot: LessonBoardSnapshot) => void
 }
 
 export function LessonBoardHostPanel({
@@ -47,7 +47,7 @@ export function LessonBoardHostPanel({
 
       <div className="h-[60vh] min-h-[420px] rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative bg-white">
         <ErrorBoundary fallback="The board crashed. Your last saved snapshot is safe — try again to reload the canvas.">
-          <TldrawHostCanvas initialSnapshot={state.snapshot} onSnapshotChange={onSnapshotChange} />
+          <ExcalidrawHostCanvas initialSnapshot={state.snapshot} onSnapshotChange={onSnapshotChange} />
         </ErrorBoundary>
       </div>
 
