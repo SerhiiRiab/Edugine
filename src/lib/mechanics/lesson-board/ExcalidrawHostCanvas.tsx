@@ -103,10 +103,17 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
           Excalidraw power-user features not needed on this platform — the
           hand tool is redundant anyway since <ZoomControls> has its own
           Pan button. `.ToolIcon Shape` is shared by every drawing tool, so
-          the hand icon can only be targeted via its stable data-testid. */}
+          the hand icon can only be targeted via its stable data-testid.
+          The Library trigger moves from `.layer-ui__wrapper__top-right`
+          into `.mobile-misc-tools-container` once Excalidraw's own
+          "mobile" breakpoint kicks in (< ~730px — easily hit by this
+          canvas's actual container width inside the session page's
+          layout, even though it looks wide in a full-width test), so it
+          needs its own direct rule rather than relying on the wrapper. */}
       <style>{`
         .layer-ui__wrapper__top-right { display: none !important; }
         .library-menu-browse-button { display: none !important; }
+        .sidebar-trigger__label-element { display: none !important; }
         .HelpDialog__header { display: none !important; }
         .zoom-actions { display: none !important; }
         .ToolIcon__lock { display: none !important; }
