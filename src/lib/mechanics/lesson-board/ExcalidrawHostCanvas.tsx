@@ -98,12 +98,19 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
           class names, verified against the rendered DOM.
           `.zoom-actions` (Excalidraw's own zoom controls) is hidden because
           it unmounts itself below ~730px width — replaced below by
-          <ZoomControls>, which renders identically at every viewport size. */}
+          <ZoomControls>, which renders identically at every viewport size.
+          The lock ("keep tool active") and hand-tool toolbar icons are
+          Excalidraw power-user features not needed on this platform — the
+          hand tool is redundant anyway since <ZoomControls> has its own
+          Pan button. `.ToolIcon Shape` is shared by every drawing tool, so
+          the hand icon can only be targeted via its stable data-testid. */}
       <style>{`
         .layer-ui__wrapper__top-right { display: none !important; }
         .library-menu-browse-button { display: none !important; }
         .HelpDialog__header { display: none !important; }
         .zoom-actions { display: none !important; }
+        .ToolIcon__lock { display: none !important; }
+        label:has(> input[data-testid="toolbar-hand"]) { display: none !important; }
       `}</style>
       <Excalidraw
         initialData={snapshotAtMount}
