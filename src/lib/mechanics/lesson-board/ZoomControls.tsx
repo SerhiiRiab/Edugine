@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useState, type RefObject } from 'react'
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { viewportCoordsToSceneCoords } from '@excalidraw/excalidraw'
-import { Plus, Minus, Scan } from 'lucide-react'
+import { Plus, Minus, Scan, Hand } from 'lucide-react'
 import type { ExcalidrawImperativeAPI, NormalizedZoomValue } from '@excalidraw/excalidraw/types'
 
 const MIN_ZOOM = 0.1
@@ -17,6 +17,12 @@ interface Props {
   // to nothing.
   api: ExcalidrawImperativeAPI | null
   containerRef: RefObject<HTMLDivElement | null>
+  // Host-only: with a drawing tool active, mouse drag draws instead of
+  // panning (unlike view-mode, where drag already pans since there's
+  // nothing to draw with). Surfaces Excalidraw's own Hand tool as an
+  // explicit button instead of relying on the Space-drag shortcut or
+  // spotting the hand icon among the drawing toolbar's other tools.
+  showPanTool?: boolean
 }
 
 // Excalidraw's own zoom/fit controls live in a footer that it unmounts
@@ -25,8 +31,13 @@ interface Props {
 // that renders identically at every viewport size, computing zoom-around-
 // viewport-center itself since the underlying app method isn't part of the
 // public API (only the coordinate-conversion helpers are).
-export default function ZoomControls({ api, containerRef }: Props) {
+export default function ZoomControls({ api, containerRef, showPanTool = false }: Props) {
   const [zoomPct, setZoomPct] = useState(100)
+  const [activeTool, setActiveTool] = useState<string | null>(null)
+  // Tool to return to when toggling the pan button back off — otherwise
+  // it'd always drop the host back to the selection tool instead of
+  // whatever they were actually drawing with (freedraw, by default).
+  const lastNonHandToolRef = useRef<string>('freedraw')
 
   useEffect(() => {
     if (!api) return
@@ -35,6 +46,18 @@ export default function ZoomControls({ api, containerRef }: Props) {
       setZoomPct(Math.round(zoom.value * 100))
     })
   }, [api])
+
+  useEffect(() => {
+    if (!api || !showPanTool) return
+    const initialTool = api.getAppState().activeTool.type
+    setActiveTool(initialTool)
+    if (initialTool !== 'hand') lastNonHandToolRef.current = initialTool
+    return api.onChange((_elements, appState) => {
+      const type = appState.activeTool.type
+      setActiveTool(type)
+      if (type !== 'hand') lastNonHandToolRef.current = type
+    })
+  }, [api, showPanTool])
 
   const zoomBy = useCallback((delta: number) => {
     const container = containerRef.current
@@ -66,10 +89,31 @@ export default function ZoomControls({ api, containerRef }: Props) {
     api?.scrollToContent(undefined, { fitToContent: true, animate: true })
   }, [api])
 
+  const togglePanTool = useCallback(() => {
+    if (!api) return
+    const nextType = activeTool === 'hand' ? lastNonHandToolRef.current : 'hand'
+    api.setActiveTool({ type: nextType } as Parameters<typeof api.setActiveTool>[0])
+  }, [api, activeTool])
+
   return (
     <div
       className="absolute bottom-4 right-4 z-10 flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl shadow-sm p-1"
     >
+      {showPanTool && (
+        <>
+          <button
+            type="button"
+            title="Pan (move canvas)"
+            onClick={togglePanTool}
+            className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
+              activeTool === 'hand' ? 'bg-violet-100 text-violet-600' : 'text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            <Hand className="w-3.5 h-3.5" />
+          </button>
+          <div className="w-px h-5 bg-slate-200 mx-0.5" />
+        </>
+      )}
       <button
         type="button"
         title="Zoom out"

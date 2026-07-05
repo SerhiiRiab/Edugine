@@ -100,7 +100,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
           <MainMenu.DefaultItems.Help />
         </MainMenu>
       </Excalidraw>
-      <ZoomControls api={api} containerRef={containerRef} />
+      <ZoomControls api={api} containerRef={containerRef} showPanTool />
     </div>
   )
 }

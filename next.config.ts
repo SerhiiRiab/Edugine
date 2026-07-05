@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Default position (bottom-left) sits directly on top of Excalidraw's own
+  // bottom-left controls (undo/redo, zoom) in local dev, making them look
+  // broken when they're just occluded. Dev-only — doesn't render in prod.
+  devIndicators: {
+    position: 'top-right',
+  },
 };
 
 export default nextConfig;
