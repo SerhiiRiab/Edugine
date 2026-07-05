@@ -22,6 +22,7 @@ import { TabooContentEditor } from '@/lib/mechanics/taboo/ContentEditor'
 import { ElevatorPitchContentEditor } from '@/lib/mechanics/elevator-pitch/ContentEditor'
 import { JigsawReadingContentEditor } from '@/lib/mechanics/jigsaw-reading/ContentEditor'
 import { PredictVerifyContentEditor } from '@/lib/mechanics/predict-verify/ContentEditor'
+import { LessonBoardContentEditor } from '@/lib/mechanics/lesson-board/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
@@ -114,6 +115,7 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'elevator_pitch')       return <ElevatorPitchContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'jigsaw_reading')       return <JigsawReadingContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'predict_verify')       return <PredictVerifyContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'lesson_board')         return <LessonBoardContentEditor set={set} />
     return <ContentSetEditor set={set} initialItems={items ?? []} />
   }
 

@@ -42,6 +42,8 @@ import type { JigsawReadingState, JigsawReadingItem } from '@/lib/mechanics/jigs
 import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerComponent'
 import type { PredictVerifyState, PredictVerifyItem } from '@/lib/mechanics/predict-verify/types'
 import { PredictVerifyPlayerPanel } from '@/lib/mechanics/predict-verify/PlayerComponent'
+import type { LessonBoardState } from '@/lib/mechanics/lesson-board/types'
+import { LessonBoardPlayerPanel } from '@/lib/mechanics/lesson-board/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
@@ -196,6 +198,8 @@ export function PlayerView({ session, lesson }: Props) {
   const [jigsawReadingState, setJigsawReadingState] = useState<JigsawReadingState | null>(null)
   // ── Predict & Verify ─────────────────────────────────────────────────────────
   const [predictVerifyState, setPredictVerifyState] = useState<PredictVerifyState | null>(null)
+  // ── Lesson Board ─────────────────────────────────────────────────────────────
+  const [lessonBoardState, setLessonBoardState] = useState<LessonBoardState | null>(null)
 
   // ── Speed Debate ──────────────────────────────────────────────────────────────
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -514,6 +518,24 @@ export function PlayerView({ session, lesson }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, predictVerifyState])
 
+  // ── Lesson Board: fetch from DB on reconnect ─────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'lesson_board' || lessonBoardState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'snapshot' in (data.state as Record<string, unknown>)) {
+          setLessonBoardState(data.state as unknown as LessonBoardState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, lessonBoardState])
+
   // ── Speed Debate: fetch from DB on reconnect ──────────────────────────────────
   useEffect(() => {
     if (phase !== 'playing' || currentMechanicId !== 'speed_debate' || speedDebateState) return
@@ -698,7 +720,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; lessonBoardState?: LessonBoardState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -722,6 +744,7 @@ export function PlayerView({ session, lesson }: Props) {
         setElevatorPitchState(p.elevatorPitchState ?? null)
         setJigsawReadingState(p.jigsawReadingState ?? null)
         setPredictVerifyState(p.predictVerifyState ?? null)
+        setLessonBoardState(p.lessonBoardState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setCurrentRightLabel(p.rightLabel ?? null)
         setCurrentLeftLabel(p.leftLabel ?? null)
@@ -747,7 +770,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; lessonBoardState?: LessonBoardState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -769,6 +792,7 @@ export function PlayerView({ session, lesson }: Props) {
         setElevatorPitchState(p.elevatorPitchState ?? null)
         setJigsawReadingState(p.jigsawReadingState ?? null)
         setPredictVerifyState(p.predictVerifyState ?? null)
+        setLessonBoardState(p.lessonBoardState ?? null)
         setCurrentInstructions(p.instructions ?? null)
         setCurrentRightLabel(p.rightLabel ?? null)
         setCurrentLeftLabel(p.leftLabel ?? null)
@@ -825,6 +849,10 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'predict_verify_state_update' }, ({ payload }) => {
         const p = payload as { state: PredictVerifyState }
         if (p.state) setPredictVerifyState(p.state)
+      })
+      .on('broadcast', { event: 'lesson_board_state_update' }, ({ payload }) => {
+        const p = payload as { state: LessonBoardState }
+        if (p.state) setLessonBoardState(p.state)
       })
       .on('broadcast', { event: 'drama_event_ended' }, ({ payload }) => {
         const p = payload as { state: DramaEventState }
@@ -1713,8 +1741,19 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* Lesson Board */}
+          {currentMechanicId === 'lesson_board' && participantId && (
+            lessonBoardState
+              ? <LessonBoardPlayerPanel state={lessonBoardState} />
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading…</p>
+                </div>
+              )
+          )}
+
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify', 'lesson_board'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}

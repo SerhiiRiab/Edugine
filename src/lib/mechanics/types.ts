@@ -27,6 +27,7 @@ export type MechanicId =
   | 'elevator_pitch'
   | 'jigsaw_reading'
   | 'predict_verify'
+  | 'lesson_board'
 
 // ── Participation points ─────────────────────────────────────────────────────
 // Flat points awarded to every participant when the host advances past an
@@ -43,6 +44,7 @@ export const PARTICIPATION_POINTS: Partial<Record<MechanicId, number>> = {
   elevator_pitch: 10,
   speaking_challenge: 10,
   content_block: 10,
+  lesson_board: 10,
   debate_roulette: 15,
   speed_debate: 15,
   taboo: 15,

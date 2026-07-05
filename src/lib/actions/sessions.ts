@@ -21,6 +21,7 @@ import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
 import type { JigsawReadingState } from '@/lib/mechanics/jigsaw-reading/types'
 import type { PredictVerifyState } from '@/lib/mechanics/predict-verify/types'
 import { parsePredictVerifyDescription } from '@/lib/mechanics/predict-verify/types'
+import type { LessonBoardState } from '@/lib/mechanics/lesson-board/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -398,6 +399,31 @@ export async function initContentBlockState(
     tfIndex: null,
     tfRevealed: false,
     tfVotes: {},
+  }
+
+  await supabase.from('shared_activity_state').upsert(
+    {
+      session_id: sessionId,
+      activity_index: activityIndex,
+      state: initialState as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'session_id,activity_index' },
+  )
+
+  return initialState
+}
+
+export async function initLessonBoardState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<LessonBoardState> {
+  const supabase = await createClient()
+
+  const initialState: LessonBoardState = {
+    status: 'active',
+    snapshot: null,
+    updatedAt: new Date().toISOString(),
   }
 
   await supabase.from('shared_activity_state').upsert(

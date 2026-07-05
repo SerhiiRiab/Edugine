@@ -21,6 +21,7 @@ import { tabooDefinition } from './taboo'
 import { elevatorPitchDefinition } from './elevator-pitch'
 import { jigsawReadingDefinition } from './jigsaw-reading'
 import { predictVerifyDefinition } from './predict-verify'
+import { lessonBoardDefinition } from './lesson-board'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -46,6 +47,7 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   elevator_pitch:     elevatorPitchDefinition     as MechanicDefinition,
   jigsaw_reading:     jigsawReadingDefinition     as MechanicDefinition,
   predict_verify:     predictVerifyDefinition     as MechanicDefinition,
+  lesson_board:       lessonBoardDefinition       as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {

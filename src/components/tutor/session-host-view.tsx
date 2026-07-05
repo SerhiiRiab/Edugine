@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, initLessonBoardState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import { PARTICIPATION_POINTS, GROUP_SCORED_SHARED_MECHANICS } from '@/lib/mechanics/types'
@@ -73,6 +73,9 @@ import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerC
 import type { PredictVerifyState, PredictVerifyItem, PredictionMode } from '@/lib/mechanics/predict-verify/types'
 import { PredictVerifyHostPanel } from '@/lib/mechanics/predict-verify/HostComponent'
 import { PredictVerifyPlayerPanel } from '@/lib/mechanics/predict-verify/PlayerComponent'
+import type { LessonBoardState } from '@/lib/mechanics/lesson-board/types'
+import { LessonBoardHostPanel } from '@/lib/mechanics/lesson-board/HostComponent'
+import { LessonBoardPlayerPanel } from '@/lib/mechanics/lesson-board/PlayerComponent'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -244,6 +247,7 @@ const MECHANIC_NAMES: Record<string, string> = {
   elevator_pitch:     'Elevator Pitch',
   jigsaw_reading:     'Jigsaw Reading',
   predict_verify:     'Predict & Verify',
+  lesson_board:       'Lesson Board',
 }
 
 const AVATAR_COLORS = [
@@ -335,6 +339,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const [jigsawReadingState, setJigsawReadingState] = useState<JigsawReadingState | null>(null)
   // ── Predict & Verify ──────────────────────────────────────────────────────────
   const [predictVerifyState, setPredictVerifyState] = useState<PredictVerifyState | null>(null)
+  // ── Lesson Board ──────────────────────────────────────────────────────────────
+  const [lessonBoardState, setLessonBoardState] = useState<LessonBoardState | null>(null)
 
   // Speed Debate shared state
   const [speedDebateState, setSpeedDebateState] = useState<SpeedDebateState | null>(null)
@@ -382,6 +388,7 @@ export function SessionHostView({ session, lesson }: Props) {
   const elevatorPitchStateRef = useRef<ElevatorPitchState | null>(null)
   const jigsawReadingStateRef = useRef<JigsawReadingState | null>(null)
   const predictVerifyStateRef = useRef<PredictVerifyState | null>(null)
+  const lessonBoardStateRef = useRef<LessonBoardState | null>(null)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -405,6 +412,7 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { elevatorPitchStateRef.current = elevatorPitchState }, [elevatorPitchState])
   useEffect(() => { jigsawReadingStateRef.current = jigsawReadingState }, [jigsawReadingState])
   useEffect(() => { predictVerifyStateRef.current = predictVerifyState }, [predictVerifyState])
+  useEffect(() => { lessonBoardStateRef.current = lessonBoardState }, [lessonBoardState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -696,6 +704,21 @@ export function SessionHostView({ session, lesson }: Props) {
             const restored = stateRow.state as unknown as PredictVerifyState
             setPredictVerifyState(restored)
             predictVerifyStateRef.current = restored
+          }
+        }
+
+        // Restore lesson_board state from DB on tab restore / reconnect
+        if (currentMechanic === 'lesson_board' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'snapshot' in (stateRow.state as Record<string, unknown>)) {
+            const restored = stateRow.state as unknown as LessonBoardState
+            setLessonBoardState(restored)
+            lessonBoardStateRef.current = restored
           }
         }
 
@@ -1230,6 +1253,10 @@ export function SessionHostView({ session, lesson }: Props) {
           return newState
         })
       })
+      .on('broadcast', { event: 'lesson_board_state_update' }, ({ payload }) => {
+        const p = payload as { state: LessonBoardState }
+        if (p.state) { setLessonBoardState(p.state); lessonBoardStateRef.current = p.state }
+      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -1459,6 +1486,7 @@ export function SessionHostView({ session, lesson }: Props) {
         let newElevatorPitchState: ElevatorPitchState | undefined
         let newJigsawReadingState: JigsawReadingState | undefined
         let newPredictVerifyState: PredictVerifyState | undefined
+        let newLessonBoardState: LessonBoardState | undefined
         let newSpeedDebateState: SpeedDebateState | undefined
         let newRoleplayQuestState: RoleplayQuestState | undefined
         let newSpeakingChallengeState: SpeakingChallengeState | undefined
@@ -1586,7 +1614,12 @@ export function SessionHostView({ session, lesson }: Props) {
           newPredictVerifyState = await initPredictVerifyState(session.id, currentActivityIndex)
           setPredictVerifyState(newPredictVerifyState)
           predictVerifyStateRef.current = newPredictVerifyState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setLessonBoardState(null)
+        } else if (firstActivity?.mechanic_id === 'lesson_board') {
+          newLessonBoardState = await initLessonBoardState(session.id, currentActivityIndex)
+          setLessonBoardState(newLessonBoardState)
+          lessonBoardStateRef.current = newLessonBoardState
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
@@ -1606,6 +1639,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setRoleplayQuestState(null)
           setSpeakingChallengeState(null)
           setPredictVerifyState(null)
+          setLessonBoardState(null)
         }
 
         const startInstructions = lesson?.activities[currentActivityIndex]?.instructions
@@ -1637,6 +1671,7 @@ export function SessionHostView({ session, lesson }: Props) {
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
             predictVerifyState: newPredictVerifyState,
+            lessonBoardState: newLessonBoardState,
             instructions: startInstructions ?? null,
             rightLabel: startRightLabel ?? null,
             leftLabel: startLeftLabel ?? null,
@@ -1762,6 +1797,7 @@ export function SessionHostView({ session, lesson }: Props) {
       let newRoleplayQuestState: RoleplayQuestState | undefined
       let newSpeakingChallengeState: SpeakingChallengeState | undefined
       let newPredictVerifyState: PredictVerifyState | undefined
+      let newLessonBoardState: LessonBoardState | undefined
       const nextActivityItems = lesson.activities[nextIndex]?.items ?? []
       if (nextActivity?.mechanic_id === 'story_builder') {
         newStoryState = await initStoryState(session.id, nextIndex)
@@ -1889,7 +1925,12 @@ export function SessionHostView({ session, lesson }: Props) {
         newPredictVerifyState = await initPredictVerifyState(session.id, nextIndex)
         setPredictVerifyState(newPredictVerifyState)
         predictVerifyStateRef.current = newPredictVerifyState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setLessonBoardState(null)
+      } else if (nextActivity?.mechanic_id === 'lesson_board') {
+        newLessonBoardState = await initLessonBoardState(session.id, nextIndex)
+        setLessonBoardState(newLessonBoardState)
+        lessonBoardStateRef.current = newLessonBoardState
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
@@ -1909,6 +1950,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setRoleplayQuestState(null)
         setSpeakingChallengeState(null)
         setPredictVerifyState(null)
+        setLessonBoardState(null)
       }
 
       await channelRef.current?.send({
@@ -1936,6 +1978,7 @@ export function SessionHostView({ session, lesson }: Props) {
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
           predictVerifyState: newPredictVerifyState,
+          lessonBoardState: newLessonBoardState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
           rightLabel: lesson.activities[nextIndex]?.rightLabel ?? null,
           leftLabel: lesson.activities[nextIndex]?.leftLabel ?? null,
@@ -3209,6 +3252,25 @@ export function SessionHostView({ session, lesson }: Props) {
     await predictVerifyStateUpdate({ ...cur, phase: 'done' })
   }
 
+  // ── Lesson Board handlers ─────────────────────────────────────────────────────
+  async function handleLessonBoardSnapshotChange(snapshot: unknown) {
+    const cur = lessonBoardStateRef.current
+    if (!cur) return
+    const newState: LessonBoardState = { ...cur, snapshot, updatedAt: new Date().toISOString() }
+    setLessonBoardState(newState)
+    lessonBoardStateRef.current = newState
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndexRef.current)
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'lesson_board_state_update',
+      payload: { state: newState },
+    })
+  }
+
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -3871,10 +3933,13 @@ export function SessionHostView({ session, lesson }: Props) {
                     participantId="" state={speakingChallengeState} participants={participants}
                   />
                 )}
+                {currentMechanicId === 'lesson_board' && lessonBoardState && (
+                  <LessonBoardPlayerPanel state={lessonBoardState} />
+                )}
                 {![
                   'story_builder', 'talk_time', 'content_block', 'debate_roulette', 'hidden_role',
                   'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading',
-                  'predict_verify', 'speed_debate', 'roleplay_quest', 'speaking_challenge',
+                  'predict_verify', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'lesson_board',
                 ].includes(currentMechanicId ?? '')
                   && !(['true_false', 'multiple_choice'].includes(currentMechanicId ?? '') && currentActivityMode === 'vote')
                   && !(['word_bank', 'word_choice', 'correct_the_mistake'].includes(currentMechanicId ?? '') && currentActivityMode === 'shared')
@@ -4575,6 +4640,19 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── LESSON BOARD ─────────────────────────────────────────── */}
+            {currentMechanicId === 'lesson_board' && lessonBoardState && (
+              <LessonBoardHostPanel
+                state={lessonBoardState}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onSnapshotChange={handleLessonBoardSnapshotChange}
+              />
+            )}
+
             {/* ── SPEED DEBATE ─────────────────────────────────────────── */}
             {currentMechanicId === 'speed_debate' && speedDebateState && (
               <SpeedDebateHostPanel
@@ -4655,7 +4733,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify', 'lesson_board'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}
