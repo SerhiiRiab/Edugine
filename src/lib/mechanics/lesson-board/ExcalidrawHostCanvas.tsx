@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
-import { Excalidraw } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu } from '@excalidraw/excalidraw'
 import type {
   ExcalidrawInitialDataState,
   BinaryFiles,
@@ -68,7 +68,19 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
       <Excalidraw
         initialData={snapshotAtMount}
         onChange={handleChange}
-      />
+      >
+        {/* Custom menu — omits Excalidraw's default "Socials" item (GitHub,
+            X/Twitter, Discord) and file-based load/save, which don't apply
+            to this embedded, auto-saved board. Only functional, white-label
+            items remain. */}
+        <MainMenu>
+          <MainMenu.DefaultItems.ClearCanvas />
+          <MainMenu.DefaultItems.SaveAsImage />
+          <MainMenu.DefaultItems.ChangeCanvasBackground />
+          <MainMenu.DefaultItems.ToggleTheme />
+          <MainMenu.DefaultItems.Help />
+        </MainMenu>
+      </Excalidraw>
     </div>
   )
 }
