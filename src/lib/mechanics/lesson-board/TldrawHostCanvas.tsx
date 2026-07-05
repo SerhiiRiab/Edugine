@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 
@@ -15,6 +15,14 @@ interface Props {
 const SNAPSHOT_DEBOUNCE_MS = 500
 
 export default function TldrawHostCanvas({ initialSnapshot, onSnapshotChange }: Props) {
+  // tldraw's `snapshot` prop re-creates the entire store whenever its reference
+  // changes (see useTLStore). Callers pass their own live snapshot state back in
+  // as `initialSnapshot` (e.g. to show a "board prepared" badge) — if we forward
+  // that prop straight through, every debounced onSnapshotChange call would blow
+  // away and rebuild the store mid-stroke, resetting the camera and looking like
+  // the canvas "clears" while drawing. Capture it once at mount and never react
+  // to later prop changes.
+  const [snapshotAtMount] = useState(() => initialSnapshot)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const handleMount = useCallback((editor: Editor) => {
@@ -30,7 +38,7 @@ export default function TldrawHostCanvas({ initialSnapshot, onSnapshotChange }: 
   return (
     <Tldraw
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      snapshot={initialSnapshot as any}
+      snapshot={snapshotAtMount as any}
       onMount={handleMount}
       initialState="draw"
     />

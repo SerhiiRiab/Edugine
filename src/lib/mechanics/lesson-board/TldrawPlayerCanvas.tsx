@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 
@@ -10,6 +10,12 @@ interface Props {
 
 export default function TldrawPlayerCanvas({ snapshot }: Props) {
   const editorRef = useRef<Editor | null>(null)
+  // tldraw's `snapshot` prop re-creates the entire store whenever its reference
+  // changes (see useTLStore) — passing the live `snapshot` prop straight through
+  // would blow away and rebuild the student's store (resetting their camera) on
+  // every single broadcast from the host. Capture it once at mount; every
+  // update after that goes through loadSnapshot below instead.
+  const [snapshotAtMount] = useState(() => snapshot)
 
   function handleMount(editor: Editor) {
     editorRef.current = editor
@@ -25,7 +31,7 @@ export default function TldrawPlayerCanvas({ snapshot }: Props) {
   return (
     <Tldraw
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      snapshot={snapshot as any}
+      snapshot={snapshotAtMount as any}
       onMount={handleMount}
       hideUi
     />

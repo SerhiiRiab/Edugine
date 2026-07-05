@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { PenLine, StopCircle, ChevronRight } from 'lucide-react'
 import type { LessonBoardState } from './types'
@@ -33,8 +32,6 @@ export function LessonBoardHostPanel({
   onEndLesson,
   onSnapshotChange,
 }: LessonBoardHostPanelProps) {
-  const [initialSnapshot] = useState(() => state.snapshot)
-
   return (
     <div className="max-w-4xl mx-auto space-y-4">
       <div className="flex items-center gap-2">
@@ -48,7 +45,7 @@ export function LessonBoardHostPanel({
       </div>
 
       <div className="h-[60vh] min-h-[420px] rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative bg-white">
-        <TldrawHostCanvas initialSnapshot={initialSnapshot} onSnapshotChange={onSnapshotChange} />
+        <TldrawHostCanvas initialSnapshot={state.snapshot} onSnapshotChange={onSnapshotChange} />
       </div>
 
       <div className="flex gap-3">
