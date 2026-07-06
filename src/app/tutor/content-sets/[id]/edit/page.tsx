@@ -61,7 +61,7 @@ export default async function EditContentSetPage({
   // Always fetch: linked lessons + all tutor lessons (for Lessons panel)
   const returnLessonId = returnToLesson ?? lessonId
 
-  const [lessonResult, returnLessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw] = await Promise.all([
+  const [lessonResult, returnLessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw, lessonBoardLessonsRaw] = await Promise.all([
     lessonId
       ? supabase.from('lessons').select('id, title').eq('id', lessonId).single()
       : Promise.resolve({ data: null }),
@@ -80,11 +80,18 @@ export default async function EditContentSetPage({
       .select('id, title')
       .eq('owner_id', user!.id)
       .order('created_at', { ascending: false }),
+    // Only needed so the "Add to a lesson?" dialog can disable lessons that
+    // already have a Lesson Board — assertNoDuplicateLessonBoard in
+    // src/lib/actions/lessons.ts is the actual enforcement.
+    justCreated === '1' && set.mechanic_id === 'lesson_board'
+      ? supabase.from('lesson_activities').select('lesson_id').eq('mechanic_id', 'lesson_board')
+      : Promise.resolve({ data: null }),
   ])
 
   const lessonInfo = lessonResult.data as { id: string; title: string } | null
   const returnLessonInfo = (returnLessonResult.data ?? lessonInfo) as { id: string; title: string } | null
   const tutorLessons = (justCreatedLessonsResult.data ?? []) as { id: string; title: string }[]
+  const lessonBoardLessonIds = ((lessonBoardLessonsRaw.data ?? []) as { lesson_id: string }[]).map(r => r.lesson_id)
 
   const linked = (linkedRaw.data ?? []).map(la => ({
     activityId: la.id,
@@ -131,7 +138,12 @@ export default async function EditContentSetPage({
         <Editor />
       </ErrorBoundary>
       {justCreated === '1' && (
-        <AddToLessonPrompt contentSetId={id} lessons={tutorLessons} />
+        <AddToLessonPrompt
+          contentSetId={id}
+          lessons={tutorLessons}
+          mechanicId={set.mechanic_id}
+          lessonBoardLessonIds={lessonBoardLessonIds}
+        />
       )}
       <ActivityLessonsPanel
         contentSetId={id}
