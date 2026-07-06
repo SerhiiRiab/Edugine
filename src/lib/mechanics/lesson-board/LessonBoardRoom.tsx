@@ -31,6 +31,11 @@ export function LessonBoardRoom({ sessionId, activityIndex, participantId, initi
         if (!response.ok) throw new Error('Failed to authorize Liveblocks session')
         return response.json()
       }}
+      // The "Powered by Liveblocks" badge can't be removed on the free plan
+      // (that requires a paid-plan toggle in the Liveblocks dashboard) — this
+      // only repositions it. Bottom-right (the default) collides with
+      // <ZoomControls>'s own bottom-right button cluster; bottom-left is clear.
+      badgeLocation="bottom-left"
     >
       <RoomProvider
         id={lessonBoardRoomId(sessionId, activityIndex)}
