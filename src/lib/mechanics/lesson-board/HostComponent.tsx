@@ -18,12 +18,13 @@ const ExcalidrawHostCanvas = dynamic(() => import('./ExcalidrawHostCanvas'), {
   ),
 })
 
-// Newest-first trail of the last few laser positions, not just the latest
-// point, so the student side can render a fading trail and a single dropped
-// Liveblocks presence update doesn't make the pointer feel jumpy. Mirrors
-// the values the old Supabase-broadcast version used.
-const LASER_TRAIL_MAX = 5
-const LASER_TRAIL_RESET_GAP_MS = 150
+// Safety-net only, not the primary "stroke ended" signal — that's the real
+// button "up" transition, always forwarded immediately (see
+// ExcalidrawHostCanvas's handlePointerUpdate). This covers the case where
+// "up" never arrives at all (e.g. the tutor's connection drops mid-stroke),
+// so a late-joining student is never fed a stuck-open path from a session
+// that's no longer actually drawing.
+const LASER_STALE_GAP_MS = 500
 
 export interface LessonBoardHostPanelProps {
   sessionId: string
@@ -105,8 +106,6 @@ export function LessonBoardHostPanel({
 // through this app at all.
 function LessonBoardHostCanvasSync() {
   const updateMyPresence = useUpdateMyPresence()
-  const laserTrailRef = useRef<{ x: number; y: number }[]>([])
-  const lastLaserMoveAtRef = useRef(0)
   const clearLaserTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => {
@@ -131,29 +130,25 @@ function LessonBoardHostCanvasSync() {
 
   // Ephemeral — Liveblocks Presence only, never written to Storage. The
   // laser pointer is live-only; there's nothing worth persisting once it
-  // moves on. Resets the trail if there's a gap since the last move (laser
-  // lifted and reapplied elsewhere) so old and new positions never get
-  // stitched into one fake trail.
+  // moves on. Just the latest point plus button state — Excalidraw's own
+  // `collaborators` rendering builds and decays the trail itself from a
+  // stream of {x, y, button} updates, the same way it does for the host's
+  // own local laser tool (see ExcalidrawPlayerCanvas).
   //
   // Unlike a one-shot broadcast, Presence is a value that sticks around
-  // until explicitly changed — a student joining (or reconnecting) would
-  // otherwise immediately see whatever trail was last set, even long after
-  // the tutor stopped drawing. So this also clears its own presence back to
-  // null after the same gap, making Presence itself the source of truth
-  // rather than pushing staleness-detection onto every viewer.
-  const handleLaserPointerMove = useCallback((x: number, y: number) => {
-    const now = performance.now()
-    if (now - lastLaserMoveAtRef.current > LASER_TRAIL_RESET_GAP_MS) {
-      laserTrailRef.current = []
-    }
-    lastLaserMoveAtRef.current = now
-    laserTrailRef.current = [{ x, y }, ...laserTrailRef.current].slice(0, LASER_TRAIL_MAX)
-    updateMyPresence({ laserPointer: laserTrailRef.current })
-
+  // until explicitly changed — a late-joining/reconnecting student would
+  // otherwise be fed whatever position was last set, however old, and
+  // Excalidraw would render it as a fresh point since it has no way to know
+  // it's stale. The real "up" transition (always forwarded, see
+  // ExcalidrawHostCanvas) closes the trail properly in the normal case; this
+  // timer is just the fallback for when "up" never arrives at all.
+  const handleLaserPointerMove = useCallback((x: number, y: number, button: 'down' | 'up') => {
+    updateMyPresence({ laserPointer: { x, y, button } })
     if (clearLaserTimeoutRef.current) clearTimeout(clearLaserTimeoutRef.current)
+    if (button === 'up') return
     clearLaserTimeoutRef.current = setTimeout(() => {
       updateMyPresence({ laserPointer: null })
-    }, LASER_TRAIL_RESET_GAP_MS)
+    }, LASER_STALE_GAP_MS)
   }, [updateMyPresence])
 
   return (

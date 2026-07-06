@@ -61,11 +61,12 @@ function LessonBoardPlayerCanvasSync() {
 // The tutor is the only one who ever sets `laserPointer` presence — find it
 // among "others" (there's only ever one tutor in the room) rather than
 // modeling per-user presence generically, since there's nothing else to
-// look up here. No local fade timer needed: the host clears its own
+// look up here. No local fade/trail logic needed: this is fed straight into
+// Excalidraw's own `collaborators` rendering (see ExcalidrawPlayerCanvas),
+// which builds and decays the trail itself, and the host clears its own
 // presence back to null shortly after it stops moving (see
-// HostComponent.tsx), so Presence itself is always current — a late
-// joiner never sees a stale trail frozen from earlier in the session.
-function useTutorLaserPointer(): { x: number; y: number }[] | null {
+// HostComponent.tsx), so a late joiner is never fed a stale position.
+function useTutorLaserPointer(): { x: number; y: number; button: 'down' | 'up' } | null {
   const others = useOthers()
   return others.find((o) => o.presence.laserPointer)?.presence.laserPointer ?? null
 }

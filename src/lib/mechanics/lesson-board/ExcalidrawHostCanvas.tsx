@@ -25,11 +25,15 @@ interface Props {
   // gesture there) — omitted for the prepare-before-class editor, where the
   // tutor is actually drawing content, not pointing at nothing yet.
   defaultTool?: 'freedraw' | 'laser'
-  // Scene-space (x, y) while the laser tool is active — throttled by the
-  // caller's choosing before hitting Realtime. Never persisted; purely for
-  // live sync, so omit it entirely (e.g. in the prepare-before-class editor)
-  // where there's no one watching live.
-  onLaserPointerMove?: (x: number, y: number) => void
+  // Scene-space (x, y) plus mouse button state while the laser tool is
+  // active — throttled by the caller's choosing before hitting Liveblocks
+  // Presence. `button` matters: the student side feeds this straight into
+  // Excalidraw's own remote-collaborator laser rendering, which only draws
+  // while `button` is "down" and closes/fades the trail on "up" — so this
+  // needs the real down/up transitions, not just positions. Never persisted;
+  // purely for live sync, so omit it entirely (e.g. in the prepare-before-class
+  // editor) where there's no one watching live.
+  onLaserPointerMove?: (x: number, y: number, button: 'down' | 'up') => void
 }
 
 // Debounce: calling onSnapshotChange on every single pointer-move while the
@@ -178,9 +182,18 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
   const handlePointerUpdate = useCallback<NonNullable<ExcalidrawProps['onPointerUpdate']>>((payload) => {
     if (!onLaserPointerMove || payload.pointer.tool !== 'laser') return
     const now = performance.now()
+    // The "up" transition is never throttled away — dropping it would leave
+    // the student-side trail's path stuck open (Excalidraw only closes/fades
+    // it on an explicit "up"), so it always gets through even if it lands
+    // inside what would otherwise be a throttle window.
+    if (payload.button === 'up') {
+      lastLaserSentAtRef.current = now
+      onLaserPointerMove(payload.pointer.x, payload.pointer.y, 'up')
+      return
+    }
     if (now - lastLaserSentAtRef.current < LASER_THROTTLE_MS) return
     lastLaserSentAtRef.current = now
-    onLaserPointerMove(payload.pointer.x, payload.pointer.y)
+    onLaserPointerMove(payload.pointer.x, payload.pointer.y, 'down')
   }, [onLaserPointerMove])
 
   // Builds the files record that actually gets persisted/broadcast: any
