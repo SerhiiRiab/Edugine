@@ -6,7 +6,7 @@ import {
   GraduationCap, ChevronUp, ChevronDown,
   Trash2, Plus, ChevronRight, Search,
 } from 'lucide-react'
-import { linkContentSetToLesson, unlinkContentSetFromLesson } from '@/lib/actions/lessons'
+import { linkContentSetToLesson, unlinkContentSetFromLesson, DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/actions/lessons'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -58,7 +58,8 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
     startAdd(async () => {
       const result = await linkContentSetToLesson(contentSetId, selectedId)
       if (result?.error) {
-        toast.error(result.error)
+        if (result.error === DUPLICATE_LESSON_BOARD_MESSAGE) toast.warning(result.error)
+        else toast.error(result.error)
         setLinked(prev => prev.filter(l => l.activityId !== optimisticId))
       } else {
         router.refresh()

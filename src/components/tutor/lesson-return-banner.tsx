@@ -3,7 +3,7 @@
 import { useTransition } from 'react'
 import { ArrowLeft, Loader2, Check } from 'lucide-react'
 import { toast } from 'sonner'
-import { addContentSetToLesson } from '@/lib/actions/lessons'
+import { addContentSetToLesson, DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/actions/lessons'
 
 export function LessonReturnBanner({
   contentSetId,
@@ -20,7 +20,8 @@ export function LessonReturnBanner({
     startTransition(async () => {
       try {
         const result = await addContentSetToLesson(contentSetId, lessonId)
-        if (result?.error) toast.error(result.error)
+        if (result?.error === DUPLICATE_LESSON_BOARD_MESSAGE) toast.warning(result.error)
+        else if (result?.error) toast.error(result.error)
       } catch (err) {
         // addContentSetToLesson redirects on success, which itself throws —
         // expected validation failures (e.g. duplicate Lesson Board) come

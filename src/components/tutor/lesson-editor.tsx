@@ -68,6 +68,7 @@ import {
   updateActivity,
   deleteActivity,
   reorderActivities,
+  DUPLICATE_LESSON_BOARD_MESSAGE,
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { searchContentSets } from '@/lib/actions/content-sets'
@@ -341,7 +342,8 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to add activity'
-      toast.error(msg)
+      if (msg === DUPLICATE_LESSON_BOARD_MESSAGE) toast.warning(msg)
+      else toast.error(msg)
     } finally {
       setAdding(false)
     }
