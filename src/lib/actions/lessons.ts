@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
 
 // A lesson can have at most one lesson_board activity — the floating board
 // feature (session-host-view.tsx) always loads whichever single lesson_board
@@ -19,12 +20,6 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // "An error occurred in the Server Components render..."), so this
 // user-facing validation has to travel back as a normal return value for
 // the client to be able to show it.
-//
-// Exported so callers can tell this expected UX constraint apart from a
-// genuine failure and style its toast as a mild heads-up rather than an
-// alarming red error.
-export const DUPLICATE_LESSON_BOARD_MESSAGE = 'This lesson already has a Lesson Board activity — only one is allowed per lesson.'
-
 async function duplicateLessonBoardError(supabase: SupabaseClient, lessonId: string, mechanicId: string): Promise<string | null> {
   if (mechanicId !== 'lesson_board') return null
   const { data: existing } = await supabase

@@ -68,10 +68,10 @@ import {
   updateActivity,
   deleteActivity,
   reorderActivities,
-  DUPLICATE_LESSON_BOARD_MESSAGE,
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { searchContentSets } from '@/lib/actions/content-sets'
+import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
 import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL } from '@/lib/mechanics/swipe-battle/types'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 

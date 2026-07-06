@@ -6,7 +6,8 @@ import {
   GraduationCap, ChevronUp, ChevronDown,
   Trash2, Plus, ChevronRight, Search,
 } from 'lucide-react'
-import { linkContentSetToLesson, unlinkContentSetFromLesson, DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/actions/lessons'
+import { linkContentSetToLesson, unlinkContentSetFromLesson } from '@/lib/actions/lessons'
+import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 

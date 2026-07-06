@@ -3,7 +3,8 @@
 import { useState, useTransition, useRef } from 'react'
 import { GraduationCap, X, Search } from 'lucide-react'
 import { toast } from 'sonner'
-import { addContentSetToLesson, DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/actions/lessons'
+import { addContentSetToLesson } from '@/lib/actions/lessons'
+import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
 import { useRouter } from 'next/navigation'
 
 interface Lesson {
