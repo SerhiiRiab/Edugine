@@ -251,6 +251,11 @@ function SaveIndicator({ status, savedAt }: { status: SaveStatus; savedAt: Date 
 interface AddModalProps {
   lessonId: string
   initialSets: ContentSetOption[]
+  // Lesson Board can only appear once per lesson — the floating board
+  // feature (session-host-view.tsx) always loads whichever single
+  // lesson_board activity exists in the lesson, with no way to pick between
+  // several if there were more than one.
+  hasLessonBoard: boolean
   onAdd: (data: {
     content_set_id: string
     mechanic_id: string
@@ -262,7 +267,7 @@ interface AddModalProps {
   onClose: () => void
 }
 
-function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalProps) {
+function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClose }: AddModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
   const [search, setSearch] = useState('')
   const [displayedSets, setDisplayedSets] = useState<ContentSetOption[]>(initialSets)
@@ -418,13 +423,17 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
                       const meta = MECHANIC_META[cs.mechanic_id]
                       const Icon = meta?.Icon ?? Gamepad2
                       const isSelected = selectedSet?.id === cs.id
+                      const isBlocked = cs.mechanic_id === 'lesson_board' && hasLessonBoard
                       return (
                         <button
                           key={cs.id}
                           type="button"
-                          onClick={() => setSelectedSet(cs)}
+                          disabled={isBlocked}
+                          title={isBlocked ? 'You already have a Lesson Board in this lesson.' : undefined}
+                          onClick={() => { if (!isBlocked) setSelectedSet(cs) }}
                           className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
-                            isSelected ? 'border-violet-400 bg-violet-50' : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
+                            isBlocked ? 'border-slate-100 opacity-50 cursor-not-allowed'
+                              : isSelected ? 'border-violet-400 bg-violet-50' : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
                           }`}
                         >
                           <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
@@ -434,6 +443,7 @@ function AddActivityModal({ lessonId, initialSets, onAdd, onClose }: AddModalPro
                             <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
                             <p className="text-xs text-slate-400 mt-0.5">
                               {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
+                              {isBlocked && <span className="text-amber-600"> · already in this lesson</span>}
                             </p>
                           </div>
                           {isSelected && <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
@@ -1689,6 +1699,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         <AddActivityModal
           lessonId={lesson.id}
           initialSets={contentSets}
+          hasLessonBoard={activities.some(a => a.mechanic_id === 'lesson_board')}
           onAdd={handleAddActivity}
           onClose={() => setShowAddModal(false)}
         />

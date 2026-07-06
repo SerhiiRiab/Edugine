@@ -264,6 +264,11 @@ export function PlayerView({ session, lesson }: Props) {
   const currentActivity = lesson?.activities[currentActivityIndex] ?? null
   const currentMechanicId = currentActivity?.mechanic_id ?? 'swipe_battle'
   const currentItems = currentActivity?.items ?? []
+  // Mirrors session-host-view.tsx: the floating board joins the same
+  // Liveblocks room as the lesson's own lesson_board activity, if it has
+  // one, so both show the same live canvas. Falls back to a dedicated
+  // sentinel room (-1) when the lesson has none.
+  const lessonBoardActivityIndex = lesson?.activities.findIndex(a => a.mechanic_id === 'lesson_board') ?? -1
 
   // ── Refs ─────────────────────────────────────────────────────────────────────
   const channelRef = useRef<RealtimeChannel | null>(null)
@@ -1999,7 +2004,7 @@ export function PlayerView({ session, lesson }: Props) {
           </div>
           <div className="flex-1 relative bg-white">
             <ErrorBoundary fallback="The board view crashed — try again to reload it.">
-              <LessonBoardRoom sessionId={session.id} activityIndex={-1} participantId={participantId ?? ''} initialSnapshot={null}>
+              <LessonBoardRoom sessionId={session.id} activityIndex={lessonBoardActivityIndex} participantId={participantId ?? ''} initialSnapshot={null}>
                 <FloatingBoardPlayerCanvasSync />
               </LessonBoardRoom>
             </ErrorBoundary>

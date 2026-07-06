@@ -531,6 +531,14 @@ export function SessionHostView({ session, lesson }: Props) {
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
   const currentActivityMode = lesson?.activities[currentActivityIndex]?.mode
 
+  // Floating Lesson Board room: joins the *same* Liveblocks room as the
+  // lesson's own lesson_board activity (if it has one — the editor now
+  // limits a lesson to at most one, see lesson-editor.tsx), so edits made
+  // through either the floating board or the real activity show up in both.
+  // Falls back to a dedicated sentinel room (-1, never a real activity
+  // index) only when the lesson has no lesson_board activity at all.
+  const lessonBoardActivityIndex = lesson?.activities.findIndex(a => a.mechanic_id === 'lesson_board') ?? -1
+
   const [shareUrl, setShareUrl] = useState(`/play/${session.code}`)
   useEffect(() => {
     setShareUrl(`${window.location.origin}/play/${session.code}`)
@@ -3363,21 +3371,22 @@ export function SessionHostView({ session, lesson }: Props) {
   // ── Floating Lesson Board handlers ────────────────────────────────────────────
   const boardOpeningRef = useRef(false)
 
-  // Seeds the floating board from the lesson's own lesson_board activity's
-  // prepared board (content_items.data.snapshot), if this lesson has one —
-  // reuses initLessonBoardState exactly as the real per-activity board does,
-  // just against whichever index in this lesson is lesson_board rather than
-  // the currently active one. Read-only lookup (no DB write), so calling it
-  // here has no effect on that activity's own state if/when it's later run.
+  // Seeds the floating board the same way the real lesson_board activity
+  // seeds itself, in case its Liveblocks room (see lessonBoardActivityIndex
+  // above) hasn't been created yet this session — initialStorage is only
+  // read the very first time a room is created, so once either the floating
+  // board or the real activity has opened once, this value stops mattering
+  // and both sides just join the same already-live room. Read-only lookup
+  // (no DB write), so calling it here has no effect on the activity's own
+  // state if/when it's later run.
   async function handleOpenBoard() {
     if (boardOpen || boardOpeningRef.current) return
     boardOpeningRef.current = true
     try {
-      const lessonBoardIndex = lesson?.activities.findIndex(a => a.mechanic_id === 'lesson_board') ?? -1
       let preparedSnapshot: LessonBoardSnapshot | null = null
-      if (lessonBoardIndex !== -1) {
+      if (lessonBoardActivityIndex !== -1) {
         try {
-          preparedSnapshot = (await initLessonBoardState(session.id, lessonBoardIndex)).snapshot
+          preparedSnapshot = (await initLessonBoardState(session.id, lessonBoardActivityIndex)).snapshot
         } catch (err) {
           console.warn('[FloatingBoard] Failed to load prepared Lesson Board snapshot, starting blank', err)
         }
@@ -5398,7 +5407,7 @@ export function SessionHostView({ session, lesson }: Props) {
           </div>
           <div className="flex-1 relative bg-white">
             <ErrorBoundary fallback="The board crashed. Closing and reopening reconnects to the same canvas.">
-              <LessonBoardRoom sessionId={session.id} activityIndex={-1} initialSnapshot={floatingBoardSnapshot}>
+              <LessonBoardRoom sessionId={session.id} activityIndex={lessonBoardActivityIndex} initialSnapshot={floatingBoardSnapshot}>
                 <FloatingBoardHostCanvasSync />
               </LessonBoardRoom>
             </ErrorBoundary>
