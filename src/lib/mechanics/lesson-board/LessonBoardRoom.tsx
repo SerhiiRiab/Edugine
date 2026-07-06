@@ -34,8 +34,10 @@ export function LessonBoardRoom({ sessionId, activityIndex, participantId, initi
       // The "Powered by Liveblocks" badge can't be removed on the free plan
       // (that requires a paid-plan toggle in the Liveblocks dashboard) — this
       // only repositions it. Bottom-right (the default) collides with
-      // <ZoomControls>'s own bottom-right button cluster; bottom-left is clear.
-      badgeLocation="bottom-left"
+      // <ZoomControls>'s own bottom-right button cluster on both the host's
+      // and the student's canvas, so it's moved to top-left — used for both
+      // <HostComponent> and <PlayerComponent> since they share this component.
+      badgeLocation="top-left"
     >
       <RoomProvider
         id={lessonBoardRoomId(sessionId, activityIndex)}
