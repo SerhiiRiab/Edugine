@@ -358,13 +358,19 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
           "mobile" breakpoint kicks in (< ~730px — easily hit by this
           canvas's actual container width inside the session page's
           layout, even though it looks wide in a full-width test), so it
-          needs its own direct rule rather than relying on the wrapper. */}
+          needs its own direct rule rather than relying on the wrapper.
+          `.undo-redo-buttons` is hidden too — it shares that same ~730px
+          unmount with `.zoom-actions`, but unlike zoom's replacement
+          (<ZoomControls>), this app had no undo/redo replacement until one
+          was added directly into <ZoomControls>, so the native button is
+          now always redundant with it. */}
       <style>{`
         .layer-ui__wrapper__top-right { display: none !important; }
         .library-menu-browse-button { display: none !important; }
         .sidebar-trigger__label-element { display: none !important; }
         .HelpDialog__header { display: none !important; }
         .zoom-actions { display: none !important; }
+        .undo-redo-buttons { display: none !important; }
         .ToolIcon__lock { display: none !important; }
         label:has(> input[data-testid="toolbar-hand"]) { display: none !important; }
       `}</style>

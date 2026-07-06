@@ -149,15 +149,11 @@ export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null }
           Excalidraw's own zoom controls unmount themselves below ~730px
           width (its own "mobile" breakpoint) too — hidden here and
           replaced by <ZoomControls>, which renders identically at every
-          viewport size. `.layer-ui__wrapper__top-right` is hidden too so
-          that corner stays empty for the Liveblocks badge (see
-          LessonBoardRoom's badgeLocation) — nothing else should ever
-          render there for a view-mode canvas, but this guarantees it. */}
+          viewport size. */}
       <style>{`
         .zoom-actions { display: none !important; }
         .main-menu-trigger { display: none !important; }
         .help-icon { display: none !important; }
-        .layer-ui__wrapper__top-right { display: none !important; }
       `}</style>
       <Excalidraw
         initialData={snapshotAtMount}

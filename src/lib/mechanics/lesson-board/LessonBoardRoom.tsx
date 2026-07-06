@@ -33,17 +33,21 @@ export function LessonBoardRoom({ sessionId, activityIndex, participantId, initi
       }}
       // The "Powered by Liveblocks" badge can't be removed on the free plan
       // (that requires a paid-plan toggle in the Liveblocks dashboard) — this
-      // only repositions it. Bottom-right (the default) collides with
-      // <ZoomControls>'s own bottom-right button cluster; bottom-left seemed
-      // safe but actually collides with Excalidraw's own undo/redo footer —
-      // invisible on the narrower embedded-activity canvas (Excalidraw
-      // unmounts that footer below its own ~730px "mobile" breakpoint) but
-      // very visible on the fullscreen floating board. Top-right is the only
-      // corner nothing else ever occupies — both ExcalidrawHostCanvas and
-      // ExcalidrawPlayerCanvas hide `.layer-ui__wrapper__top-right` outright.
-      // Used for both <HostComponent> and <PlayerComponent> since they share
-      // this component.
-      badgeLocation="top-right"
+      // only repositions it. It's `position: fixed` to the true viewport
+      // corner (not scoped to this canvas), so it collides with whatever
+      // real page content happens to end up in that same corner across
+      // every place this room gets mounted:
+      //   - bottom-right (the default): <ZoomControls>'s own button cluster.
+      //   - top-right: the floating board's own Close button, and the
+      //     session header's "End lesson" button in the normal per-activity
+      //     view — both corners nothing in Excalidraw's own UI occupies, but
+      //     this app's surrounding chrome does.
+      // Bottom-left is the one spot nothing ever lands: ExcalidrawHostCanvas
+      // hides Excalidraw's native `.undo-redo-buttons` there now that
+      // <ZoomControls> has its own working replacement, and nothing in this
+      // app's own layout sits at that corner. Used for both <HostComponent>
+      // and <PlayerComponent> since they share this component.
+      badgeLocation="bottom-left"
     >
       <RoomProvider
         id={lessonBoardRoomId(sessionId, activityIndex)}

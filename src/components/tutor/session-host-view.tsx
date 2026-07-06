@@ -5392,11 +5392,7 @@ export function SessionHostView({ session, lesson }: Props) {
           session banners. */}
       {boardOpen && (
         <div className="fixed inset-0 z-[110] bg-slate-900 flex flex-col">
-          {/* pr-36: the Liveblocks badge (LessonBoardRoom's badgeLocation="top-right")
-              is a 111×38px element the SDK injects fixed to the true viewport
-              corner, at a z-index (9999) above this header — clear of Close
-              here, or the badge sits on top of it and eats the click. */}
-          <div className="flex items-center gap-3 pl-5 pr-36 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
             <span className="text-lg leading-none">📋</span>
             <p className="text-white font-semibold text-sm">Lesson Board</p>
             <span className="text-xs text-slate-500">Visible to every student — closing resumes the activity</span>
