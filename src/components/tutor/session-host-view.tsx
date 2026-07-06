@@ -389,6 +389,12 @@ export function SessionHostView({ session, lesson }: Props) {
   // toggle it themselves.
   const [boardOpen, setBoardOpen] = useState(false)
   const boardPausedAtRef = useRef<number | null>(null)
+  // Seeds the floating board's canvas the moment it's opened — the prepared
+  // board saved with the lesson's own lesson_board activity's content set, if
+  // this lesson has one, else null (blank canvas). Only read once, at
+  // <LessonBoardRoom> mount (see handleOpenBoard), matching how
+  // initialStorage itself only matters the first time a room is created.
+  const [floatingBoardSnapshot, setFloatingBoardSnapshot] = useState<LessonBoardSnapshot | null>(null)
   // Which student rows have their per-card breakdown expanded, keyed by `${studentId}:${activityIndex}`
   const [expandedCardBreakdowns, setExpandedCardBreakdowns] = useState<Set<string>>(new Set())
 
@@ -3355,11 +3361,34 @@ export function SessionHostView({ session, lesson }: Props) {
   }
 
   // ── Floating Lesson Board handlers ────────────────────────────────────────────
-  function handleOpenBoard() {
-    if (boardOpen) return
-    boardPausedAtRef.current = Date.now()
-    setBoardOpen(true)
-    channelRef.current?.send({ type: 'broadcast', event: 'board_opened', payload: {} })
+  const boardOpeningRef = useRef(false)
+
+  // Seeds the floating board from the lesson's own lesson_board activity's
+  // prepared board (content_items.data.snapshot), if this lesson has one —
+  // reuses initLessonBoardState exactly as the real per-activity board does,
+  // just against whichever index in this lesson is lesson_board rather than
+  // the currently active one. Read-only lookup (no DB write), so calling it
+  // here has no effect on that activity's own state if/when it's later run.
+  async function handleOpenBoard() {
+    if (boardOpen || boardOpeningRef.current) return
+    boardOpeningRef.current = true
+    try {
+      const lessonBoardIndex = lesson?.activities.findIndex(a => a.mechanic_id === 'lesson_board') ?? -1
+      let preparedSnapshot: LessonBoardSnapshot | null = null
+      if (lessonBoardIndex !== -1) {
+        try {
+          preparedSnapshot = (await initLessonBoardState(session.id, lessonBoardIndex)).snapshot
+        } catch (err) {
+          console.warn('[FloatingBoard] Failed to load prepared Lesson Board snapshot, starting blank', err)
+        }
+      }
+      setFloatingBoardSnapshot(preparedSnapshot)
+      boardPausedAtRef.current = Date.now()
+      setBoardOpen(true)
+      channelRef.current?.send({ type: 'broadcast', event: 'board_opened', payload: {} })
+    } finally {
+      boardOpeningRef.current = false
+    }
   }
 
   // Shifts whichever mechanic is currently active's timer-start field(s)
@@ -5369,7 +5398,7 @@ export function SessionHostView({ session, lesson }: Props) {
           </div>
           <div className="flex-1 relative bg-white">
             <ErrorBoundary fallback="The board crashed. Closing and reopening reconnects to the same canvas.">
-              <LessonBoardRoom sessionId={session.id} activityIndex={-1} initialSnapshot={null}>
+              <LessonBoardRoom sessionId={session.id} activityIndex={-1} initialSnapshot={floatingBoardSnapshot}>
                 <FloatingBoardHostCanvasSync />
               </LessonBoardRoom>
             </ErrorBoundary>
