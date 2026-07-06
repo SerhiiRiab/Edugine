@@ -2,12 +2,33 @@
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import { viewportCoordsToSceneCoords } from '@excalidraw/excalidraw'
-import { Plus, Minus, Scan, Hand } from 'lucide-react'
+import { Plus, Minus, Scan, Hand, Undo2, Redo2 } from 'lucide-react'
 import type { ExcalidrawImperativeAPI, NormalizedZoomValue } from '@excalidraw/excalidraw/types'
 
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 5
 const ZOOM_STEP = 0.1
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(navigator.platform)
+
+// Excalidraw doesn't expose undo/redo on its imperative API (only
+// `history.clear`) — its own undo/redo buttons live in the same footer as
+// its zoom controls, and unmount with it below the ~730px breakpoint (see
+// the module comment below). The documented way to trigger them from
+// outside is the same one a real keyboard would: Excalidraw's own key
+// handler listens on `document`, so a synthetic Ctrl/Cmd+Z (or +Shift+Z for
+// redo) keydown there reaches it exactly like a real shortcut would.
+function dispatchUndoRedo(shiftKey: boolean) {
+  document.dispatchEvent(new KeyboardEvent('keydown', {
+    key: 'z',
+    code: 'KeyZ',
+    ctrlKey: !IS_MAC,
+    metaKey: IS_MAC,
+    shiftKey,
+    bubbles: true,
+    cancelable: true,
+  }))
+}
 
 interface Props {
   // Plain (reactive) prop rather than a ref — this component's mount effect
@@ -23,6 +44,12 @@ interface Props {
   // explicit button instead of relying on the Space-drag shortcut or
   // spotting the hand icon among the drawing toolbar's other tools.
   showPanTool?: boolean
+  // Host-only: Excalidraw's own undo/redo buttons share the footer that
+  // unmounts below ~730px, same as its zoom controls — this canvas is
+  // regularly narrower than that (the embedded per-activity card, not just
+  // the fullscreen floating board), so without this, undo/redo silently
+  // disappear exactly when the tutor is mid-drawing on a smaller screen.
+  showUndoRedo?: boolean
 }
 
 // Excalidraw's own zoom/fit controls live in a footer that it unmounts
@@ -31,7 +58,7 @@ interface Props {
 // that renders identically at every viewport size, computing zoom-around-
 // viewport-center itself since the underlying app method isn't part of the
 // public API (only the coordinate-conversion helpers are).
-export default function ZoomControls({ api, containerRef, showPanTool = false }: Props) {
+export default function ZoomControls({ api, containerRef, showPanTool = false, showUndoRedo = false }: Props) {
   const [zoomPct, setZoomPct] = useState(100)
   const [activeTool, setActiveTool] = useState<string | null>(null)
   // Tool to return to when toggling the pan button back off — otherwise
@@ -99,6 +126,27 @@ export default function ZoomControls({ api, containerRef, showPanTool = false }:
     <div
       className="absolute bottom-4 right-4 z-10 flex items-center gap-0.5 bg-white border border-slate-200 rounded-xl shadow-sm p-1"
     >
+      {showUndoRedo && (
+        <>
+          <button
+            type="button"
+            title="Undo"
+            onClick={() => dispatchUndoRedo(false)}
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            title="Redo"
+            onClick={() => dispatchUndoRedo(true)}
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-slate-500 hover:bg-slate-100 transition-colors"
+          >
+            <Redo2 className="w-3.5 h-3.5" />
+          </button>
+          <div className="w-px h-5 bg-slate-200 mx-0.5" />
+        </>
+      )}
       {showPanTool && (
         <>
           <button
