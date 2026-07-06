@@ -9,10 +9,25 @@ export default async function NewContentSetPage({
   const { mechanic, lessonId } = await searchParams
 
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('mechanics')
-    .select('id, name, description, skill_category, skill_categories')
-    .order('name')
+  const [{ data }, hasLessonBoard] = await Promise.all([
+    supabase
+      .from('mechanics')
+      .select('id, name, description, skill_category, skill_categories')
+      .order('name'),
+    // A lesson can have at most one lesson_board activity (see
+    // assertNoDuplicateLessonBoard in src/lib/actions/lessons.ts, which is
+    // the actual enforcement — this is just so the tile can be disabled
+    // instead of only failing after submit).
+    lessonId
+      ? supabase
+          .from('lesson_activities')
+          .select('id')
+          .eq('lesson_id', lessonId)
+          .eq('mechanic_id', 'lesson_board')
+          .limit(1)
+          .then(({ data }) => (data?.length ?? 0) > 0)
+      : Promise.resolve(false),
+  ])
 
   const mechanics = (data ?? []).map(m => ({
     id: m.id as string,
@@ -33,9 +48,10 @@ export default async function NewContentSetPage({
         </p>
       </div>
       <NewContentSetForm
-        defaultMechanic={mechanic}
+        defaultMechanic={hasLessonBoard && mechanic === 'lesson_board' ? undefined : mechanic}
         lessonId={lessonId}
         mechanics={mechanics}
+        hasLessonBoard={hasLessonBoard}
       />
     </div>
   )

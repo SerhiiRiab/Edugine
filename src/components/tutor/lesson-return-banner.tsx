@@ -2,6 +2,7 @@
 
 import { useTransition } from 'react'
 import { ArrowLeft, Loader2, Check } from 'lucide-react'
+import { toast } from 'sonner'
 import { addContentSetToLesson } from '@/lib/actions/lessons'
 
 export function LessonReturnBanner({
@@ -17,8 +18,16 @@ export function LessonReturnBanner({
 
   function handleAdd() {
     startTransition(async () => {
-      try { await addContentSetToLesson(contentSetId, lessonId) }
-      catch { /* redirect expected */ }
+      try {
+        await addContentSetToLesson(contentSetId, lessonId)
+      } catch (err) {
+        // addContentSetToLesson redirects on success, which itself throws —
+        // only a real failure (e.g. the lesson already has a Lesson Board)
+        // has anything other than a NEXT_REDIRECT digest.
+        const digest = (err as { digest?: string } | null)?.digest
+        if (typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')) return
+        toast.error(err instanceof Error ? err.message : 'Failed to add to lesson')
+      }
     })
   }
 

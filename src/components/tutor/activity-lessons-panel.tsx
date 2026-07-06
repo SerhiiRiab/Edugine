@@ -59,8 +59,8 @@ export function ActivityLessonsPanel({ contentSetId, initialLinked, allLessons }
       try {
         await linkContentSetToLesson(contentSetId, selectedId)
         router.refresh()
-      } catch {
-        toast.error('Failed to add to lesson')
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to add to lesson')
         setLinked(prev => prev.filter(l => l.activityId !== optimisticId))
       }
     })

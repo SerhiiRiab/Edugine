@@ -3,6 +3,28 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+// A lesson can have at most one lesson_board activity — the floating board
+// feature (session-host-view.tsx) always loads whichever single lesson_board
+// activity exists in the lesson, with no way to disambiguate between several.
+// The lesson editor UI already disables picking a second one, but that's
+// only a UX nicety on top of this: it's the only guard for the other
+// insert paths below (linking/adding an existing content set to a lesson),
+// and the only thing that can't be bypassed by a stale client or a direct
+// call.
+async function assertNoDuplicateLessonBoard(supabase: SupabaseClient, lessonId: string, mechanicId: string) {
+  if (mechanicId !== 'lesson_board') return
+  const { data: existing } = await supabase
+    .from('lesson_activities')
+    .select('id')
+    .eq('lesson_id', lessonId)
+    .eq('mechanic_id', 'lesson_board')
+    .limit(1)
+  if (existing && existing.length > 0) {
+    throw new Error('This lesson already has a Lesson Board activity — only one is allowed per lesson.')
+  }
+}
 
 export async function createLesson(
   _prev: { error: string },
@@ -191,6 +213,8 @@ export async function addActivity(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
+  await assertNoDuplicateLessonBoard(supabase, lessonId, data.mechanic_id)
+
   const { data: lastPos } = await supabase
     .from('lesson_activities')
     .select('position')
@@ -254,6 +278,7 @@ export async function addContentSetToLesson(contentSetId: string, lessonId: stri
 
   if (!setResult.data) throw new Error('Content set not found')
   const mechanic_id = setResult.data.mechanic_id
+  await assertNoDuplicateLessonBoard(supabase, lessonId, mechanic_id)
   const position = lastPosResult.data && lastPosResult.data.length > 0 ? lastPosResult.data[0].position + 1 : 0
   const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
 
@@ -284,6 +309,7 @@ export async function linkContentSetToLesson(contentSetId: string, lessonId: str
 
   if (!setResult.data) throw new Error('Content set not found')
   const mechanic_id = setResult.data.mechanic_id
+  await assertNoDuplicateLessonBoard(supabase, lessonId, mechanic_id)
   const position = lastPosResult.data && lastPosResult.data.length > 0 ? lastPosResult.data[0].position + 1 : 0
   const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
 

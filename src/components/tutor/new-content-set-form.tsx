@@ -87,33 +87,41 @@ function MechanicTile({
   isSelected,
   onSelect,
   categoryColors,
+  disabledReason,
 }: {
   mechanic: DBMechanic
   categoryId: string
   isSelected: boolean
   onSelect: (id: string, catId: string) => void
   categoryColors: { text: string }
+  disabledReason?: string
 }) {
   const Icon = MECHANIC_ICONS[mechanic.id] ?? Gamepad2
   const tile = CATEGORY_TILE[mechanic.skill_category] ?? DEFAULT_TILE
+  const isDisabled = !!disabledReason
 
   return (
     <button
       type="button"
-      onClick={() => onSelect(mechanic.id, categoryId)}
+      disabled={isDisabled}
+      title={disabledReason}
+      onClick={() => { if (!isDisabled) onSelect(mechanic.id, categoryId) }}
       className={`w-full text-left flex items-center gap-3 p-3 rounded-xl border-2 transition-all ${
-        isSelected ? tile.badge : 'border-slate-100 bg-white hover:border-slate-200'
+        isDisabled ? 'border-slate-100 bg-white opacity-50 cursor-not-allowed'
+          : isSelected ? tile.badge : 'border-slate-100 bg-white hover:border-slate-200'
       }`}
     >
-      <Icon className={`w-4 h-4 shrink-0 ${isSelected ? categoryColors.text : 'text-slate-400'}`} />
+      <Icon className={`w-4 h-4 shrink-0 ${isSelected && !isDisabled ? categoryColors.text : 'text-slate-400'}`} />
       <div className="flex-1 min-w-0">
-        <p className={`font-semibold text-sm ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>{mechanic.name}</p>
-        <p className={`text-xs mt-0.5 line-clamp-1 ${isSelected ? 'text-slate-500' : 'text-slate-400'}`}>{mechanic.description}</p>
+        <p className={`font-semibold text-sm ${isSelected && !isDisabled ? 'text-slate-800' : 'text-slate-600'}`}>{mechanic.name}</p>
+        <p className={`text-xs mt-0.5 line-clamp-1 ${isSelected && !isDisabled ? 'text-slate-500' : 'text-slate-400'}`}>
+          {isDisabled ? disabledReason : mechanic.description}
+        </p>
       </div>
       <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-        isSelected ? tile.dot : 'border-slate-300'
+        isSelected && !isDisabled ? tile.dot : 'border-slate-300'
       }`}>
-        {isSelected && <div className="w-2 h-2 rounded-full bg-white" />}
+        {isSelected && !isDisabled && <div className="w-2 h-2 rounded-full bg-white" />}
       </div>
     </button>
   )
@@ -125,10 +133,16 @@ export function NewContentSetForm({
   defaultMechanic,
   lessonId,
   mechanics,
+  hasLessonBoard,
 }: {
   defaultMechanic?: string
   lessonId?: string
   mechanics: DBMechanic[]
+  // True when lessonId's lesson already has a lesson_board activity — a
+  // lesson can have at most one (enforced server-side in
+  // assertNoDuplicateLessonBoard, src/lib/actions/lessons.ts); this just
+  // disables the tile instead of only failing after submit.
+  hasLessonBoard?: boolean
 }) {
   const [state, action, isPending] = useActionState(createContentSet, { error: '' })
   const [language, setLanguage] = useState('en')
@@ -294,6 +308,7 @@ export function NewContentSetForm({
                       isSelected={selectedMechanic === mid}
                       onSelect={handleSelectMechanic}
                       categoryColors={cat?.colors ?? { text: 'text-violet-600' }}
+                      disabledReason={mid === 'lesson_board' && hasLessonBoard ? 'You already have a Lesson Board in this lesson.' : undefined}
                     />
                   )
                 })
@@ -346,6 +361,7 @@ export function NewContentSetForm({
                               isSelected={selectedMechanic === mid}
                               onSelect={handleSelectMechanic}
                               categoryColors={category.colors}
+                              disabledReason={mid === 'lesson_board' && hasLessonBoard ? 'You already have a Lesson Board in this lesson.' : undefined}
                             />
                           )
                         })}
