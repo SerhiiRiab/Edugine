@@ -21,7 +21,9 @@ import type { ElevatorPitchState } from '@/lib/mechanics/elevator-pitch/types'
 import type { JigsawReadingState } from '@/lib/mechanics/jigsaw-reading/types'
 import type { PredictVerifyState } from '@/lib/mechanics/predict-verify/types'
 import { parsePredictVerifyDescription } from '@/lib/mechanics/predict-verify/types'
+import { Liveblocks } from '@liveblocks/node'
 import type { LessonBoardState } from '@/lib/mechanics/lesson-board/types'
+import { isUsableLessonBoardSnapshot, lessonBoardRoomId } from '@/lib/mechanics/lesson-board/types'
 
 // Silently delete this host's abandoned waiting/active sessions older than 2 hours.
 // Called before creating a new session so stale sessions don't accumulate.
@@ -414,12 +416,15 @@ export async function initContentBlockState(
   return initialState
 }
 
-export async function initLessonBoardState(
+// Shared by initLessonBoardState (read the prepared snapshot to seed the
+// Liveblocks room) and saveLessonBoardFinalSnapshot (write the final one back)
+// — both need to find the single content_set backing this session's
+// lesson_board activity.
+async function resolveLessonBoardContentSetId(
+  supabase: SupabaseClient,
   sessionId: string,
   activityIndex: number,
-): Promise<LessonBoardState> {
-  const supabase = await createClient()
-
+): Promise<string> {
   const { data: session } = await supabase
     .from('sessions')
     .select('lesson_id, set_id')
@@ -427,8 +432,6 @@ export async function initLessonBoardState(
     .single()
 
   if (!session) throw new Error('Session not found')
-
-  let contentSetId: string
 
   if (session.lesson_id) {
     const { data: activities } = await supabase
@@ -439,38 +442,111 @@ export async function initLessonBoardState(
 
     const activity = activities?.[activityIndex]
     if (!activity) throw new Error('Activity not found at index ' + activityIndex)
-    contentSetId = activity.content_set_id
-  } else {
-    if (!session.set_id) throw new Error('No set_id for single session')
-    contentSetId = session.set_id
+    return activity.content_set_id
   }
+
+  if (!session.set_id) throw new Error('No set_id for single session')
+  return session.set_id
+}
+
+// The canvas itself now lives entirely in Liveblocks Storage for the
+// duration of the session (see liveblocks.config.ts and
+// src/lib/mechanics/lesson-board) — this only computes the starting
+// snapshot (the tutor's prepared-before-class board, if any) so the
+// Liveblocks room can be seeded with it on first join. No DB row is written
+// here anymore: nothing reads shared_activity_state for lesson_board once a
+// session starts, since reconnects just rejoin the Liveblocks room instead.
+export async function initLessonBoardState(
+  sessionId: string,
+  activityIndex: number,
+): Promise<LessonBoardState> {
+  const supabase = await createClient()
+  const contentSetId = await resolveLessonBoardContentSetId(supabase, sessionId, activityIndex)
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('content_items(data)')
+    .select('content_items(data, position)')
     .eq('id', contentSetId)
     .single()
 
-  const rawItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown> }>
+  // Ordered explicitly (rather than trusting whatever order Postgres returns
+  // the nested rows in) so this agrees with saveLessonBoardFinalSnapshot's
+  // own `.order('position').limit(1)` write path — otherwise the two could
+  // pick different rows if a lesson_board content_set ever ends up with more
+  // than one item, and a tutor's saved edits would silently stop round-tripping.
+  const rawItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>
+  rawItems.sort((a, b) => a.position - b.position)
   const preparedSnapshot = (rawItems[0]?.data?.snapshot as LessonBoardState['snapshot'] | undefined) ?? null
 
-  const initialState: LessonBoardState = {
+  return {
     status: 'active',
     snapshot: preparedSnapshot,
     updatedAt: new Date().toISOString(),
   }
+}
 
-  await supabase.from('shared_activity_state').upsert(
-    {
-      session_id: sessionId,
-      activity_index: activityIndex,
-      state: initialState as unknown as Record<string, unknown>,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'session_id,activity_index' },
-  )
+// Called once when the tutor leaves a lesson_board activity (advancing past
+// it, or ending the lesson/session while on it) — the one and only DB write
+// for the canvas. Pulls the live scene straight from Liveblocks Storage
+// (source of truth while the session is running) and saves it onto the same
+// content_items.data.snapshot field a prepared-before-class board lives in,
+// so the next session using this content set picks up where this one left
+// off. Fails soft: a missing/never-created room or a write error shouldn't
+// block the tutor from advancing or ending the lesson.
+export async function saveLessonBoardFinalSnapshot(
+  sessionId: string,
+  activityIndex: number,
+): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
 
-  return initialState
+  const { data: hostedSession } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('host_id', user.id)
+    .maybeSingle()
+  if (!hostedSession) return
+
+  // Neither lookup depends on the other's result, so they run concurrently
+  // rather than paying two sequential round-trips (one to Liveblocks' REST
+  // API, one to Supabase) before any DB write happens.
+  const [snapshotResult, contentSetId] = await Promise.all([
+    (async () => {
+      try {
+        const liveblocks = new Liveblocks({ secret: process.env.LIVEBLOCKS_SECRET_KEY! })
+        const doc = await liveblocks.getStorageDocument(lessonBoardRoomId(sessionId, activityIndex), 'json') as { canvas?: unknown }
+        return isUsableLessonBoardSnapshot(doc.canvas) ? doc.canvas : null
+      } catch (err) {
+        // The room never got created (board was never opened this session) —
+        // nothing to persist.
+        console.warn('[LessonBoard] Could not read Liveblocks storage to persist final snapshot', err)
+        return null
+      }
+    })(),
+    resolveLessonBoardContentSetId(supabase, sessionId, activityIndex),
+  ])
+  const snapshot = snapshotResult
+  if (!snapshot) return
+
+  try {
+    const { data: existingItem } = await supabase
+      .from('content_items')
+      .select('id')
+      .eq('set_id', contentSetId)
+      .order('position', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (existingItem) {
+      await supabase.from('content_items').update({ data: { snapshot } }).eq('id', existingItem.id)
+    } else {
+      await supabase.from('content_items').insert({ set_id: contentSetId, position: 0, data: { snapshot } })
+    }
+  } catch (err) {
+    console.warn('[LessonBoard] Failed to persist final snapshot to content_items', err)
+  }
 }
 
 export async function initVoteState(

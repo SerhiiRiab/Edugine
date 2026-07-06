@@ -28,6 +28,18 @@ export interface LessonBoardState {
   updatedAt: string
 }
 
+// Single source of truth for the Liveblocks room id, shared by the client
+// (LessonBoardRoom), the auth route (which recovers sessionId from it), and
+// the server action that reads final storage back out (saveLessonBoardFinalSnapshot).
+// Scoped by activity index, not just session, so a lesson with more than one
+// lesson_board activity gets an isolated canvas per activity instead of all
+// of them sharing (and overwriting) one room. Colon-separated rather than
+// hyphen-separated because sessionId is a UUID and already contains hyphens —
+// a colon can't appear in either segment, so splitting back out is unambiguous.
+export function lessonBoardRoomId(sessionId: string, activityIndex: number): string {
+  return `lesson-board:${sessionId}:${activityIndex}`
+}
+
 // Structural sanity check before handing a persisted snapshot to Excalidraw. A
 // malformed snapshot (e.g. hand-edited in the DB, or left over from an
 // incompatible earlier build) would otherwise throw inside Excalidraw's scene

@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, initLessonBoardState, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
+import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, initLessonBoardState, saveLessonBoardFinalSnapshot, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
 import { PARTICIPATION_POINTS, GROUP_SCORED_SHARED_MECHANICS } from '@/lib/mechanics/types'
@@ -259,13 +259,6 @@ function avatarBg(index: number) {
   return AVATAR_COLORS[index % AVATAR_COLORS.length]
 }
 
-// Lesson Board laser pointer: how many recent positions ride along in each
-// broadcast (rendered as a fading trail on the student side), and how long
-// a gap since the last move means "the trail should restart," not "keep
-// stitching onto the old one."
-const LASER_TRAIL_MAX = 5
-const LASER_TRAIL_RESET_GAP_MS = 150
-
 export function SessionHostView({ session, lesson }: Props) {
   const isLesson = !!lesson && !!lesson.id
   const isMultiActivity = isLesson && (lesson?.activities.length ?? 0) > 1
@@ -395,9 +388,6 @@ export function SessionHostView({ session, lesson }: Props) {
   const elevatorPitchStateRef = useRef<ElevatorPitchState | null>(null)
   const jigsawReadingStateRef = useRef<JigsawReadingState | null>(null)
   const predictVerifyStateRef = useRef<PredictVerifyState | null>(null)
-  const lessonBoardStateRef = useRef<LessonBoardState | null>(null)
-  const laserTrailRef = useRef<{ x: number; y: number }[]>([])
-  const lastLaserMoveAtRef = useRef(0)
   const speedDebateStateRef = useRef<SpeedDebateState | null>(null)
   const roleplayQuestStateRef = useRef<RoleplayQuestState | null>(null)
   const speakingChallengeStateRef = useRef<SpeakingChallengeState | null>(null)
@@ -421,7 +411,6 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { elevatorPitchStateRef.current = elevatorPitchState }, [elevatorPitchState])
   useEffect(() => { jigsawReadingStateRef.current = jigsawReadingState }, [jigsawReadingState])
   useEffect(() => { predictVerifyStateRef.current = predictVerifyState }, [predictVerifyState])
-  useEffect(() => { lessonBoardStateRef.current = lessonBoardState }, [lessonBoardState])
   useEffect(() => { speedDebateStateRef.current = speedDebateState }, [speedDebateState])
   useEffect(() => { roleplayQuestStateRef.current = roleplayQuestState }, [roleplayQuestState])
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
@@ -716,19 +705,15 @@ export function SessionHostView({ session, lesson }: Props) {
           }
         }
 
-        // Restore lesson_board state from DB on tab restore / reconnect
+        // Lesson Board on tab restore / reconnect: the live canvas itself
+        // lives in the Liveblocks room, which is rejoined automatically —
+        // nothing to fetch from Supabase. This just needs `lessonBoardState`
+        // to be non-null again so the panel (and its <LessonBoardRoom>)
+        // remounts; initLessonBoardState's own lookup only matters for the
+        // rare case where the room doesn't exist yet.
         if (currentMechanic === 'lesson_board' && session.status === 'active') {
-          const { data: stateRow } = await supabase
-            .from('shared_activity_state')
-            .select('state')
-            .eq('session_id', session.id)
-            .eq('activity_index', actIdx)
-            .single()
-          if (stateRow?.state && 'snapshot' in (stateRow.state as Record<string, unknown>)) {
-            const restored = stateRow.state as unknown as LessonBoardState
-            setLessonBoardState(restored)
-            lessonBoardStateRef.current = restored
-          }
+          const restored = await initLessonBoardState(session.id, actIdx)
+          setLessonBoardState(restored)
         }
 
         // Restore correct_the_mistake shared state from DB on tab restore / reconnect
@@ -1262,10 +1247,6 @@ export function SessionHostView({ session, lesson }: Props) {
           return newState
         })
       })
-      .on('broadcast', { event: 'lesson_board_state_update' }, ({ payload }) => {
-        const p = payload as { state: LessonBoardState }
-        if (p.state) { setLessonBoardState(p.state); lessonBoardStateRef.current = p.state }
-      })
       .on('broadcast', { event: 'speed_debate_state_update' }, ({ payload }) => {
         const p = payload as { state: SpeedDebateState }
         if (p.state) setSpeedDebateState(p.state)
@@ -1627,7 +1608,6 @@ export function SessionHostView({ session, lesson }: Props) {
         } else if (firstActivity?.mechanic_id === 'lesson_board') {
           newLessonBoardState = await initLessonBoardState(session.id, currentActivityIndex)
           setLessonBoardState(newLessonBoardState)
-          lessonBoardStateRef.current = newLessonBoardState
           setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
         } else {
           setStoryState(null)
@@ -1680,7 +1660,6 @@ export function SessionHostView({ session, lesson }: Props) {
             roleplayQuestState: newRoleplayQuestState,
             speakingChallengeState: newSpeakingChallengeState,
             predictVerifyState: newPredictVerifyState,
-            lessonBoardState: newLessonBoardState,
             instructions: startInstructions ?? null,
             rightLabel: startRightLabel ?? null,
             leftLabel: startLeftLabel ?? null,
@@ -1782,6 +1761,9 @@ export function SessionHostView({ session, lesson }: Props) {
     const nextIndex = typeof targetIndex === 'number' ? targetIndex : currentActivityIndex + 1
     setIsAdvancing(true)
     try {
+      if (currentMechanicId === 'lesson_board') {
+        await saveLessonBoardFinalSnapshot(session.id, currentActivityIndex).catch(() => {})
+      }
       await advanceActivity(session.id, nextIndex)
       await awardParticipationPoints(currentActivityIndex, lesson.activities[currentActivityIndex]?.mechanic_id)
       const nextActivity = lesson.activities[nextIndex]
@@ -1938,7 +1920,6 @@ export function SessionHostView({ session, lesson }: Props) {
       } else if (nextActivity?.mechanic_id === 'lesson_board') {
         newLessonBoardState = await initLessonBoardState(session.id, nextIndex)
         setLessonBoardState(newLessonBoardState)
-        lessonBoardStateRef.current = newLessonBoardState
         setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
       } else {
         setStoryState(null)
@@ -1987,7 +1968,6 @@ export function SessionHostView({ session, lesson }: Props) {
           roleplayQuestState: newRoleplayQuestState,
           speakingChallengeState: newSpeakingChallengeState,
           predictVerifyState: newPredictVerifyState,
-          lessonBoardState: newLessonBoardState,
           instructions: lesson.activities[nextIndex]?.instructions ?? null,
           rightLabel: lesson.activities[nextIndex]?.rightLabel ?? null,
           leftLabel: lesson.activities[nextIndex]?.leftLabel ?? null,
@@ -2036,6 +2016,9 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!lesson) return
     setIsAdvancing(true)
     try {
+      if (currentMechanicId === 'lesson_board') {
+        await saveLessonBoardFinalSnapshot(session.id, currentActivityIndex).catch(() => {})
+      }
       await awardParticipationPoints(currentActivityIndex, lesson.activities[currentActivityIndex]?.mechanic_id)
       await channelRef.current?.send({
         type: 'broadcast',
@@ -3265,48 +3248,6 @@ export function SessionHostView({ session, lesson }: Props) {
     await predictVerifyStateUpdate({ ...cur, phase: 'done' })
   }
 
-  // ── Lesson Board handlers ─────────────────────────────────────────────────────
-  async function handleLessonBoardSnapshotChange(snapshot: LessonBoardState['snapshot']) {
-    const cur = lessonBoardStateRef.current
-    if (!cur) return
-    const newState: LessonBoardState = { ...cur, snapshot, updatedAt: new Date().toISOString() }
-    setLessonBoardState(newState)
-    lessonBoardStateRef.current = newState
-    const supabase = createClient()
-    await supabase.from('shared_activity_state')
-      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
-      .eq('session_id', session.id)
-      .eq('activity_index', currentActivityIndexRef.current)
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'lesson_board_state_update',
-      payload: { state: newState },
-    })
-  }
-
-  // Ephemeral — Realtime broadcast only, no DB write. The laser pointer is
-  // live-only; there's nothing worth persisting once it moves on.
-  //
-  // Broadcasts a rolling trail of the last few positions (newest first),
-  // not just the latest point, so the student side can render a fading
-  // trail and a single dropped Realtime message doesn't make the pointer
-  // feel jumpy. Resets the trail if there's a gap since the last move
-  // (laser lifted and reapplied elsewhere) so old and new positions never
-  // get stitched into one fake trail.
-  function handleLessonBoardLaserPointer(x: number, y: number) {
-    const now = performance.now()
-    if (now - lastLaserMoveAtRef.current > LASER_TRAIL_RESET_GAP_MS) {
-      laserTrailRef.current = []
-    }
-    lastLaserMoveAtRef.current = now
-    laserTrailRef.current = [{ x, y }, ...laserTrailRef.current].slice(0, LASER_TRAIL_MAX)
-    channelRef.current?.send({
-      type: 'broadcast',
-      event: 'laser_pointer',
-      payload: { points: laserTrailRef.current },
-    })
-  }
-
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -3626,6 +3567,9 @@ export function SessionHostView({ session, lesson }: Props) {
   function handleEndGame() {
     endTransition(async () => {
       try {
+        if (currentMechanicId === 'lesson_board') {
+          await saveLessonBoardFinalSnapshot(session.id, currentActivityIndex).catch(() => {})
+        }
         await channelRef.current?.send({
           type: 'broadcast',
           event: 'game_ended',
@@ -3969,8 +3913,8 @@ export function SessionHostView({ session, lesson }: Props) {
                     participantId="" state={speakingChallengeState} participants={participants}
                   />
                 )}
-                {currentMechanicId === 'lesson_board' && lessonBoardState && (
-                  <LessonBoardPlayerPanel state={lessonBoardState} />
+                {currentMechanicId === 'lesson_board' && (
+                  <LessonBoardPlayerPanel sessionId={session.id} activityIndex={currentActivityIndex} participantId="" />
                 )}
                 {![
                   'story_builder', 'talk_time', 'content_block', 'debate_roulette', 'hidden_role',
@@ -4679,14 +4623,14 @@ export function SessionHostView({ session, lesson }: Props) {
             {/* ── LESSON BOARD ─────────────────────────────────────────── */}
             {currentMechanicId === 'lesson_board' && lessonBoardState && (
               <LessonBoardHostPanel
+                sessionId={session.id}
+                activityIndex={currentActivityIndex}
                 state={lessonBoardState}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}
                 isLesson={isLesson}
                 onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
                 onEndLesson={isLesson ? handleEndLesson : handleEndGame}
-                onSnapshotChange={handleLessonBoardSnapshotChange}
-                onLaserPointerMove={handleLessonBoardLaserPointer}
               />
             )}
 

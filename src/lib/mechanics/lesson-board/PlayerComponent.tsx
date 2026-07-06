@@ -2,8 +2,10 @@
 
 import dynamic from 'next/dynamic'
 import { PenLine } from 'lucide-react'
-import type { LessonBoardState } from './types'
+import { useOthers, useStorage } from '@liveblocks/react/suspense'
+import { lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { LessonBoardRoom } from './LessonBoardRoom'
 
 const ExcalidrawPlayerCanvas = dynamic(() => import('./ExcalidrawPlayerCanvas'), {
   ssr: false,
@@ -15,12 +17,33 @@ const ExcalidrawPlayerCanvas = dynamic(() => import('./ExcalidrawPlayerCanvas'),
 })
 
 export interface LessonBoardPlayerPanelProps {
-  state: LessonBoardState
-  laserPointer?: { x: number; y: number }[] | null
+  sessionId: string
+  activityIndex: number
+  participantId: string
 }
 
-export function LessonBoardPlayerPanel({ state, laserPointer = null }: LessonBoardPlayerPanelProps) {
-  if (!state.snapshot) {
+export function LessonBoardPlayerPanel({ sessionId, activityIndex, participantId }: LessonBoardPlayerPanelProps) {
+  return (
+    <div className="flex-1 relative bg-white">
+      <ErrorBoundary fallback="The board view crashed — try again to reload it.">
+        <LessonBoardRoom sessionId={sessionId} activityIndex={activityIndex} participantId={participantId} initialSnapshot={null}>
+          <LessonBoardPlayerCanvasSync />
+        </LessonBoardRoom>
+      </ErrorBoundary>
+    </div>
+  )
+}
+
+// Bridges Liveblocks Storage/Presence to the plain-props ExcalidrawPlayerCanvas
+// — only rendered inside a <LessonBoardRoom>, where useStorage/useOthers
+// resolve. Replaces the old `lesson_board_state_update`/`laser_pointer`
+// Supabase broadcasts: both now come straight from the room this student and
+// the tutor share.
+function LessonBoardPlayerCanvasSync() {
+  const canvas = useStorage((root) => root.canvas) as LessonBoardSnapshot
+  const laserPointer = useTutorLaserPointer()
+
+  if (!lessonBoardSnapshotHasContent(canvas)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
         <PenLine className="w-12 h-12 text-orange-400" />
@@ -32,11 +55,17 @@ export function LessonBoardPlayerPanel({ state, laserPointer = null }: LessonBoa
     )
   }
 
-  return (
-    <div className="flex-1 relative bg-white">
-      <ErrorBoundary fallback="The board view crashed — try again to reload it.">
-        <ExcalidrawPlayerCanvas snapshot={state.snapshot} laserPointer={laserPointer} />
-      </ErrorBoundary>
-    </div>
-  )
+  return <ExcalidrawPlayerCanvas snapshot={canvas} laserPointer={laserPointer} />
+}
+
+// The tutor is the only one who ever sets `laserPointer` presence — find it
+// among "others" (there's only ever one tutor in the room) rather than
+// modeling per-user presence generically, since there's nothing else to
+// look up here. No local fade timer needed: the host clears its own
+// presence back to null shortly after it stops moving (see
+// HostComponent.tsx), so Presence itself is always current — a late
+// joiner never sees a stale trail frozen from earlier in the session.
+function useTutorLaserPointer(): { x: number; y: number }[] | null {
+  const others = useOthers()
+  return others.find((o) => o.presence.laserPointer)?.presence.laserPointer ?? null
 }

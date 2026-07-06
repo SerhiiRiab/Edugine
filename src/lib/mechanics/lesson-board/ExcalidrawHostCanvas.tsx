@@ -32,16 +32,21 @@ interface Props {
   onLaserPointerMove?: (x: number, y: number) => void
 }
 
-// Debounce: persisting/broadcasting on every single pointer-move while the
-// host draws would flood realtime + the DB. Every save rewrites the *whole*
-// row (not a diff) — including any embedded images that haven't changed at
-// all — and Supabase meters disk writes against a burst budget (see the
-// 2026-07 incident: repeated multi-MB rewrites while continuing to draw
-// with images already on the board drained it, degrading disk throughput
-// for the whole project, not just this table). 1500ms trades a little
-// live-feel for meaningfully fewer rewrites per minute of continuous
-// drawing.
-const SNAPSHOT_DEBOUNCE_MS = 1500
+// Debounce: calling onSnapshotChange on every single pointer-move while the
+// host draws would be wasteful. This used to guard against Supabase's
+// per-save full-row rewrite (see the 2026-07 incident in git history) with a
+// 1500ms debounce, trading live-feel for fewer rewrites — but live sessions
+// now sync through Liveblocks Storage (see HostComponent.tsx), whose
+// mutations are cheap incremental patches, not full-row rewrites, so that
+// tradeoff no longer applies there. Kept short instead of removed because
+// this component is also used by the offline "prepare before class" editor,
+// where batching still avoids re-rendering/re-diffing the whole scene tree
+// on every pointer-move. A short value also shrinks the window in which a
+// tutor's last stroke could be missed if they click "Next activity" /
+// "End lesson" immediately after finishing it (the final snapshot is read
+// back out of Liveblocks Storage at that moment — see
+// saveLessonBoardFinalSnapshot in src/lib/actions/sessions.ts).
+const SNAPSHOT_DEBOUNCE_MS = 300
 
 // Laser pointer position is a separate, ephemeral broadcast (never written
 // to the DB) — 30fps is smooth to watch without flooding the channel the
