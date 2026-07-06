@@ -19,11 +19,13 @@ export function LessonReturnBanner({
   function handleAdd() {
     startTransition(async () => {
       try {
-        await addContentSetToLesson(contentSetId, lessonId)
+        const result = await addContentSetToLesson(contentSetId, lessonId)
+        if (result?.error) toast.error(result.error)
       } catch (err) {
         // addContentSetToLesson redirects on success, which itself throws —
-        // only a real failure (e.g. the lesson already has a Lesson Board)
-        // has anything other than a NEXT_REDIRECT digest.
+        // expected validation failures (e.g. duplicate Lesson Board) come
+        // back as a normal { error } return above instead, so anything that
+        // reaches this catch is either the redirect or a genuine bug.
         const digest = (err as { digest?: string } | null)?.digest
         if (typeof digest === 'string' && digest.startsWith('NEXT_REDIRECT')) return
         toast.error(err instanceof Error ? err.message : 'Failed to add to lesson')

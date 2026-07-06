@@ -13,8 +13,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // insert paths below (linking/adding an existing content set to a lesson),
 // and the only thing that can't be bypassed by a stale client or a direct
 // call.
-async function assertNoDuplicateLessonBoard(supabase: SupabaseClient, lessonId: string, mechanicId: string) {
-  if (mechanicId !== 'lesson_board') return
+//
+// Returns a message instead of throwing: Next.js redacts thrown Error
+// messages from Server Actions in production builds (replacing them with
+// "An error occurred in the Server Components render..."), so this
+// user-facing validation has to travel back as a normal return value for
+// the client to be able to show it.
+async function duplicateLessonBoardError(supabase: SupabaseClient, lessonId: string, mechanicId: string): Promise<string | null> {
+  if (mechanicId !== 'lesson_board') return null
   const { data: existing } = await supabase
     .from('lesson_activities')
     .select('id')
@@ -22,8 +28,9 @@ async function assertNoDuplicateLessonBoard(supabase: SupabaseClient, lessonId: 
     .eq('mechanic_id', 'lesson_board')
     .limit(1)
   if (existing && existing.length > 0) {
-    throw new Error('This lesson already has a Lesson Board activity — only one is allowed per lesson.')
+    return 'This lesson already has a Lesson Board activity — only one is allowed per lesson.'
   }
+  return null
 }
 
 export async function createLesson(
@@ -208,12 +215,13 @@ export async function addActivity(
     mode: 'individual' | 'shared' | 'vote'
     config: Record<string, unknown>
   },
-): Promise<{ id: string }> {
+): Promise<{ id?: string; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  if (!user) return { error: 'Unauthorized' }
 
-  await assertNoDuplicateLessonBoard(supabase, lessonId, data.mechanic_id)
+  const dupError = await duplicateLessonBoardError(supabase, lessonId, data.mechanic_id)
+  if (dupError) return { error: dupError }
 
   const { data: lastPos } = await supabase
     .from('lesson_activities')
@@ -237,8 +245,8 @@ export async function addActivity(
     .select('id')
     .single()
 
-  if (error || !activity) throw new Error(error?.message ?? 'Failed to add activity')
-  return activity
+  if (error || !activity) return { error: error?.message ?? 'Failed to add activity' }
+  return { id: activity.id }
 }
 
 export async function updateActivity(
@@ -266,19 +274,20 @@ export async function deleteActivity(id: string, lessonId: string) {
 // Shared-only mechanics always use shared mode; everything else defaults to individual.
 const SHARED_ONLY_MECHANICS = new Set(['story_builder', 'talk_time', 'speed_debate'])
 
-export async function addContentSetToLesson(contentSetId: string, lessonId: string) {
+export async function addContentSetToLesson(contentSetId: string, lessonId: string): Promise<{ error?: string } | void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  if (!user) return { error: 'Unauthorized' }
 
   const [setResult, lastPosResult] = await Promise.all([
     supabase.from('content_sets').select('mechanic_id').eq('id', contentSetId).single(),
     supabase.from('lesson_activities').select('position').eq('lesson_id', lessonId).order('position', { ascending: false }).limit(1),
   ])
 
-  if (!setResult.data) throw new Error('Content set not found')
+  if (!setResult.data) return { error: 'Content set not found' }
   const mechanic_id = setResult.data.mechanic_id
-  await assertNoDuplicateLessonBoard(supabase, lessonId, mechanic_id)
+  const dupError = await duplicateLessonBoardError(supabase, lessonId, mechanic_id)
+  if (dupError) return { error: dupError }
   const position = lastPosResult.data && lastPosResult.data.length > 0 ? lastPosResult.data[0].position + 1 : 0
   const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
 
@@ -291,25 +300,26 @@ export async function addContentSetToLesson(contentSetId: string, lessonId: stri
     config: {},
   })
 
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
   revalidatePath(`/tutor/lessons/${lessonId}/edit`)
   redirect(`/tutor/lessons/${lessonId}/edit`)
 }
 
 // Link content set to lesson without redirecting (stays on edit page).
-export async function linkContentSetToLesson(contentSetId: string, lessonId: string) {
+export async function linkContentSetToLesson(contentSetId: string, lessonId: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  if (!user) return { error: 'Unauthorized' }
 
   const [setResult, lastPosResult] = await Promise.all([
     supabase.from('content_sets').select('mechanic_id').eq('id', contentSetId).single(),
     supabase.from('lesson_activities').select('position').eq('lesson_id', lessonId).order('position', { ascending: false }).limit(1),
   ])
 
-  if (!setResult.data) throw new Error('Content set not found')
+  if (!setResult.data) return { error: 'Content set not found' }
   const mechanic_id = setResult.data.mechanic_id
-  await assertNoDuplicateLessonBoard(supabase, lessonId, mechanic_id)
+  const dupError = await duplicateLessonBoardError(supabase, lessonId, mechanic_id)
+  if (dupError) return { error: dupError }
   const position = lastPosResult.data && lastPosResult.data.length > 0 ? lastPosResult.data[0].position + 1 : 0
   const mode = SHARED_ONLY_MECHANICS.has(mechanic_id) ? 'shared' : 'individual'
 
@@ -322,9 +332,10 @@ export async function linkContentSetToLesson(contentSetId: string, lessonId: str
     config: {},
   })
 
-  if (error) throw new Error(error.message)
+  if (error) return { error: error.message }
   revalidatePath(`/tutor/content-sets/${contentSetId}/edit`)
   revalidatePath(`/tutor/lessons/${lessonId}/edit`)
+  return {}
 }
 
 // Remove a lesson_activity row without deleting the content set.

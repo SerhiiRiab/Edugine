@@ -1335,11 +1335,13 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
     content_set_item_count: number
   }) {
     const created = await addActivity(lesson.id, data)
+    if (created.error || !created.id) throw new Error(created.error ?? 'Failed to add activity')
+    const newId = created.id
     const position = activities.length
     setActivities((prev) => [
       ...prev,
       {
-        id: created.id,
+        id: newId,
         content_set_id: data.content_set_id,
         mechanic_id: data.mechanic_id,
         mode: data.mode,
