@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState, useTransition } from 'react'
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+import { useMutation, useStorage, useUpdateMyPresence } from '@liveblocks/react/suspense'
+import type { Json } from '@liveblocks/client'
 import { toast } from 'sonner'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -73,9 +76,10 @@ import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerC
 import type { PredictVerifyState, PredictVerifyItem, PredictionMode } from '@/lib/mechanics/predict-verify/types'
 import { PredictVerifyHostPanel } from '@/lib/mechanics/predict-verify/HostComponent'
 import { PredictVerifyPlayerPanel } from '@/lib/mechanics/predict-verify/PlayerComponent'
-import type { LessonBoardState } from '@/lib/mechanics/lesson-board/types'
+import type { LessonBoardState, LessonBoardSnapshot } from '@/lib/mechanics/lesson-board/types'
 import { LessonBoardHostPanel } from '@/lib/mechanics/lesson-board/HostComponent'
 import { LessonBoardPlayerPanel } from '@/lib/mechanics/lesson-board/PlayerComponent'
+import { LessonBoardRoom } from '@/lib/mechanics/lesson-board/LessonBoardRoom'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState, DebatePosition } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebateHostPanel } from '@/lib/mechanics/speed-debate/HostComponent'
@@ -90,6 +94,101 @@ import { SpeakingChallengeHostPanel } from '@/lib/mechanics/speaking-challenge/H
 import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
 import { pickNextWord as pickSpeakingWord } from '@/lib/mechanics/speaking-challenge/types'
 import { ErrorBoundary } from '@/components/error-boundary'
+
+// ── Floating Lesson Board ──────────────────────────────────────────────────────
+// A scratch-space canvas available at any point in the session, independent of
+// the lesson_board *mechanic*/*activity* — so this deliberately does not import
+// anything from '@/lib/mechanics/lesson-board/HostComponent' or
+// '@/lib/mechanics/lesson-board/PlayerComponent' (off-limits for this feature;
+// those own the per-activity board and its own Liveblocks bridging, which isn't
+// reusable here since it's not exported). LessonBoardRoom and
+// ExcalidrawHostCanvas are reused as-is; the Liveblocks canvas+laser bridging
+// below intentionally mirrors HostComponent.tsx's own (unmodified) version.
+const FloatingBoardExcalidrawHostCanvas = dynamic(() => import('@/lib/mechanics/lesson-board/ExcalidrawHostCanvas'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">
+      Loading canvas…
+    </div>
+  ),
+})
+
+// Every timed mechanic below shares this exact shape (verified against each
+// mechanic's own types.ts) except speaking_challenge, handled separately.
+interface TimedMechanicState {
+  timerRunning: boolean
+  timerStartedAt: string | null
+  timeLeftAtStart: number
+}
+
+// Preserves the exact remaining time across a freeze by pushing the start
+// time forward by however long the board was open, rather than touching
+// `timeLeftAtStart` — the underlying mechanic panel is unmounted for the
+// whole time the board is open (see the `&& !boardOpen` added to the ACTIVE
+// PHASE render condition below), so nothing is ticking or can auto-advance
+// during the freeze; this only has to correct the start time once, on resume.
+function shiftTimerStartedAt<T extends TimedMechanicState>(state: T, shiftMs: number): T {
+  if (!state.timerRunning || !state.timerStartedAt) return state
+  return { ...state, timerStartedAt: new Date(new Date(state.timerStartedAt).getTime() + shiftMs).toISOString() }
+}
+
+// speaking_challenge runs two independent clocks (turn-level and word-level)
+// instead of the generic timerStartedAt shape — both get the same shift.
+function shiftSpeakingChallengeTimers(state: SpeakingChallengeState, shiftMs: number): SpeakingChallengeState {
+  return {
+    ...state,
+    turnStartedAt: state.turnStartedAt
+      ? new Date(new Date(state.turnStartedAt).getTime() + shiftMs).toISOString()
+      : state.turnStartedAt,
+    wordChangedAt: state.wordChangedAt
+      ? new Date(new Date(state.wordChangedAt).getTime() + shiftMs).toISOString()
+      : state.wordChangedAt,
+  }
+}
+
+// Bridges the plain-props ExcalidrawHostCanvas to Liveblocks — only rendered
+// inside a <LessonBoardRoom>, where useMutation/useUpdateMyPresence resolve.
+// Deliberately mirrors LessonBoardHostCanvasSync in
+// lesson-board/HostComponent.tsx (not importable — it's a private, unexported
+// function in a file this feature isn't allowed to touch or reuse from).
+const FLOATING_BOARD_LASER_STALE_GAP_MS = 500
+
+function FloatingBoardHostCanvasSync() {
+  const updateMyPresence = useUpdateMyPresence()
+  const clearLaserTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (clearLaserTimeoutRef.current) clearTimeout(clearLaserTimeoutRef.current)
+  }, [])
+
+  const canvas = useStorage((root) => root.canvas)
+  const [snapshotAtMount] = useState<LessonBoardSnapshot | null>(() =>
+    canvas ? { elements: canvas.elements, files: canvas.files } : null)
+
+  const handleSnapshotChange = useMutation(({ storage }, snapshot: LessonBoardSnapshot) => {
+    const canvasObj = storage.get('canvas')
+    canvasObj.set('elements', snapshot.elements as unknown as Json[])
+    canvasObj.set('files', snapshot.files as unknown as Record<string, Json>)
+  }, [])
+
+  const handleLaserPointerMove = useCallback((x: number, y: number, button: 'down' | 'up') => {
+    updateMyPresence({ laserPointer: { x, y, button } })
+    if (clearLaserTimeoutRef.current) clearTimeout(clearLaserTimeoutRef.current)
+    if (button === 'up') return
+    clearLaserTimeoutRef.current = setTimeout(() => {
+      updateMyPresence({ laserPointer: null })
+    }, FLOATING_BOARD_LASER_STALE_GAP_MS)
+  }, [updateMyPresence])
+
+  return (
+    <FloatingBoardExcalidrawHostCanvas
+      initialSnapshot={snapshotAtMount}
+      onSnapshotChange={handleSnapshotChange}
+      defaultTool="laser"
+      onLaserPointerMove={handleLaserPointerMove}
+    />
+  )
+}
 
 type SessionStatus = 'waiting' | 'active' | 'paused' | 'finished'
 
@@ -283,6 +382,13 @@ export function SessionHostView({ session, lesson }: Props) {
   const [showActivityList, setShowActivityList] = useState(false)
   const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null)
   const [showStudentView, setShowStudentView] = useState(false)
+  // Floating Lesson Board: available throughout the whole session, independent
+  // of whatever activity is current. Opening it freezes the active activity —
+  // see handleOpenBoard/handleCloseBoard — and shows the same board to every
+  // student via a `board_opened`/`board_closed` broadcast; students can't
+  // toggle it themselves.
+  const [boardOpen, setBoardOpen] = useState(false)
+  const boardPausedAtRef = useRef<number | null>(null)
   // Which student rows have their per-card breakdown expanded, keyed by `${studentId}:${activityIndex}`
   const [expandedCardBreakdowns, setExpandedCardBreakdowns] = useState<Set<string>>(new Set())
 
@@ -3248,6 +3354,94 @@ export function SessionHostView({ session, lesson }: Props) {
     await predictVerifyStateUpdate({ ...cur, phase: 'done' })
   }
 
+  // ── Floating Lesson Board handlers ────────────────────────────────────────────
+  function handleOpenBoard() {
+    if (boardOpen) return
+    boardPausedAtRef.current = Date.now()
+    setBoardOpen(true)
+    channelRef.current?.send({ type: 'broadcast', event: 'board_opened', payload: {} })
+  }
+
+  // Shifts whichever mechanic is currently active's timer-start field(s)
+  // forward by however long the board was open, via that mechanic's own
+  // existing xxxStateUpdate function — this both persists the corrected
+  // state and broadcasts it to students the same way any other state change
+  // for that mechanic already does, so no separate sync path is needed here.
+  async function handleCloseBoard() {
+    const pausedAt = boardPausedAtRef.current
+    boardPausedAtRef.current = null
+    setBoardOpen(false)
+    channelRef.current?.send({ type: 'broadcast', event: 'board_closed', payload: {} })
+    if (pausedAt == null) return
+    const shiftMs = Date.now() - pausedAt
+
+    switch (currentMechanicId) {
+      case 'talk_time': {
+        const cur = talkTimeStateRef.current
+        if (cur) await talkTimeStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'debate_roulette': {
+        const cur = debateRouletteStateRef.current
+        if (cur) await drStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'hidden_role': {
+        const cur = hiddenRoleStateRef.current
+        if (cur) await hrStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'mission_briefing': {
+        const cur = missionBriefingStateRef.current
+        if (cur) await mbStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'drama_event': {
+        const cur = dramaEventStateRef.current
+        if (cur) await deStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'taboo': {
+        const cur = tabooStateRef.current
+        if (cur) await tabooStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'elevator_pitch': {
+        const cur = elevatorPitchStateRef.current
+        if (cur) await elevatorPitchStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'jigsaw_reading': {
+        const cur = jigsawReadingStateRef.current
+        if (cur) await jigsawReadingStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'predict_verify': {
+        const cur = predictVerifyStateRef.current
+        if (cur) await predictVerifyStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'speed_debate': {
+        const cur = speedDebateStateRef.current
+        if (cur) await speedDebateStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'roleplay_quest': {
+        const cur = roleplayQuestStateRef.current
+        if (cur) await roleplayQuestStateUpdate(shiftTimerStartedAt(cur, shiftMs))
+        break
+      }
+      case 'speaking_challenge': {
+        const cur = speakingChallengeStateRef.current
+        if (cur) await speakingChallengeStateUpdate(shiftSpeakingChallengeTimers(cur, shiftMs))
+        break
+      }
+      default:
+        // No shared timer for this mechanic (or no mechanic active) — nothing to shift.
+        break
+    }
+  }
+
   // ── Speed Debate handlers ─────────────────────────────────────────────────────
   async function speedDebateStateUpdate(newState: SpeedDebateState) {
     const supabase = createClient()
@@ -3671,6 +3865,17 @@ export function SessionHostView({ session, lesson }: Props) {
             >
               {showStudentView ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               Student view
+            </button>
+          )}
+
+          {phase === 'active' && !lessonBetween && (
+            <button
+              onClick={handleOpenBoard}
+              className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-lg
+                border border-slate-200 text-slate-500 hover:border-violet-300 hover:text-violet-600
+                transition-colors shrink-0"
+            >
+              📋 Board
             </button>
           )}
 
@@ -4141,7 +4346,12 @@ export function SessionHostView({ session, lesson }: Props) {
         )}
 
         {/* ── ACTIVE PHASE ───────────────────────────────────────────────────── */}
-        {phase === 'active' && !lessonBetween && (
+        {/* Hidden (not just covered) while the floating board is open — the
+            current mechanic's panel actually unmounts, so its internal timer
+            hook can't tick or auto-advance during the freeze. See
+            handleCloseBoard for how the timer resumes with the correct
+            remaining time once the board closes. */}
+        {phase === 'active' && !lessonBetween && !boardOpen && (
           <ErrorBoundary fallback="This activity encountered an error. Please wait for the tutor to continue.">
           <div className="space-y-4">
 
@@ -5137,6 +5347,35 @@ export function SessionHostView({ session, lesson }: Props) {
         )}
 
       </div>
+
+      {/* ── Floating Lesson Board overlay ───────────────────────────────────── */}
+      {/* z-[110]: matches the same fullscreen-editor convention used by the
+          content-set Lesson Board prep editor — above the fixed z-[100]
+          session banners. */}
+      {boardOpen && (
+        <div className="fixed inset-0 z-[110] bg-slate-900 flex flex-col">
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
+            <span className="text-lg leading-none">📋</span>
+            <p className="text-white font-semibold text-sm">Lesson Board</p>
+            <span className="text-xs text-slate-500">Visible to every student — closing resumes the activity</span>
+            <button
+              type="button"
+              onClick={handleCloseBoard}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700
+                text-slate-200 text-sm font-semibold transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />Close
+            </button>
+          </div>
+          <div className="flex-1 relative bg-white">
+            <ErrorBoundary fallback="The board crashed. Closing and reopening reconnects to the same canvas.">
+              <LessonBoardRoom sessionId={session.id} activityIndex={-1} initialSnapshot={null}>
+                <FloatingBoardHostCanvasSync />
+              </LessonBoardRoom>
+            </ErrorBoundary>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

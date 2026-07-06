@@ -1,7 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { BookOpen, Target, Rocket, BookText, Star, Trophy, PartyPopper, Dumbbell, User, XCircle } from 'lucide-react'
+import dynamic from 'next/dynamic'
+import { useOthers, useStorage } from '@liveblocks/react/suspense'
+import { BookOpen, Target, Rocket, BookText, Star, Trophy, PartyPopper, Dumbbell, User, XCircle, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
@@ -43,6 +45,8 @@ import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerC
 import type { PredictVerifyState, PredictVerifyItem } from '@/lib/mechanics/predict-verify/types'
 import { PredictVerifyPlayerPanel } from '@/lib/mechanics/predict-verify/PlayerComponent'
 import { LessonBoardPlayerPanel } from '@/lib/mechanics/lesson-board/PlayerComponent'
+import { LessonBoardRoom } from '@/lib/mechanics/lesson-board/LessonBoardRoom'
+import { lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from '@/lib/mechanics/lesson-board/types'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import { SpeedDebatePlayerPanel } from '@/lib/mechanics/speed-debate/PlayerComponent'
@@ -51,6 +55,41 @@ import { RoleplayQuestPlayerPanel } from '@/lib/mechanics/roleplay-quest/PlayerC
 import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
 import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
 import { ErrorBoundary } from '@/components/error-boundary'
+
+// ── Floating Lesson Board ──────────────────────────────────────────────────────
+// Mirrors the "Floating Lesson Board" block in session-host-view.tsx — see
+// its comment for why this doesn't import from
+// '@/lib/mechanics/lesson-board/HostComponent'/'PlayerComponent' beyond the
+// already-used <LessonBoardPlayerPanel>, and instead re-implements the
+// Liveblocks bridging locally.
+const FloatingBoardExcalidrawPlayerCanvas = dynamic(() => import('@/lib/mechanics/lesson-board/ExcalidrawPlayerCanvas'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center text-slate-500 text-sm">
+      Loading canvas…
+    </div>
+  ),
+})
+
+// Bridges Liveblocks Storage/Presence to the plain-props
+// ExcalidrawPlayerCanvas — only rendered inside a <LessonBoardRoom>, where
+// useStorage/useOthers resolve. Mirrors LessonBoardPlayerCanvasSync in
+// lesson-board/PlayerComponent.tsx (not importable — private/unexported).
+function FloatingBoardPlayerCanvasSync() {
+  const canvas = useStorage((root) => root.canvas) as LessonBoardSnapshot
+  const others = useOthers()
+  const laserPointer = others.find((o) => o.presence.laserPointer)?.presence.laserPointer ?? null
+
+  if (!lessonBoardSnapshotHasContent(canvas)) {
+    return (
+      <div className="flex-1 flex items-center justify-center p-6">
+        <p className="text-slate-400 text-sm">Waiting for the tutor to start drawing…</p>
+      </div>
+    )
+  }
+
+  return <FloatingBoardExcalidrawPlayerCanvas snapshot={canvas} laserPointer={laserPointer} />
+}
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'
 
@@ -150,6 +189,9 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Session / participant state ───────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('nickname')
+  // Floating Lesson Board — toggled only by the tutor's board_opened/board_closed
+  // broadcast (see session-host-view.tsx); students have no control over it.
+  const [boardOpen, setBoardOpen] = useState(false)
   const [nickname, setNickname] = useState('')
   const [nicknameError, setNicknameError] = useState('')
   const [isJoining, setIsJoining] = useState(false)
@@ -857,6 +899,12 @@ export function PlayerView({ session, lesson }: Props) {
         setHostEnded(true)
         setPhase('finished')
       })
+      .on('broadcast', { event: 'board_opened' }, () => {
+        setBoardOpen(true)
+      })
+      .on('broadcast', { event: 'board_closed' }, () => {
+        setBoardOpen(false)
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
@@ -1151,7 +1199,10 @@ export function PlayerView({ session, lesson }: Props) {
       )}
 
       {/* ── PLAYING — dispatched to the active mechanic's panel ──────────────── */}
-      {phase === 'playing' && (
+      {/* Hidden (not just covered) while the tutor's floating board is open —
+          matches session-host-view.tsx unmounting its own mechanic panel, so
+          nothing here is still ticking/interactive behind the board. */}
+      {phase === 'playing' && !boardOpen && (
         <ErrorBoundary fallback="This activity encountered an error. Please wait for the tutor to continue.">
         <>
           {currentInstructions && (
@@ -1932,6 +1983,26 @@ export function PlayerView({ session, lesson }: Props) {
                 Teacher ended the session. Wait for a new round!
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Floating Lesson Board overlay ───────────────────────────────────── */}
+      {/* Shown only via the tutor's board_opened broadcast — students have no
+          control over it (no toggle, no close button). */}
+      {boardOpen && (
+        <div className="fixed inset-0 z-[110] bg-slate-900 flex flex-col">
+          <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
+            <span className="text-lg leading-none">📋</span>
+            <p className="text-white font-semibold text-sm">Lesson Board</p>
+            <span className="text-xs text-slate-500 ml-auto">Waiting for the tutor to close this</span>
+          </div>
+          <div className="flex-1 relative bg-white">
+            <ErrorBoundary fallback="The board view crashed — try again to reload it.">
+              <LessonBoardRoom sessionId={session.id} activityIndex={-1} participantId={participantId ?? ''} initialSnapshot={null}>
+                <FloatingBoardPlayerCanvasSync />
+              </LessonBoardRoom>
+            </ErrorBoundary>
           </div>
         </div>
       )}
