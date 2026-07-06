@@ -215,15 +215,18 @@ export function TabooHostPanel({
       <div className="space-y-2">
         <button onClick={wrap(onSkip)} disabled={isBusy}
           className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-sm transition-colors disabled:opacity-40">
-          <SkipForward className="w-4 h-4" />Skip card (forbidden word used)
+          <SkipForward className="w-4 h-4" />Mistake (forbidden word used)
         </button>
 
-        {state.turnDuration === 0 && (
-          <button onClick={wrap(onNextTurn)} disabled={isBusy}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm transition-colors disabled:opacity-40">
-            <ChevronRight className="w-4 h-4" />Next student
-          </button>
-        )}
+        <button onClick={wrap(onSkip)} disabled={isBusy}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-sm transition-colors disabled:opacity-40">
+          <SkipForward className="w-4 h-4" />Next word / Skip
+        </button>
+
+        <button onClick={wrap(onNextTurn)} disabled={isBusy}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm transition-colors disabled:opacity-40">
+          <ChevronRight className="w-4 h-4" />Next player
+        </button>
       </div>
 
       {/* Duration picker */}
