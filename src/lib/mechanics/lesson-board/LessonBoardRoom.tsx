@@ -34,10 +34,16 @@ export function LessonBoardRoom({ sessionId, activityIndex, participantId, initi
       // The "Powered by Liveblocks" badge can't be removed on the free plan
       // (that requires a paid-plan toggle in the Liveblocks dashboard) — this
       // only repositions it. Bottom-right (the default) collides with
-      // <ZoomControls>'s own bottom-right button cluster on both the host's
-      // and the student's canvas, so it's moved to bottom-left — used for
-      // both <HostComponent> and <PlayerComponent> since they share this component.
-      badgeLocation="bottom-left"
+      // <ZoomControls>'s own bottom-right button cluster; bottom-left seemed
+      // safe but actually collides with Excalidraw's own undo/redo footer —
+      // invisible on the narrower embedded-activity canvas (Excalidraw
+      // unmounts that footer below its own ~730px "mobile" breakpoint) but
+      // very visible on the fullscreen floating board. Top-right is the only
+      // corner nothing else ever occupies — both ExcalidrawHostCanvas and
+      // ExcalidrawPlayerCanvas hide `.layer-ui__wrapper__top-right` outright.
+      // Used for both <HostComponent> and <PlayerComponent> since they share
+      // this component.
+      badgeLocation="top-right"
     >
       <RoomProvider
         id={lessonBoardRoomId(sessionId, activityIndex)}
