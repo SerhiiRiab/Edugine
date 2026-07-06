@@ -159,6 +159,7 @@ export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null }
         initialData={snapshotAtMount}
         excalidrawAPI={(api) => { apiRef.current = api; setApi(api) }}
         viewModeEnabled
+        theme="light"
       />
       <ZoomControls api={api} containerRef={containerRef} />
     </div>

@@ -379,16 +379,18 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
         onChange={handleChange}
         onPointerUpdate={handlePointerUpdate}
         excalidrawAPI={setApi}
+        theme="light"
       >
         {/* Custom menu — omits Excalidraw's default "Socials" item (GitHub,
             X/Twitter, Discord) and file-based load/save, which don't apply
             to this embedded, auto-saved board. Only functional, white-label
-            items remain. */}
+            items remain. ToggleTheme is also omitted: dark mode causes
+            visual glitches on this canvas, so theme="light" above is forced
+            and the toggle that would undo it is deliberately not offered. */}
         <MainMenu>
           <MainMenu.DefaultItems.ClearCanvas />
           <MainMenu.DefaultItems.SaveAsImage />
           <MainMenu.DefaultItems.ChangeCanvasBackground />
-          <MainMenu.DefaultItems.ToggleTheme />
           <MainMenu.DefaultItems.Help />
         </MainMenu>
       </Excalidraw>
