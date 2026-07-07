@@ -2,7 +2,6 @@ import Link from 'next/link'
 import { Crown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileForm } from './profile-form'
-import { TakeTourLink } from '@/components/tutor/take-tour-link'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -40,14 +39,13 @@ export default async function SettingsPage() {
           </div>
         </div>
 
-        <div className="mt-6 pt-5 border-t border-slate-100 flex items-center gap-5">
+        <div className="mt-6 pt-5 border-t border-slate-100">
           <Link
             href="/reset-password"
             className="text-sm font-semibold text-violet-600 hover:text-violet-800 transition-colors"
           >
             Change password →
           </Link>
-          <TakeTourLink />
         </div>
       </div>
 

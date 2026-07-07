@@ -28,6 +28,12 @@ export default async function Home() {
           >
             Library
           </Link>
+          <Link
+            href="/teaching-lab"
+            className="px-4 py-2 text-white/80 font-medium hover:text-white transition-colors text-sm"
+          >
+            Teaching Lab
+          </Link>
           {user ? (
             <Link
               href="/tutor/dashboard"

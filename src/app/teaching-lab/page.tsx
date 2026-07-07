@@ -1,0 +1,202 @@
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { GraduationCap, FlaskConical, Sparkles } from 'lucide-react'
+import { createClient } from '@/lib/supabase/server'
+import { PlatformTourButton } from '@/components/teaching-lab/platform-tour-button'
+import { TEACHING_LAB_MECHANICS, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/teaching-lab/mechanics-data'
+
+export const metadata: Metadata = {
+  title: 'Teaching Lab — Master Modern Lesson Design | Edugine',
+  description:
+    'Discover interactive teaching mechanics, lesson design principles, and creative activities for language tutors and corporate trainers.',
+  alternates: { canonical: 'https://edugine.app/teaching-lab' },
+  openGraph: {
+    type: 'website',
+    url: 'https://edugine.app/teaching-lab',
+    siteName: 'Edugine',
+    title: 'Teaching Lab — Master Modern Lesson Design | Edugine',
+    description:
+      'Discover interactive teaching mechanics, lesson design principles, and creative activities for language tutors and corporate trainers.',
+    images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: 'Edugine Teaching Lab' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Teaching Lab — Master Modern Lesson Design | Edugine',
+    description:
+      'Discover interactive teaching mechanics, lesson design principles, and creative activities for language tutors and corporate trainers.',
+    images: ['https://edugine.app/og-image.png'],
+  },
+}
+
+function SectionHeader({ emoji, title }: { emoji: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-5">
+      <span className="text-2xl leading-none">{emoji}</span>
+      <h2 className="text-xl font-bold text-slate-800">{title}</h2>
+    </div>
+  )
+}
+
+function ComingSoonCard({ title }: { title: string }) {
+  return (
+    <div className="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-5">
+      <h3 className="font-bold text-slate-700 text-sm mb-1.5">{title}</h3>
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-400 border border-slate-200">
+        Coming Soon
+      </span>
+    </div>
+  )
+}
+
+export default async function TeachingLabPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-violet-50/30">
+
+      {/* Header */}
+      <header className="bg-white border-b border-slate-100 px-6 py-3 sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-2 shrink-0">
+            <GraduationCap className="w-5 h-5 text-violet-600" />
+            <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
+          </Link>
+
+          <nav className="hidden sm:flex items-center gap-6">
+            <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+              Library
+            </Link>
+            <Link href="/teaching-lab" className="text-violet-600 font-semibold text-sm">
+              Teaching Lab
+            </Link>
+          </nav>
+
+          <div className="flex items-center gap-3">
+            {user ? (
+              <Link
+                href="/tutor/dashboard"
+                className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl text-sm transition-colors"
+              >
+                Dashboard →
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-4 py-2 text-slate-600 font-medium hover:text-slate-900 transition-colors text-sm"
+                >
+                  Sign in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl text-sm transition-colors"
+                >
+                  Get started
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <div className="max-w-6xl mx-auto px-6 pt-14 pb-10 text-center">
+        <h1 className="text-4xl md:text-5xl font-extrabold text-slate-800 tracking-tight">Teaching Lab</h1>
+        <p className="text-violet-600 font-semibold text-lg mt-3">Master modern lesson design</p>
+        <p className="text-slate-500 max-w-2xl mx-auto mt-4 leading-relaxed">
+          Discover new ways to engage your students through interactive mechanics, creative lesson design,
+          and evidence-based teaching principles.
+        </p>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-6 pb-24 space-y-16">
+
+        {/* 1. Getting Started */}
+        <section>
+          <SectionHeader emoji="🚀" title="Getting Started" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <PlatformTourButton />
+            <ComingSoonCard title="Your First Lesson" />
+            <ComingSoonCard title="Quick Start Guide" />
+          </div>
+        </section>
+
+        {/* 2. Learning Mechanics */}
+        <section>
+          <SectionHeader emoji="🎭" title="Learning Mechanics" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {TEACHING_LAB_MECHANICS.map((mechanic) => (
+              <Link
+                key={mechanic.slug}
+                href={`/teaching-lab/mechanics/${mechanic.slug}`}
+                className="group flex flex-col bg-white rounded-2xl border-2 border-slate-100 p-5
+                  hover:border-violet-200 hover:shadow-md transition-all"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <h3 className="font-bold text-slate-800 text-sm group-hover:text-violet-700 transition-colors">
+                    {mechanic.name}
+                  </h3>
+                  <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${CATEGORY_COLORS[mechanic.category]}`}>
+                    {CATEGORY_LABELS[mechanic.category]}
+                  </span>
+                </div>
+                <p className="text-slate-400 text-xs leading-relaxed">{mechanic.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* 3. Lesson Design */}
+        <section>
+          <SectionHeader emoji="📚" title="Lesson Design" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ComingSoonCard title="Building Lesson Flow" />
+            <ComingSoonCard title="Combining Activities" />
+            <ComingSoonCard title="Keeping Students Engaged" />
+          </div>
+        </section>
+
+        {/* 4. Teaching Ideas */}
+        <section>
+          <SectionHeader emoji="💡" title="Teaching Ideas" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            <ComingSoonCard title="Lesson Examples" />
+            <ComingSoonCard title="Icebreakers" />
+            <ComingSoonCard title="Speaking Lessons" />
+            <ComingSoonCard title="Business English" />
+            <ComingSoonCard title="Young Learners" />
+          </div>
+        </section>
+
+        {/* 5. Teaching Principles */}
+        <section>
+          <SectionHeader emoji="🧠" title="Teaching Principles" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ComingSoonCard title="Why These Mechanics Work" />
+            <ComingSoonCard title="Psychology of Engagement" />
+            <ComingSoonCard title="Active Learning" />
+          </div>
+        </section>
+
+        {/* 6. Edugine Labs */}
+        <section>
+          <SectionHeader emoji="🔬" title="Edugine Labs" />
+          <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-8 flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-4">
+              <FlaskConical className="w-6 h-6 text-white" />
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-white border border-white/20 mb-3">
+              <Sparkles className="w-3 h-3" />
+              Coming Soon
+            </span>
+            <p className="text-violet-100 max-w-md leading-relaxed">
+              Experimental mechanics and research-backed teaching tools. Coming soon.
+            </p>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  )
+}

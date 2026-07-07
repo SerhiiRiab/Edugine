@@ -79,6 +79,12 @@ export default async function LibraryPage() {
             <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
           </Link>
 
+          <nav className="hidden sm:flex items-center gap-6">
+            <Link href="/teaching-lab" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+              Teaching Lab
+            </Link>
+          </nav>
+
           <div className="flex items-center gap-3">
             {user ? (
               <Link

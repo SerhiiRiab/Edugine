@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Globe,
+  FlaskConical,
 } from 'lucide-react'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
 import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: '/tutor/lessons',       label: 'Lessons',      icon: GraduationCap },
   { href: '/tutor/content-sets',  label: 'Activities',   icon: Library },
   { href: '/library',             label: 'Library',      icon: Globe },
+  { href: '/teaching-lab',        label: 'Teaching Lab', icon: FlaskConical },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
 ]
 

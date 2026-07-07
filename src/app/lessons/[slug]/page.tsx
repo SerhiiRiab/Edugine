@@ -156,6 +156,9 @@ export default async function PublicLessonPage({ params }: Props) {
           <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
             Browse lessons
           </Link>
+          <Link href="/teaching-lab" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+            Teaching Lab
+          </Link>
         </div>
         {user ? (
           <Link
