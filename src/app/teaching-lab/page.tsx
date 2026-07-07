@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { GraduationCap, FlaskConical, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PlatformTourButton } from '@/components/teaching-lab/platform-tour-button'
+import { CollapsibleSection } from '@/components/teaching-lab/collapsible-section'
 import { TEACHING_LAB_MECHANICS } from '@/lib/teaching-lab/mechanics-data'
 
 export const metadata: Metadata = {
@@ -26,15 +27,6 @@ export const metadata: Metadata = {
       'Discover interactive teaching mechanics, lesson design principles, and creative activities for language tutors and corporate trainers.',
     images: ['https://edugine.app/og-image.png'],
   },
-}
-
-function SectionHeader({ emoji, title }: { emoji: string; title: string }) {
-  return (
-    <div className="flex items-center gap-2.5 mb-5">
-      <span className="text-2xl leading-none">{emoji}</span>
-      <h2 className="text-xl font-bold text-slate-800">{title}</h2>
-    </div>
-  )
 }
 
 function ComingSoonCard({ title }: { title: string }) {
@@ -113,18 +105,16 @@ export default async function TeachingLabPage() {
       <div className="max-w-6xl mx-auto px-6 pb-24 space-y-16">
 
         {/* 1. Getting Started */}
-        <section>
-          <SectionHeader emoji="🚀" title="Getting Started" />
+        <CollapsibleSection emoji="🚀" title="Getting Started">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <PlatformTourButton />
             <ComingSoonCard title="Your First Lesson" />
             <ComingSoonCard title="Quick Start Guide" />
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* 2. Learning Mechanics */}
-        <section>
-          <SectionHeader emoji="🎭" title="Learning Mechanics" />
+        <CollapsibleSection emoji="🎭" title="Learning Mechanics" defaultOpen>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {TEACHING_LAB_MECHANICS.map((mechanic) => (
               <Link
@@ -145,21 +135,19 @@ export default async function TeachingLabPage() {
               </Link>
             ))}
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* 3. Lesson Design */}
-        <section>
-          <SectionHeader emoji="📚" title="Lesson Design" />
+        <CollapsibleSection emoji="📚" title="Lesson Design">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <ComingSoonCard title="Building Lesson Flow" />
             <ComingSoonCard title="Combining Activities" />
             <ComingSoonCard title="Keeping Students Engaged" />
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* 4. Teaching Ideas */}
-        <section>
-          <SectionHeader emoji="💡" title="Teaching Ideas" />
+        <CollapsibleSection emoji="💡" title="Teaching Ideas">
           <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
             <ComingSoonCard title="Lesson Examples" />
             <ComingSoonCard title="Icebreakers" />
@@ -167,21 +155,19 @@ export default async function TeachingLabPage() {
             <ComingSoonCard title="Business English" />
             <ComingSoonCard title="Young Learners" />
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* 5. Teaching Principles */}
-        <section>
-          <SectionHeader emoji="🧠" title="Teaching Principles" />
+        <CollapsibleSection emoji="🧠" title="Teaching Principles">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <ComingSoonCard title="Why These Mechanics Work" />
             <ComingSoonCard title="Psychology of Engagement" />
             <ComingSoonCard title="Active Learning" />
           </div>
-        </section>
+        </CollapsibleSection>
 
         {/* 6. Edugine Labs */}
-        <section>
-          <SectionHeader emoji="🔬" title="Edugine Labs" />
+        <CollapsibleSection emoji="🔬" title="Edugine Labs">
           <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-8 flex flex-col items-center text-center">
             <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-4">
               <FlaskConical className="w-6 h-6 text-white" />
@@ -194,7 +180,7 @@ export default async function TeachingLabPage() {
               Experimental mechanics and research-backed teaching tools. Coming soon.
             </p>
           </div>
-        </section>
+        </CollapsibleSection>
 
       </div>
     </div>
