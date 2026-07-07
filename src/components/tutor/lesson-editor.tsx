@@ -1654,7 +1654,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         {/* Activity list */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={activities.map((a) => a.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1">
+            <div className="space-y-1" data-tour="activity-list">
               {activities.map((activity, index) => (
                 <div key={activity.id}>
                   <SortableActivityCard

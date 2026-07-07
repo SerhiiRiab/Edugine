@@ -16,7 +16,7 @@ export default async function TutorLayout({ children }: { children: React.ReactN
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, pro_expires_at, full_name')
+    .select('plan, pro_expires_at, full_name, onboarding_step, onboarding_completed')
     .eq('id', user.id)
     .single()
 
@@ -26,6 +26,8 @@ export default async function TutorLayout({ children }: { children: React.ReactN
       fullName={(profile?.full_name as string | null) ?? null}
       plan={(profile?.plan as 'free' | 'pro') ?? 'free'}
       proExpiresAt={profile?.pro_expires_at ?? null}
+      showWelcome={!profile?.onboarding_step}
+      autoStartTour={profile?.onboarding_step === 'welcomed' && !profile?.onboarding_completed}
     >
       {children}
     </TutorShell>

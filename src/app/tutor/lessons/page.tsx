@@ -17,6 +17,7 @@ export default async function LessonsPage() {
         </div>
         <Link
           href="/tutor/lessons/new"
+          data-tour="new-lesson-btn"
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2.5 rounded-xl transition-colors text-sm"
         >
           <Plus className="w-4 h-4" />New Lesson

@@ -128,3 +128,43 @@
     @apply font-sans;
   }
 }
+
+/* Onboarding tour (driver.js) — match platform's violet accent */
+.edugine-tour-popover.driver-popover {
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 20px 40px -8px rgba(15, 23, 42, 0.25);
+}
+.edugine-tour-popover .driver-popover-title {
+  font-weight: 800;
+  color: #1e293b;
+  font-size: 1rem;
+}
+.edugine-tour-popover .driver-popover-description {
+  color: #64748b;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.edugine-tour-popover .driver-popover-progress-text {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+.edugine-tour-popover .driver-popover-footer button {
+  border-radius: 0.625rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  padding: 0.5rem 0.875rem;
+  text-shadow: none;
+  background: white;
+}
+.edugine-tour-popover .driver-popover-footer .driver-popover-next-btn {
+  background: #7c3aed;
+  color: white;
+  border: none;
+}
+.edugine-tour-popover .driver-popover-footer .driver-popover-next-btn:hover {
+  background: #6d28d9;
+}
+.edugine-tour-popover .driver-popover-close-btn {
+  color: #94a3b8;
+}

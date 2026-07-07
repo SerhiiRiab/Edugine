@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -16,6 +16,8 @@ import {
   Globe,
 } from 'lucide-react'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
+import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
+import { OnboardingTour } from '@/components/onboarding/onboarding-tour'
 
 const NAV_ITEMS = [
   { href: '/tutor/dashboard',     label: 'Dashboard',    icon: LayoutDashboard },
@@ -31,13 +33,16 @@ interface Props {
   fullName: string | null
   plan: 'free' | 'pro'
   proExpiresAt: string | null
+  showWelcome: boolean
+  autoStartTour: boolean
   children: React.ReactNode
 }
 
-export function TutorShell({ email, fullName, plan, proExpiresAt, children }: Props) {
+export function TutorShell({ email, fullName, plan, proExpiresAt, showWelcome, autoStartTour, children }: Props) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [welcomeDismissed, setWelcomeDismissed] = useState(false)
 
   async function handleLogout() {
     const supabase = createClient()
@@ -48,7 +53,10 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, children }: Pr
 
   function closeMobile() { setMobileOpen(false) }
 
-  const SidebarContent = () => (
+  // Rendered once for the desktop sidebar and once for the mobile drawer —
+  // only tag the desktop copy for the tour so driver.js doesn't highlight
+  // whichever instance happens to be display:none on the current viewport.
+  const SidebarContent = ({ tourEnabled }: { tourEnabled: boolean }) => (
     <>
       {/* Logo */}
       <div className="px-6 py-5 border-b border-violet-800/60 flex items-center justify-between">
@@ -71,6 +79,7 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, children }: Pr
               key={href}
               href={href}
               onClick={closeMobile}
+              data-tour={tourEnabled && href === '/library' ? 'nav-library' : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 active
                   ? 'bg-violet-600 text-white'
@@ -120,7 +129,7 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, children }: Pr
 
       {/* ── Desktop sidebar ───────────────────────────────────────────────────── */}
       <aside className="hidden md:flex w-60 shrink-0 bg-violet-950 text-white flex-col">
-        <SidebarContent />
+        <SidebarContent tourEnabled />
       </aside>
 
       {/* ── Mobile sidebar backdrop ───────────────────────────────────────────── */}
@@ -138,7 +147,7 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, children }: Pr
         md:hidden
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        <SidebarContent />
+        <SidebarContent tourEnabled={false} />
       </aside>
 
       {/* ── Main ──────────────────────────────────────────────────────────────── */}
@@ -159,6 +168,14 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, children }: Pr
           {children}
         </main>
       </div>
+
+      {showWelcome && !welcomeDismissed && (
+        <WelcomeScreen onDone={() => setWelcomeDismissed(true)} />
+      )}
+
+      <Suspense fallback={null}>
+        <OnboardingTour autoStart={autoStartTour} />
+      </Suspense>
     </div>
   )
 }

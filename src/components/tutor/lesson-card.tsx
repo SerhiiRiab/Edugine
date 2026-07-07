@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { deleteLesson, duplicateLesson } from '@/lib/actions/lessons'
+import { LaunchLessonButton } from './launch-lesson-button'
 
 const LEVEL_COLORS: Record<string, string> = {
   A1: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -170,6 +171,11 @@ export function LessonCard({ lesson }: LessonCardProps) {
           <Clock className="w-3.5 h-3.5" />
           Updated {timeAgo(lesson.updated_at)}
         </span>
+      </div>
+
+      {/* Start Session */}
+      <div data-tour="lesson-card-launch" onClick={(e) => e.preventDefault()} className="mt-3">
+        <LaunchLessonButton lessonId={lesson.id} />
       </div>
     </Link>
   )
