@@ -114,7 +114,7 @@ export default async function TeachingLabPage() {
         </CollapsibleSection>
 
         {/* 2. Learning Mechanics */}
-        <CollapsibleSection emoji="🎭" title="Learning Mechanics" defaultOpen>
+        <CollapsibleSection emoji="🧩" title="Learning Mechanics" defaultOpen>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {TEACHING_LAB_MECHANICS.map((mechanic) => (
               <Link
