@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { GraduationCap, FlaskConical, Sparkles } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PlatformTourButton } from '@/components/teaching-lab/platform-tour-button'
-import { TEACHING_LAB_MECHANICS, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/teaching-lab/mechanics-data'
+import { TEACHING_LAB_MECHANICS } from '@/lib/teaching-lab/mechanics-data'
 
 export const metadata: Metadata = {
   title: 'Teaching Lab — Master Modern Lesson Design | Edugine',
@@ -130,16 +130,16 @@ export default async function TeachingLabPage() {
               <Link
                 key={mechanic.slug}
                 href={`/teaching-lab/mechanics/${mechanic.slug}`}
-                className="group flex flex-col bg-white rounded-2xl border-2 border-slate-100 p-5
+                className="group flex flex-col gap-3 bg-white rounded-2xl border-2 border-slate-100 p-5
                   hover:border-violet-200 hover:shadow-md transition-all"
               >
-                <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center text-xl shrink-0">
+                    {mechanic.emoji}
+                  </div>
                   <h3 className="font-bold text-slate-800 text-sm group-hover:text-violet-700 transition-colors">
                     {mechanic.name}
                   </h3>
-                  <span className={`shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${CATEGORY_COLORS[mechanic.category]}`}>
-                    {CATEGORY_LABELS[mechanic.category]}
-                  </span>
                 </div>
                 <p className="text-slate-400 text-xs leading-relaxed">{mechanic.description}</p>
               </Link>

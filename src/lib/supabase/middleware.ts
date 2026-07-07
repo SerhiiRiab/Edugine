@@ -69,8 +69,8 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  // Authenticated → skip auth pages, honour ?redirect= or fall back to dashboard
-  if (user && (pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password')) {
+  // Authenticated → skip the homepage and auth pages, honour ?redirect= or fall back to dashboard
+  if (user && (pathname === '/' || pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password')) {
     const url = request.nextUrl.clone()
     const redirectTo = request.nextUrl.searchParams.get('redirect')
     url.pathname = redirectTo || '/tutor/dashboard'

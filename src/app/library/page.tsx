@@ -80,6 +80,9 @@ export default async function LibraryPage() {
           </Link>
 
           <nav className="hidden sm:flex items-center gap-6">
+            <Link href="/library" className="text-violet-600 font-semibold text-sm">
+              Library
+            </Link>
             <Link href="/teaching-lab" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
               Teaching Lab
             </Link>
