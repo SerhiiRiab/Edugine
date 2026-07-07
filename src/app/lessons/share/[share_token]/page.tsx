@@ -20,6 +20,15 @@ import {
   Library,
   User,
   Users,
+  Clapperboard,
+  ToggleLeft,
+  PencilRuler,
+  Sparkles,
+  Ban,
+  ArrowUpRight,
+  Puzzle,
+  Search,
+  Presentation,
 } from 'lucide-react'
 
 type MechanicId = string
@@ -36,6 +45,18 @@ const MECHANIC_META: Record<MechanicId, { label: string; Icon: React.ComponentTy
   multiple_choice:    { label: 'Multiple Choice',     Icon: ListChecks },
   fill_the_gap:       { label: 'Fill the Gap',        Icon: PenLine },
   word_bank:          { label: 'Word Bank',           Icon: Library },
+  content_block:      { label: 'Content Block',       Icon: Clapperboard },
+  word_choice:        { label: 'Word Choice',         Icon: ToggleLeft },
+  correct_the_mistake: { label: 'Correct the Mistake', Icon: PencilRuler },
+  debate_roulette:    { label: 'Debate Roulette',     Icon: Gamepad2 },
+  hidden_role:        { label: 'Hidden Role',         Icon: Theater },
+  mission_briefing:   { label: 'Mission Briefing',    Icon: Target },
+  drama_event:        { label: 'Drama Event',         Icon: Sparkles },
+  taboo:              { label: 'Taboo',                Icon: Ban },
+  elevator_pitch:     { label: 'Elevator Pitch',      Icon: ArrowUpRight },
+  jigsaw_reading:     { label: 'Jigsaw Reading',      Icon: Puzzle },
+  predict_verify:     { label: 'Predict & Verify',    Icon: Search },
+  lesson_board:       { label: 'Lesson Board',        Icon: Presentation },
 }
 
 type Props = { params: Promise<{ share_token: string }> }

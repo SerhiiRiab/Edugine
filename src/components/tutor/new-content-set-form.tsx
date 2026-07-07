@@ -7,6 +7,7 @@ import {
   Target, Zap, PenLine, Mic, Mic2, MessageCircle, Theater,
   Clapperboard, CheckSquare, ListChecks, ChevronDown, ChevronUp,
   PencilRuler, Library, ToggleLeft, Gamepad2,
+  Sparkles, Ban, ArrowUpRight, Puzzle,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { createContentSet } from '@/lib/actions/content-sets'
@@ -42,6 +43,11 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   hidden_role:     Theater,
   mission_briefing: Target,
   lesson_board:    PenLine,
+  drama_event:     Sparkles,
+  taboo:           Ban,
+  elevator_pitch:  ArrowUpRight,
+  jigsaw_reading:  Puzzle,
+  predict_verify:  Search,
 }
 
 // ── Badge/dot colours keyed by skill_category — fully static for Tailwind ────

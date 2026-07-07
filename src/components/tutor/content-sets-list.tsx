@@ -31,6 +31,11 @@ const MECHANIC_OPTIONS: { id: string; label: string }[] = [
   { id: 'hidden_role',        label: 'Hidden Role' },
   { id: 'mission_briefing',   label: 'Mission Briefing' },
   { id: 'drama_event',        label: 'Drama Event' },
+  { id: 'taboo',              label: 'Taboo' },
+  { id: 'elevator_pitch',     label: 'Elevator Pitch' },
+  { id: 'jigsaw_reading',     label: 'Jigsaw Reading' },
+  { id: 'predict_verify',     label: 'Predict & Verify' },
+  { id: 'lesson_board',       label: 'Lesson Board' },
 ]
 
 interface Props {

@@ -7,6 +7,7 @@ import type { ComponentType } from 'react'
 import {
   Target, Zap, PenLine, Mic, Mic2, Clapperboard, CheckSquare,
   ListChecks, PencilRuler, Library, MessageCircle, Theater, ToggleLeft,
+  Sparkles, Ban, ArrowUpRight, Puzzle, Search, Presentation,
 } from 'lucide-react'
 import {
   Select,
@@ -32,6 +33,14 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   word_choice:        ToggleLeft,
   hidden_role:        Theater,
   mission_briefing:   Target,
+  correct_the_mistake: PencilRuler,
+  debate_roulette:    Gamepad2,
+  drama_event:        Sparkles,
+  taboo:              Ban,
+  elevator_pitch:     ArrowUpRight,
+  jigsaw_reading:     Puzzle,
+  predict_verify:     Search,
+  lesson_board:       Presentation,
 }
 
 const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {

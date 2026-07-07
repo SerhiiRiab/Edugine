@@ -3,7 +3,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, Mic, Mic2, MessageCircle, Theater } from 'lucide-react'
+import {
+  MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, Mic, Mic2, MessageCircle, Theater,
+  Clapperboard, CheckSquare, ListChecks, PencilRuler, Library, ToggleLeft, Gamepad2, Sparkles, Ban, ArrowUpRight, Puzzle, Search, Presentation,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -70,6 +73,76 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Mission Briefing',
     Icon: Target,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  content_block: {
+    label: 'Content Block',
+    Icon: Clapperboard,
+    classes: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
+  true_false: {
+    label: 'True or False',
+    Icon: CheckSquare,
+    classes: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
+  multiple_choice: {
+    label: 'Multiple Choice',
+    Icon: ListChecks,
+    classes: 'bg-rose-100 text-rose-700 border-rose-200',
+  },
+  fill_the_gap: {
+    label: 'Fill the Gap',
+    Icon: PenLine,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  word_bank: {
+    label: 'Word Bank',
+    Icon: Library,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  word_choice: {
+    label: 'Word Choice',
+    Icon: ToggleLeft,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  correct_the_mistake: {
+    label: 'Correct the Mistake',
+    Icon: PencilRuler,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  debate_roulette: {
+    label: 'Debate Roulette',
+    Icon: Gamepad2,
+    classes: 'bg-purple-100 text-purple-700 border-purple-200',
+  },
+  drama_event: {
+    label: 'Drama Event',
+    Icon: Sparkles,
+    classes: 'bg-rose-50 text-rose-600 border-rose-300',
+  },
+  taboo: {
+    label: 'Taboo',
+    Icon: Ban,
+    classes: 'bg-orange-100 text-orange-700 border-orange-200',
+  },
+  elevator_pitch: {
+    label: 'Elevator Pitch',
+    Icon: ArrowUpRight,
+    classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+  jigsaw_reading: {
+    label: 'Jigsaw Reading',
+    Icon: Puzzle,
+    classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
+  predict_verify: {
+    label: 'Predict & Verify',
+    Icon: Search,
+    classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
+  lesson_board: {
+    label: 'Lesson Board',
+    Icon: Presentation,
+    classes: 'bg-slate-100 text-slate-600 border-slate-200',
   },
 }
 

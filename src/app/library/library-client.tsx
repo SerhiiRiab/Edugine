@@ -20,6 +20,14 @@ import {
   LayoutList,
   BookOpen,
   ArrowRight,
+  Clapperboard,
+  ToggleLeft,
+  PencilRuler,
+  Sparkles,
+  Ban,
+  ArrowUpRight,
+  Puzzle,
+  Presentation,
 } from 'lucide-react'
 import type { LibraryLesson } from './page'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
@@ -53,6 +61,18 @@ const MECHANIC_META: Record<string, {
   multiple_choice:    { label: 'Multiple Choice',    Icon: ListChecks,  classes: 'bg-rose-100 text-rose-700' },
   fill_the_gap:       { label: 'Fill the Gap',       Icon: PenLine,     classes: 'bg-sky-100 text-sky-700' },
   word_bank:          { label: 'Word Bank',          Icon: Library,     classes: 'bg-violet-100 text-violet-700' },
+  content_block:      { label: 'Content Block',      Icon: Clapperboard, classes: 'bg-slate-100 text-slate-600' },
+  word_choice:        { label: 'Word Choice',        Icon: ToggleLeft,  classes: 'bg-violet-100 text-violet-700' },
+  correct_the_mistake: { label: 'Correct the Mistake', Icon: PencilRuler, classes: 'bg-sky-100 text-sky-700' },
+  debate_roulette:    { label: 'Debate Roulette',    Icon: Gamepad2,    classes: 'bg-purple-100 text-purple-700' },
+  hidden_role:        { label: 'Hidden Role',        Icon: Theater,     classes: 'bg-rose-100 text-rose-700' },
+  mission_briefing:   { label: 'Mission Briefing',   Icon: Target,      classes: 'bg-violet-100 text-violet-700' },
+  drama_event:        { label: 'Drama Event',        Icon: Sparkles,    classes: 'bg-rose-50 text-rose-600' },
+  taboo:              { label: 'Taboo',               Icon: Ban,         classes: 'bg-orange-100 text-orange-700' },
+  elevator_pitch:     { label: 'Elevator Pitch',     Icon: ArrowUpRight, classes: 'bg-emerald-100 text-emerald-700' },
+  jigsaw_reading:     { label: 'Jigsaw Reading',     Icon: Puzzle,      classes: 'bg-teal-100 text-teal-700' },
+  predict_verify:     { label: 'Predict & Verify',   Icon: Search,      classes: 'bg-teal-100 text-teal-700' },
+  lesson_board:       { label: 'Lesson Board',       Icon: Presentation, classes: 'bg-slate-100 text-slate-600' },
 }
 
 // ── Lesson card ───────────────────────────────────────────────────────────────

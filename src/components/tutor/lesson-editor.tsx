@@ -43,6 +43,11 @@ import {
   Link2,
   Globe,
   Copy,
+  Sparkles,
+  Ban,
+  ArrowUpRight,
+  Puzzle,
+  Presentation,
 } from 'lucide-react'
 import {
   DndContext,
@@ -198,12 +203,50 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     Icon: Theater,
     classes: 'bg-rose-50 text-rose-600 border-rose-300',
   },
+  mission_briefing: {
+    label: 'Mission Briefing',
+    Icon: Target,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  drama_event: {
+    label: 'Drama Event',
+    Icon: Sparkles,
+    classes: 'bg-rose-50 text-rose-600 border-rose-300',
+  },
+  taboo: {
+    label: 'Taboo',
+    Icon: Ban,
+    classes: 'bg-orange-100 text-orange-700 border-orange-200',
+  },
+  elevator_pitch: {
+    label: 'Elevator Pitch',
+    Icon: ArrowUpRight,
+    classes: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+  },
+  jigsaw_reading: {
+    label: 'Jigsaw Reading',
+    Icon: Puzzle,
+    classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
+  predict_verify: {
+    label: 'Predict & Verify',
+    Icon: Search,
+    classes: 'bg-teal-100 text-teal-700 border-teal-200',
+  },
+  lesson_board: {
+    label: 'Lesson Board',
+    Icon: Presentation,
+    classes: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
 }
 
 // Mechanics that only support individual mode
 const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap'])
 // Mechanics that only support shared mode
-const SHARED_ONLY = new Set(['story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette', 'hidden_role'])
+const SHARED_ONLY = new Set([
+  'story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette', 'hidden_role',
+  'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'predict_verify', 'lesson_board',
+])
 // Mechanics that support individual OR vote mode
 const VOTE_CAPABLE = new Set(['true_false', 'multiple_choice'])
 // Mechanics whose init*State server action actually reads config.timerSeconds.
