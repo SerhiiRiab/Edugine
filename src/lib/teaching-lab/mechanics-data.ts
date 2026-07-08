@@ -46,7 +46,7 @@ export const TEACHING_LAB_MECHANICS: TeachingLabMechanic[] = [
     name: 'Swipe Battle',
     description: 'A fast-paced card game where students swipe right if a definition is correct, left if wrong — or judge any statement by your own criteria.',
     category: 'vocabulary',
-    emoji: '🃏',
+    emoji: '👈👉',
     howItWorks: [
       'Create cards with a term and definition, or a single statement',
       'Students swipe right (correct/agree) or left (incorrect/disagree)',
