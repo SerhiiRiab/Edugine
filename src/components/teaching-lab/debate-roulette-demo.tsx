@@ -1,13 +1,23 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { RotateCcw, LayoutDashboard, Smartphone } from 'lucide-react'
+import { SpinningWheel, computeSpinRotation } from './spinning-wheel'
 
-const STATEMENTS = [
-  'Remote work makes employees less productive.',
-  "The customer is always right — even when they're wrong.",
-  'Every meeting could be an email.',
+interface Statement {
+  text: string
+  wheelColor: string
+}
+
+const STATEMENTS: Statement[] = [
+  { text: 'Remote work makes employees less productive.', wheelColor: '#8b5cf6' },
+  { text: "The customer is always right — even when they're wrong.", wheelColor: '#f97316' },
+  { text: 'Every meeting could be an email.', wheelColor: '#14b8a6' },
+  { text: 'Failing fast is more valuable than careful planning.', wheelColor: '#f43f5e' },
 ]
+
+const WHEEL_SEGMENTS = STATEMENTS.map((s, i) => ({ label: `#${i + 1}`, color: s.wheelColor }))
+const SPIN_DURATION_MS = 2800
 
 const USEFUL_PHRASES = [
   'I completely agree because…',
@@ -18,14 +28,29 @@ const USEFUL_PHRASES = [
 
 export function DebateRouletteDemo() {
   const [index, setIndex] = useState(0)
-  const isLast = index === STATEMENTS.length - 1
+  const [rotation, setRotation] = useState(0)
+  const [spinning, setSpinning] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleSpin() {
+    if (spinning) return
+    const targetIndex = Math.floor(Math.random() * STATEMENTS.length)
+    setSpinning(true)
+    setRotation((r) => computeSpinRotation(r, STATEMENTS.length, targetIndex))
+    timeoutRef.current = setTimeout(() => {
+      setIndex(targetIndex)
+      setSpinning(false)
+    }, SPIN_DURATION_MS)
+  }
 
   function handleNext() {
-    if (isLast) return
-    setIndex((i) => i + 1)
+    if (spinning) return
+    setIndex((i) => (i + 1) % STATEMENTS.length)
   }
 
   function handleReset() {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    setSpinning(false)
     setIndex(0)
   }
 
@@ -55,18 +80,35 @@ export function DebateRouletteDemo() {
           <h3 className="font-bold text-slate-800 mb-4">Tutor View</h3>
 
           <div className="bg-slate-50 rounded-xl border border-slate-100 p-4">
-            <p className="text-xs text-slate-400 mb-2">Statement {index + 1} of {STATEMENTS.length}</p>
-            <p className="text-slate-700 font-semibold leading-relaxed mb-4">{STATEMENTS[index]}</p>
+            <div className="flex items-center gap-4 mb-4">
+              <SpinningWheel segments={WHEEL_SEGMENTS} rotation={rotation} size={132} />
+              <div>
+                <button
+                  type="button"
+                  onClick={handleSpin}
+                  disabled={spinning}
+                  className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200
+                    disabled:text-slate-400 disabled:cursor-not-allowed text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors mb-2"
+                >
+                  {spinning ? 'Spinning…' : 'Spin'}
+                </button>
+                <p className="text-xs text-slate-400 mb-2">or step through manually</p>
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={spinning}
+                  className="inline-flex items-center gap-1.5 border border-slate-200 hover:border-violet-200 hover:text-violet-600
+                    disabled:opacity-50 disabled:cursor-not-allowed text-slate-600 font-semibold text-xs px-3 py-1.5 rounded-lg transition-colors"
+                >
+                  Next Statement
+                </button>
+              </div>
+            </div>
 
-            <button
-              type="button"
-              onClick={handleNext}
-              disabled={isLast}
-              className="inline-flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-200
-                disabled:text-slate-400 disabled:cursor-not-allowed text-white font-semibold text-sm px-4 py-2 rounded-lg transition-colors mb-5"
-            >
-              {isLast ? 'No more statements' : 'Next Statement'}
-            </button>
+            <p className="text-xs text-slate-400 mb-2">Statement {index + 1} of {STATEMENTS.length}</p>
+            <p className="text-slate-700 font-semibold leading-relaxed mb-5">
+              {spinning ? 'Spinning…' : STATEMENTS[index].text}
+            </p>
 
             <div>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Useful Phrases</p>
@@ -93,17 +135,21 @@ export function DebateRouletteDemo() {
           <h3 className="font-bold text-slate-800 mb-4">Student View</h3>
 
           <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 min-h-[220px] flex flex-col items-center justify-center text-center">
-            <p className="text-white font-bold text-lg leading-relaxed mb-6">{STATEMENTS[index]}</p>
-            <div className="flex flex-wrap gap-1.5 justify-center">
-              {USEFUL_PHRASES.map((phrase) => (
-                <span
-                  key={phrase}
-                  className="text-xs bg-slate-700 border border-slate-600 text-slate-300 rounded-full px-2.5 py-1"
-                >
-                  {phrase}
-                </span>
-              ))}
-            </div>
+            <p className="text-white font-bold text-lg leading-relaxed mb-6">
+              {spinning ? '🎡 Spinning the wheel…' : STATEMENTS[index].text}
+            </p>
+            {!spinning && (
+              <div className="flex flex-wrap gap-1.5 justify-center">
+                {USEFUL_PHRASES.map((phrase) => (
+                  <span
+                    key={phrase}
+                    className="text-xs bg-slate-700 border border-slate-600 text-slate-300 rounded-full px-2.5 py-1"
+                  >
+                    {phrase}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
