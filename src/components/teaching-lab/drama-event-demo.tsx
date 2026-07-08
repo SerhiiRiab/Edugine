@@ -139,23 +139,27 @@ export function DramaEventDemo() {
           </div>
           <h3 className="font-bold text-slate-800 mb-4">Student View</h3>
 
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 min-h-[220px] flex flex-col">
-            <p className="text-slate-300 text-sm leading-relaxed mb-4">{SCENARIO}</p>
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 flex flex-col items-center">
+            <p className="text-slate-300 text-sm leading-relaxed mb-4 self-stretch">{SCENARIO}</p>
 
-            {spinning ? (
-              <p className="text-slate-400 text-sm mt-auto italic">The wheel is spinning…</p>
-            ) : currentEvent ? (
-              <div className="mt-auto">
-                <p className="text-xs font-bold uppercase tracking-wide text-violet-300 mb-1">
-                  New development: {currentEvent.type}
+            <SpinningWheel segments={WHEEL_SEGMENTS} rotation={rotation} size={148} />
+
+            <div className="self-stretch mt-4">
+              {spinning ? (
+                <p className="text-slate-400 text-sm italic text-center">The wheel is spinning…</p>
+              ) : currentEvent ? (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wide text-violet-300 mb-1">
+                    New development: {currentEvent.type}
+                  </p>
+                  <p className="text-white font-semibold leading-relaxed">{currentEvent.text}</p>
+                </div>
+              ) : (
+                <p className="text-slate-500 text-sm italic text-center">
+                  Waiting for the tutor to spin the wheel…
                 </p>
-                <p className="text-white font-semibold leading-relaxed">{currentEvent.text}</p>
-              </div>
-            ) : (
-              <p className="text-slate-500 text-sm mt-auto italic">
-                Waiting for the tutor to spin the wheel…
-              </p>
-            )}
+              )}
+            </div>
           </div>
         </div>
 

@@ -6,17 +6,18 @@ import { SpinningWheel, computeSpinRotation } from './spinning-wheel'
 
 interface Statement {
   text: string
+  wheelLabel: string
   wheelColor: string
 }
 
 const STATEMENTS: Statement[] = [
-  { text: 'Remote work makes employees less productive.', wheelColor: '#8b5cf6' },
-  { text: "The customer is always right — even when they're wrong.", wheelColor: '#f97316' },
-  { text: 'Every meeting could be an email.', wheelColor: '#14b8a6' },
-  { text: 'Failing fast is more valuable than careful planning.', wheelColor: '#f43f5e' },
+  { text: 'Remote work makes employees less productive.', wheelLabel: 'Remote work makes employees', wheelColor: '#8b5cf6' },
+  { text: "The customer is always right — even when they're wrong.", wheelLabel: 'The customer is always', wheelColor: '#f97316' },
+  { text: 'Every meeting could be an email.', wheelLabel: 'Every meeting could be', wheelColor: '#14b8a6' },
+  { text: 'Failing fast is more valuable than careful planning.', wheelLabel: 'Failing fast is more', wheelColor: '#f43f5e' },
 ]
 
-const WHEEL_SEGMENTS = STATEMENTS.map((s, i) => ({ label: `#${i + 1}`, color: s.wheelColor }))
+const WHEEL_SEGMENTS = STATEMENTS.map((s) => ({ label: s.wheelLabel, color: s.wheelColor }))
 const SPIN_DURATION_MS = 2800
 
 const USEFUL_PHRASES = [
@@ -134,8 +135,9 @@ export function DebateRouletteDemo() {
           </div>
           <h3 className="font-bold text-slate-800 mb-4">Student View</h3>
 
-          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 min-h-[220px] flex flex-col items-center justify-center text-center">
-            <p className="text-white font-bold text-lg leading-relaxed mb-6">
+          <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 flex flex-col items-center text-center">
+            <SpinningWheel segments={WHEEL_SEGMENTS} rotation={rotation} size={148} />
+            <p className="text-white font-bold text-lg leading-relaxed mt-4 mb-6">
               {spinning ? '🎡 Spinning the wheel…' : STATEMENTS[index].text}
             </p>
             {!spinning && (
