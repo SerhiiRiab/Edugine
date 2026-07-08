@@ -11,10 +11,10 @@ interface Statement {
 }
 
 const STATEMENTS: Statement[] = [
-  { text: 'Remote work makes employees less productive.', wheelLabel: 'Remote work makes employees', wheelColor: '#8b5cf6' },
-  { text: "The customer is always right — even when they're wrong.", wheelLabel: 'The customer is always', wheelColor: '#f97316' },
-  { text: 'Every meeting could be an email.', wheelLabel: 'Every meeting could be', wheelColor: '#14b8a6' },
-  { text: 'Failing fast is more valuable than careful planning.', wheelLabel: 'Failing fast is more', wheelColor: '#f43f5e' },
+  { text: 'Remote work makes employees less productive.', wheelLabel: 'Remote work', wheelColor: '#8b5cf6' },
+  { text: "The customer is always right — even when they're wrong.", wheelLabel: 'The customer', wheelColor: '#f97316' },
+  { text: 'Every meeting could be an email.', wheelLabel: 'Every meeting', wheelColor: '#14b8a6' },
+  { text: 'Failing fast is more valuable than careful planning.', wheelLabel: 'Failing fast', wheelColor: '#f43f5e' },
 ]
 
 const WHEEL_SEGMENTS = STATEMENTS.map((s) => ({ label: s.wheelLabel, color: s.wheelColor }))
