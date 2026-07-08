@@ -13,12 +13,18 @@ import { SwipeBattleDemo } from '@/components/teaching-lab/swipe-battle-demo'
 import { DramaEventDemo } from '@/components/teaching-lab/drama-event-demo'
 import { DebateRouletteDemo } from '@/components/teaching-lab/debate-roulette-demo'
 import { RoleplayQuestDemo } from '@/components/teaching-lab/roleplay-quest-demo'
+import { HiddenRoleDemo } from '@/components/teaching-lab/hidden-role-demo'
+import { MissionBriefingDemo } from '@/components/teaching-lab/mission-briefing-demo'
+import { TalkTimeDemo } from '@/components/teaching-lab/talk-time-demo'
 
 const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'swipe-battle': SwipeBattleDemo,
   'drama-event': DramaEventDemo,
   'debate-roulette': DebateRouletteDemo,
   'roleplay-quest': RoleplayQuestDemo,
+  'hidden-role': HiddenRoleDemo,
+  'mission-briefing': MissionBriefingDemo,
+  'talk-time': TalkTimeDemo,
 }
 
 type Props = { params: Promise<{ slug: string }> }
