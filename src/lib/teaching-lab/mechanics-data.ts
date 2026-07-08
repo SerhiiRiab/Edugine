@@ -257,7 +257,7 @@ export const TEACHING_LAB_MECHANICS: TeachingLabMechanic[] = [
     name: 'Taboo',
     description: 'Describe a word without using the forbidden words. Classic party game format that builds circumlocution skills.',
     category: 'speaking',
-    emoji: '🎲',
+    emoji: '🚫',
     howItWorks: [
       'A word appears with 4-5 forbidden words',
       'Student describes the word without using the forbidden ones',
