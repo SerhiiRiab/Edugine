@@ -10,6 +10,16 @@ import {
   getMechanicBySlug,
 } from '@/lib/teaching-lab/mechanics-data'
 import { SwipeBattleDemo } from '@/components/teaching-lab/swipe-battle-demo'
+import { DramaEventDemo } from '@/components/teaching-lab/drama-event-demo'
+import { DebateRouletteDemo } from '@/components/teaching-lab/debate-roulette-demo'
+import { RoleplayQuestDemo } from '@/components/teaching-lab/roleplay-quest-demo'
+
+const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
+  'swipe-battle': SwipeBattleDemo,
+  'drama-event': DramaEventDemo,
+  'debate-roulette': DebateRouletteDemo,
+  'roleplay-quest': RoleplayQuestDemo,
+}
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -52,6 +62,8 @@ export default async function MechanicPage({ params }: Props) {
   const mechanic = getMechanicBySlug(slug)
 
   if (!mechanic) notFound()
+
+  const DemoComponent = DEMO_COMPONENTS[mechanic.slug]
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -198,13 +210,13 @@ export default async function MechanicPage({ params }: Props) {
         </div>
 
         {/* Interactive demo */}
-        {mechanic.slug === 'swipe-battle' && (
+        {DemoComponent && (
           <section className="mt-14">
             <div className="flex items-center gap-2 mb-4">
               <PlayCircle className="w-4 h-4 text-violet-500" />
               <h2 className="text-lg font-bold text-slate-800">See how it works</h2>
             </div>
-            <SwipeBattleDemo />
+            <DemoComponent />
           </section>
         )}
 
