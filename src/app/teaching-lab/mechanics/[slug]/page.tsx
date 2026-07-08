@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { GraduationCap, ListOrdered, CheckCircle2, Lightbulb, Code2, ArrowLeft } from 'lucide-react'
+import { GraduationCap, ListOrdered, CheckCircle2, Lightbulb, Code2, ArrowLeft, PlayCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   TEACHING_LAB_MECHANICS,
@@ -9,6 +9,7 @@ import {
   CATEGORY_COLORS,
   getMechanicBySlug,
 } from '@/lib/teaching-lab/mechanics-data'
+import { SwipeBattleDemo } from '@/components/teaching-lab/swipe-battle-demo'
 
 type Props = { params: Promise<{ slug: string }> }
 
@@ -195,6 +196,17 @@ export default async function MechanicPage({ params }: Props) {
           )}
 
         </div>
+
+        {/* Interactive demo */}
+        {mechanic.slug === 'swipe-battle' && (
+          <section className="mt-14">
+            <div className="flex items-center gap-2 mb-4">
+              <PlayCircle className="w-4 h-4 text-violet-500" />
+              <h2 className="text-lg font-bold text-slate-800">See how it works</h2>
+            </div>
+            <SwipeBattleDemo />
+          </section>
+        )}
 
         {/* CTA */}
         <div className="mt-14 text-center">
