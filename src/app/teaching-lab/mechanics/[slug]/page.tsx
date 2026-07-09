@@ -5,8 +5,6 @@ import { GraduationCap, ListOrdered, CheckCircle2, Lightbulb, Code2, ArrowLeft, 
 import { createClient } from '@/lib/supabase/server'
 import {
   TEACHING_LAB_MECHANICS,
-  CATEGORY_LABELS,
-  CATEGORY_COLORS,
   CATEGORY_SEO_TAGLINES,
   getMechanicBySlug,
   getMechanicMetaDescription,
@@ -170,11 +168,6 @@ export default async function MechanicPage({ params }: Props) {
             {mechanic.emoji}
           </div>
           <div>
-            <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border mb-2 ${CATEGORY_COLORS[mechanic.category]}`}
-            >
-              {CATEGORY_LABELS[mechanic.category]}
-            </span>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">{mechanic.name}</h1>
             <p className="text-violet-500 text-sm font-semibold mt-1">{CATEGORY_SEO_TAGLINES[mechanic.category]}</p>
           </div>
