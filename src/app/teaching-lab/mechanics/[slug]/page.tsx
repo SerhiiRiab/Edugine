@@ -16,6 +16,10 @@ import { RoleplayQuestDemo } from '@/components/teaching-lab/roleplay-quest-demo
 import { HiddenRoleDemo } from '@/components/teaching-lab/hidden-role-demo'
 import { MissionBriefingDemo } from '@/components/teaching-lab/mission-briefing-demo'
 import { TalkTimeDemo } from '@/components/teaching-lab/talk-time-demo'
+import { TrueFalseDemo } from '@/components/teaching-lab/true-false-demo'
+import { MultipleChoiceDemo } from '@/components/teaching-lab/multiple-choice-demo'
+import { WordChoiceDemo } from '@/components/teaching-lab/word-choice-demo'
+import { SpeedMatchDemo } from '@/components/teaching-lab/speed-match-demo'
 
 const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'swipe-battle': SwipeBattleDemo,
@@ -25,6 +29,10 @@ const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'hidden-role': HiddenRoleDemo,
   'mission-briefing': MissionBriefingDemo,
   'talk-time': TalkTimeDemo,
+  'true-false': TrueFalseDemo,
+  'multiple-choice': MultipleChoiceDemo,
+  'word-choice': WordChoiceDemo,
+  'speed-match': SpeedMatchDemo,
 }
 
 type Props = { params: Promise<{ slug: string }> }
