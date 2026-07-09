@@ -113,26 +113,27 @@ export function FillTheGapDemo() {
 
           <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 min-h-[220px] flex flex-col">
             <p className="text-white font-bold leading-relaxed mb-5 text-center">
-              {sentence.before} <span className="text-violet-300">_______</span> {sentence.after}
-            </p>
-
-            <div className="mt-auto">
+              {sentence.before}{' '}
               <input
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
                 disabled={response !== null}
-                placeholder="Type your answer…"
-                className={`w-full rounded-lg border-2 bg-slate-900/60 text-white text-sm px-3 py-2.5 mb-3 outline-none transition-colors
-                  placeholder:text-slate-500 disabled:pointer-events-none ${
+                placeholder="…"
+                style={{ width: `${Math.max(...sentence.answers.map((a) => a.length)) + 2}ch` }}
+                className={`inline-block bg-transparent text-white font-bold text-center outline-none border-0 border-b-2 px-1 mx-1
+                  placeholder:text-slate-500 placeholder:font-normal disabled:pointer-events-none transition-colors ${
                   response !== null
                     ? isCorrect
-                      ? 'border-emerald-400'
-                      : 'border-rose-400'
-                    : 'border-slate-700 focus:border-violet-400'
+                      ? 'border-emerald-400 text-emerald-300'
+                      : 'border-rose-400 text-rose-300'
+                    : 'border-slate-500 focus:border-violet-400'
                 }`}
-              />
+              />{' '}
+              {sentence.after}
+            </p>
 
+            <div className="mt-auto">
               {response !== null && (
                 <p className={`text-sm font-semibold flex items-center gap-1.5 mb-3 ${isCorrect ? 'text-emerald-300' : 'text-rose-300'}`}>
                   {isCorrect ? <Check className="w-3.5 h-3.5 shrink-0" /> : <X className="w-3.5 h-3.5 shrink-0" />}
