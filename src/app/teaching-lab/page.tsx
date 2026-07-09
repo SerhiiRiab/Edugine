@@ -5,7 +5,49 @@ import type { LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PlatformTourButton } from '@/components/teaching-lab/platform-tour-button'
 import { CollapsibleSection } from '@/components/teaching-lab/collapsible-section'
+import { LessonDesignCard } from '@/components/teaching-lab/lesson-design-card'
 import { TEACHING_LAB_MECHANICS } from '@/lib/teaching-lab/mechanics-data'
+
+function MechanicLink({ slug, children }: { slug: string; children: React.ReactNode }) {
+  return (
+    <Link href={`/teaching-lab/mechanics/${slug}`} className="text-violet-600 hover:text-violet-700 font-semibold">
+      {children}
+    </Link>
+  )
+}
+
+function FlowStep({ n, label, children }: { n: number; label: string; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-2.5">
+      <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5">
+        {n}
+      </span>
+      <span>
+        <span className="font-semibold text-slate-700">{label}</span> — {children}
+      </span>
+    </li>
+  )
+}
+
+function ComboStep({ from, to, children }: { from: React.ReactNode; to: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-1.5">
+      <span className="text-slate-300 mt-0.5 shrink-0">•</span>
+      <span>
+        {from} <span className="text-slate-400">→</span> {to} — {children}
+      </span>
+    </li>
+  )
+}
+
+function TipItem({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-start gap-1.5">
+      <span className="text-slate-300 mt-0.5 shrink-0">•</span>
+      <span>{children}</span>
+    </li>
+  )
+}
 
 export const metadata: Metadata = {
   title: 'Teaching Lab — Master Modern Lesson Design | Edugine',
@@ -166,10 +208,99 @@ export default async function TeachingLabPage() {
 
         {/* 3. Lesson Design */}
         <CollapsibleSection emoji="📚" title="Lesson Design">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <ComingSoonCard title="Building Lesson Flow" />
-            <ComingSoonCard title="Combining Activities" />
-            <ComingSoonCard title="Keeping Students Engaged" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-start">
+            <LessonDesignCard title="Building Lesson Flow" subtitle="A good lesson has a shape.">
+              <p>
+                A good lesson moves from warm-up to core practice to reflection — not just a random sequence of
+                activities.
+              </p>
+              <p className="font-semibold text-slate-700">A typical 60-90 minute lesson flow:</p>
+              <ol className="space-y-2.5">
+                <FlowStep n={1} label="Open">
+                  <MechanicLink slug="talk-time">Talk Time</MechanicLink> or{' '}
+                  <MechanicLink slug="swipe-battle">Swipe Battle</MechanicLink> to activate prior knowledge (10 min)
+                </FlowStep>
+                <FlowStep n={2} label="Input">
+                  <MechanicLink slug="content-block">Content Block</MechanicLink>,{' '}
+                  <MechanicLink slug="predict-and-verify">Predict & Verify</MechanicLink>, or{' '}
+                  <MechanicLink slug="jigsaw-reading">Jigsaw Reading</MechanicLink> to introduce new content (15-20
+                  min)
+                </FlowStep>
+                <FlowStep n={3} label="Practice">
+                  <MechanicLink slug="word-choice">Word Choice</MechanicLink>,{' '}
+                  <MechanicLink slug="fill-the-gap">Fill the Gap</MechanicLink>, or{' '}
+                  <MechanicLink slug="correct-the-mistake">Correct the Mistake</MechanicLink> for controlled practice
+                  (15 min)
+                </FlowStep>
+                <FlowStep n={4} label="Production">
+                  <MechanicLink slug="debate-roulette">Debate Roulette</MechanicLink>,{' '}
+                  <MechanicLink slug="elevator-pitch">Elevator Pitch</MechanicLink>, or{' '}
+                  <MechanicLink slug="roleplay-quest">Roleplay Quest</MechanicLink> for free practice (20-25 min)
+                </FlowStep>
+                <FlowStep n={5} label="Close">
+                  <MechanicLink slug="story-builder">Story Builder</MechanicLink> or{' '}
+                  <MechanicLink slug="talk-time">Talk Time</MechanicLink> to reflect and consolidate (10 min)
+                </FlowStep>
+              </ol>
+              <p>
+                Mix mechanics so students aren&apos;t doing the same type of task twice in a row. Alternate between
+                individual focus and speaking activities.
+              </p>
+            </LessonDesignCard>
+
+            <LessonDesignCard title="Combining Activities" subtitle="Some mechanics work especially well together.">
+              <ul className="space-y-2.5">
+                <ComboStep from={<MechanicLink slug="content-block">Content Block</MechanicLink>} to={<MechanicLink slug="true-false">True/False</MechanicLink>}>
+                  watch or read, then check comprehension
+                </ComboStep>
+                <ComboStep from={<MechanicLink slug="swipe-battle">Swipe Battle</MechanicLink>} to={<MechanicLink slug="taboo">Taboo</MechanicLink>}>
+                  learn vocabulary, then activate it without using the words
+                </ComboStep>
+                <ComboStep from={<MechanicLink slug="jigsaw-reading">Jigsaw Reading</MechanicLink>} to={<MechanicLink slug="debate-roulette">Debate Roulette</MechanicLink>}>
+                  read different perspectives, then debate them
+                </ComboStep>
+                <ComboStep from={<MechanicLink slug="predict-and-verify">Predict & Verify</MechanicLink>} to={<MechanicLink slug="talk-time">Talk Time</MechanicLink>}>
+                  engage curiosity, then discuss what surprised them
+                </ComboStep>
+                <ComboStep from={<MechanicLink slug="mission-briefing">Mission Briefing</MechanicLink>} to={<MechanicLink slug="debate-roulette">Debate Roulette</MechanicLink>}>
+                  roleplay a scenario, then debate the decisions made
+                </ComboStep>
+                <ComboStep from={<MechanicLink slug="swipe-battle">Swipe Battle</MechanicLink>} to={<MechanicLink slug="speaking-challenge">Speaking Challenge</MechanicLink>}>
+                  review terms, then use them spontaneously in speech
+                </ComboStep>
+                <ComboStep from={<MechanicLink slug="drama-event">Drama Event</MechanicLink>} to={<MechanicLink slug="talk-time">Talk Time</MechanicLink>}>
+                  react to unexpected situations, then reflect on decisions made
+                </ComboStep>
+              </ul>
+            </LessonDesignCard>
+
+            <LessonDesignCard
+              title="Keeping Students Engaged"
+              subtitle="The biggest enemy of online lessons is passive listening."
+            >
+              <p>Every 10-15 minutes, students need to do something — not just hear something.</p>
+              <p className="font-semibold text-slate-700">Practical tips:</p>
+              <ul className="space-y-2.5">
+                <TipItem>Never run more than 2 content-heavy activities in a row</TipItem>
+                <TipItem>
+                  Use <MechanicLink slug="debate-roulette">Debate Roulette</MechanicLink> or{' '}
+                  <MechanicLink slug="speed-debate">Speed Debate</MechanicLink> to re-energize a slow session
+                </TipItem>
+                <TipItem>
+                  <MechanicLink slug="drama-event">Drama Event</MechanicLink> works well when energy drops — the
+                  unexpected always wakes people up
+                </TipItem>
+                <TipItem>Let students see their score at the end — even adults respond to points</TipItem>
+                <TipItem>
+                  The <MechanicLink slug="lesson-board">Lesson Board</MechanicLink> keeps visual learners anchored
+                  during explanation-heavy moments
+                </TipItem>
+                <TipItem>Vary the pace: fast vocabulary games before slower reading activities</TipItem>
+                <TipItem>
+                  End with something the student produced — a pitch, a story, a debate — not a grammar exercise
+                </TipItem>
+              </ul>
+            </LessonDesignCard>
           </div>
         </CollapsibleSection>
 
