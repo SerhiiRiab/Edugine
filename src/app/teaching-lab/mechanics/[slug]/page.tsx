@@ -23,6 +23,10 @@ import { SpeedMatchDemo } from '@/components/teaching-lab/speed-match-demo'
 import { FillTheGapDemo } from '@/components/teaching-lab/fill-the-gap-demo'
 import { WordBankDemo } from '@/components/teaching-lab/word-bank-demo'
 import { CorrectTheMistakeDemo } from '@/components/teaching-lab/correct-the-mistake-demo'
+import { ContentBlockDemo } from '@/components/teaching-lab/content-block-demo'
+import { PredictAndVerifyDemo } from '@/components/teaching-lab/predict-and-verify-demo'
+import { JigsawReadingDemo } from '@/components/teaching-lab/jigsaw-reading-demo'
+import { StoryBuilderDemo } from '@/components/teaching-lab/story-builder-demo'
 
 const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'swipe-battle': SwipeBattleDemo,
@@ -39,6 +43,10 @@ const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'fill-the-gap': FillTheGapDemo,
   'word-bank': WordBankDemo,
   'correct-the-mistake': CorrectTheMistakeDemo,
+  'content-block': ContentBlockDemo,
+  'predict-and-verify': PredictAndVerifyDemo,
+  'jigsaw-reading': JigsawReadingDemo,
+  'story-builder': StoryBuilderDemo,
 }
 
 type Props = { params: Promise<{ slug: string }> }
