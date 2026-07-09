@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { GraduationCap, FlaskConical, Sparkles } from 'lucide-react'
+import { GraduationCap, FlaskConical, Sparkles, Rocket, ListChecks } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { PlatformTourButton } from '@/components/teaching-lab/platform-tour-button'
 import { CollapsibleSection } from '@/components/teaching-lab/collapsible-section'
@@ -27,6 +28,22 @@ export const metadata: Metadata = {
       'Discover interactive teaching mechanics, lesson design principles, and creative activities for language tutors and corporate trainers.',
     images: ['https://edugine.app/og-image.png'],
   },
+}
+
+function GettingStartedLink({ icon: Icon, title, description, href }: { icon: LucideIcon; title: string; description: string; href: string }) {
+  return (
+    <Link
+      href={href}
+      className="group flex flex-col items-start text-left bg-white rounded-2xl border-2 border-slate-100 p-5
+        hover:border-violet-300 hover:shadow-md transition-all"
+    >
+      <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center mb-3 group-hover:bg-violet-200 transition-colors">
+        <Icon className="w-5 h-5 text-violet-600" />
+      </div>
+      <h3 className="font-bold text-slate-800 text-sm mb-1">{title}</h3>
+      <p className="text-slate-400 text-xs leading-relaxed">{description}</p>
+    </Link>
+  )
 }
 
 function ComingSoonCard({ title }: { title: string }) {
@@ -108,8 +125,18 @@ export default async function TeachingLabPage() {
         <CollapsibleSection emoji="🚀" title="Getting Started">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <PlatformTourButton />
-            <ComingSoonCard title="Your First Lesson" />
-            <ComingSoonCard title="Quick Start Guide" />
+            <GettingStartedLink
+              icon={Rocket}
+              title="Your First Lesson"
+              description="From zero to your first live session in 5 minutes."
+              href="/teaching-lab/your-first-lesson"
+            />
+            <GettingStartedLink
+              icon={ListChecks}
+              title="Quick Start Guide"
+              description="Everything you need to know, in one page."
+              href="/teaching-lab/quick-start-guide"
+            />
           </div>
         </CollapsibleSection>
 
