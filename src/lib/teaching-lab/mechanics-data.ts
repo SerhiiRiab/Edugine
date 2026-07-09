@@ -40,6 +40,61 @@ export const CATEGORY_COLORS: Record<MechanicCategory, string> = {
   'teaching-tool': 'bg-slate-50 text-slate-500 border-slate-200',
 }
 
+// Short, category-level SEO taglines shown directly under each mechanic's H1
+// and folded into its meta description. Rotated per category (rather than
+// repeating one boilerplate phrase on all 23 pages) so the target keyword
+// set — ESL/EFL activity, Business English lesson, interactive classroom
+// activity, language tutor tool, online teaching activity, vocabulary game,
+// speaking activity, roleplay for ESL — appears naturally across the set
+// without stuffing any single page.
+export const CATEGORY_SEO_TAGLINES: Record<MechanicCategory, string> = {
+  vocabulary: 'Vocabulary game for ESL & Business English tutors',
+  grammar: 'Grammar activity for ESL & Business English learners',
+  speaking: 'Speaking activity for ESL & Business English tutors',
+  reading: 'Reading activity for ESL and EFL classrooms',
+  'reading-listening': 'Interactive classroom activity for ESL and EFL tutors',
+  writing: 'Writing activity for ESL & Business English learners',
+  simulation: 'Roleplay for ESL & Business English learners',
+  'teaching-tool': 'Online teaching tool for language tutors',
+}
+
+function lowerFirst(s: string): string {
+  return s.charAt(0).toLowerCase() + s.slice(1)
+}
+
+// Builds a unique, keyword-rich meta description per mechanic: the existing
+// human-written `description` (already unique per page) followed by a short
+// clause naming the mechanic and its category tagline.
+export function getMechanicMetaDescription(mechanic: TeachingLabMechanic): string {
+  const tagline = lowerFirst(CATEGORY_SEO_TAGLINES[mechanic.category])
+  return `${mechanic.description} ${mechanic.name} is a free ${tagline}, ready to run in your next online lesson.`
+}
+
+// A few categories only have one or two mechanics, so same-category alone
+// can't fill a 3-item "related mechanics" list — top up from a closely
+// related category in that case.
+const RELATED_FALLBACK_CATEGORIES: Partial<Record<MechanicCategory, MechanicCategory[]>> = {
+  'reading-listening': ['reading', 'speaking'],
+  writing: ['reading', 'grammar'],
+  'teaching-tool': ['reading-listening', 'simulation'],
+}
+
+export function getRelatedMechanics(mechanic: TeachingLabMechanic, limit = 3): TeachingLabMechanic[] {
+  const related = TEACHING_LAB_MECHANICS.filter(
+    (m) => m.category === mechanic.category && m.slug !== mechanic.slug
+  )
+
+  for (const category of RELATED_FALLBACK_CATEGORIES[mechanic.category] ?? []) {
+    if (related.length >= limit) break
+    const extras = TEACHING_LAB_MECHANICS.filter(
+      (m) => m.category === category && m.slug !== mechanic.slug && !related.includes(m)
+    )
+    related.push(...extras)
+  }
+
+  return related.slice(0, limit)
+}
+
 export const TEACHING_LAB_MECHANICS: TeachingLabMechanic[] = [
   {
     slug: 'swipe-battle',

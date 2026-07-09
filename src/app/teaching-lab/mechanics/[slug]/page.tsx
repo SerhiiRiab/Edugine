@@ -1,13 +1,16 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { GraduationCap, ListOrdered, CheckCircle2, Lightbulb, Code2, ArrowLeft, PlayCircle } from 'lucide-react'
+import { GraduationCap, ListOrdered, CheckCircle2, Lightbulb, Code2, ArrowLeft, PlayCircle, LayoutGrid } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   TEACHING_LAB_MECHANICS,
   CATEGORY_LABELS,
   CATEGORY_COLORS,
+  CATEGORY_SEO_TAGLINES,
   getMechanicBySlug,
+  getMechanicMetaDescription,
+  getRelatedMechanics,
 } from '@/lib/teaching-lab/mechanics-data'
 import { SwipeBattleDemo } from '@/components/teaching-lab/swipe-battle-demo'
 import { DramaEventDemo } from '@/components/teaching-lab/drama-event-demo'
@@ -66,24 +69,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!mechanic) return { title: 'Mechanic not found — Edugine' }
 
   const title = `${mechanic.name} — Interactive Teaching Activity | Edugine`
+  const description = getMechanicMetaDescription(mechanic)
   const url = `https://edugine.app/teaching-lab/mechanics/${mechanic.slug}`
+  const imageAlt = `${mechanic.name} — ${CATEGORY_SEO_TAGLINES[mechanic.category]} | Edugine`
 
   return {
     title,
-    description: mechanic.description,
+    description,
     alternates: { canonical: url },
     openGraph: {
       type: 'article',
       url,
       siteName: 'Edugine',
       title,
-      description: mechanic.description,
-      images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: mechanic.name }],
+      description,
+      images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: imageAlt }],
     },
     twitter: {
       card: 'summary_large_image',
       title,
-      description: mechanic.description,
+      description,
       images: ['https://edugine.app/og-image.png'],
     },
   }
@@ -96,6 +101,7 @@ export default async function MechanicPage({ params }: Props) {
   if (!mechanic) notFound()
 
   const DemoComponent = DEMO_COMPONENTS[mechanic.slug]
+  const relatedMechanics = getRelatedMechanics(mechanic)
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -170,6 +176,7 @@ export default async function MechanicPage({ params }: Props) {
               {CATEGORY_LABELS[mechanic.category]}
             </span>
             <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight">{mechanic.name}</h1>
+            <p className="text-violet-500 text-sm font-semibold mt-1">{CATEGORY_SEO_TAGLINES[mechanic.category]}</p>
           </div>
         </div>
         <p className="text-slate-500 text-lg leading-relaxed mb-12 max-w-2xl">{mechanic.description}</p>
@@ -249,6 +256,31 @@ export default async function MechanicPage({ params }: Props) {
               <h2 className="text-lg font-bold text-slate-800">See how it works</h2>
             </div>
             <DemoComponent />
+          </section>
+        )}
+
+        {/* Related mechanics */}
+        {relatedMechanics.length > 0 && (
+          <section className="mt-14">
+            <div className="flex items-center gap-2 mb-4">
+              <LayoutGrid className="w-4 h-4 text-violet-500" />
+              <h2 className="text-lg font-bold text-slate-800">Related mechanics</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {relatedMechanics.map((related) => (
+                <Link
+                  key={related.slug}
+                  href={`/teaching-lab/mechanics/${related.slug}`}
+                  className="flex items-start gap-3 bg-white rounded-xl border border-slate-100 p-4 hover:border-violet-200 transition-colors"
+                >
+                  <span className="text-2xl shrink-0">{related.emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-slate-800">{related.name}</p>
+                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">{related.description}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </section>
         )}
 
