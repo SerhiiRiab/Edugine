@@ -20,6 +20,9 @@ import { TrueFalseDemo } from '@/components/teaching-lab/true-false-demo'
 import { MultipleChoiceDemo } from '@/components/teaching-lab/multiple-choice-demo'
 import { WordChoiceDemo } from '@/components/teaching-lab/word-choice-demo'
 import { SpeedMatchDemo } from '@/components/teaching-lab/speed-match-demo'
+import { FillTheGapDemo } from '@/components/teaching-lab/fill-the-gap-demo'
+import { WordBankDemo } from '@/components/teaching-lab/word-bank-demo'
+import { CorrectTheMistakeDemo } from '@/components/teaching-lab/correct-the-mistake-demo'
 
 const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'swipe-battle': SwipeBattleDemo,
@@ -33,6 +36,9 @@ const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'multiple-choice': MultipleChoiceDemo,
   'word-choice': WordChoiceDemo,
   'speed-match': SpeedMatchDemo,
+  'fill-the-gap': FillTheGapDemo,
+  'word-bank': WordBankDemo,
+  'correct-the-mistake': CorrectTheMistakeDemo,
 }
 
 type Props = { params: Promise<{ slug: string }> }
