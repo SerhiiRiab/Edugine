@@ -6,7 +6,9 @@ import { createClient } from '@/lib/supabase/server'
 import { PlatformTourButton } from '@/components/teaching-lab/platform-tour-button'
 import { CollapsibleSection } from '@/components/teaching-lab/collapsible-section'
 import { LessonDesignCard } from '@/components/teaching-lab/lesson-design-card'
+import { ArticleCard } from '@/components/teaching-lab/article-card'
 import { TEACHING_LAB_MECHANICS } from '@/lib/teaching-lab/mechanics-data'
+import { getTeachingLabArticlesBySection } from '@/lib/sanity'
 
 function MechanicLink({ slug, children }: { slug: string; children: React.ReactNode }) {
   return (
@@ -103,6 +105,12 @@ export default async function TeachingLabPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
+  const [teachingIdeasArticles, teachingPrinciplesArticles, edugineLabsArticles] = await Promise.all([
+    getTeachingLabArticlesBySection('Teaching Ideas'),
+    getTeachingLabArticlesBySection('Teaching Principles'),
+    getTeachingLabArticlesBySection('Edugine Labs'),
+  ])
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-violet-50/30">
 
@@ -117,6 +125,9 @@ export default async function TeachingLabPage() {
           <nav className="hidden sm:flex items-center gap-6">
             <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
               Library
+            </Link>
+            <Link href="/blog" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+              Blog
             </Link>
             <Link href="/teaching-lab" className="text-violet-600 font-semibold text-sm">
               Teaching Lab
@@ -306,38 +317,62 @@ export default async function TeachingLabPage() {
 
         {/* 4. Teaching Ideas */}
         <CollapsibleSection emoji="💡" title="Teaching Ideas">
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            <ComingSoonCard title="Lesson Examples" />
-            <ComingSoonCard title="Icebreakers" />
-            <ComingSoonCard title="Speaking Lessons" />
-            <ComingSoonCard title="Business English" />
-            <ComingSoonCard title="Young Learners" />
-          </div>
+          {teachingIdeasArticles.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {teachingIdeasArticles.map((article) => (
+                <ArticleCard key={article._id} article={article} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              <ComingSoonCard title="Lesson Examples" />
+              <ComingSoonCard title="Icebreakers" />
+              <ComingSoonCard title="Speaking Lessons" />
+              <ComingSoonCard title="Business English" />
+              <ComingSoonCard title="Young Learners" />
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* 5. Teaching Principles */}
         <CollapsibleSection emoji="🧠" title="Teaching Principles">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <ComingSoonCard title="Why These Mechanics Work" />
-            <ComingSoonCard title="Psychology of Engagement" />
-            <ComingSoonCard title="Active Learning" />
-          </div>
+          {teachingPrinciplesArticles.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {teachingPrinciplesArticles.map((article) => (
+                <ArticleCard key={article._id} article={article} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <ComingSoonCard title="Why These Mechanics Work" />
+              <ComingSoonCard title="Psychology of Engagement" />
+              <ComingSoonCard title="Active Learning" />
+            </div>
+          )}
         </CollapsibleSection>
 
         {/* 6. Edugine Labs */}
         <CollapsibleSection emoji="🔬" title="Edugine Labs">
-          <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-8 flex flex-col items-center text-center">
-            <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-4">
-              <FlaskConical className="w-6 h-6 text-white" />
+          {edugineLabsArticles.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {edugineLabsArticles.map((article) => (
+                <ArticleCard key={article._id} article={article} />
+              ))}
             </div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-white border border-white/20 mb-3">
-              <Sparkles className="w-3 h-3" />
-              Coming Soon
-            </span>
-            <p className="text-violet-100 max-w-md leading-relaxed">
-              Experimental mechanics and research-backed teaching tools. Coming soon.
-            </p>
-          </div>
+          ) : (
+            <div className="bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl p-8 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur border border-white/20 flex items-center justify-center mb-4">
+                <FlaskConical className="w-6 h-6 text-white" />
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-white border border-white/20 mb-3">
+                <Sparkles className="w-3 h-3" />
+                Coming Soon
+              </span>
+              <p className="text-violet-100 max-w-md leading-relaxed">
+                Experimental mechanics and research-backed teaching tools. Coming soon.
+              </p>
+            </div>
+          )}
         </CollapsibleSection>
 
       </div>
