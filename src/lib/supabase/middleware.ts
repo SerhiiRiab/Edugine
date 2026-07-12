@@ -79,7 +79,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Admin routes — only allow the designated admin email
-  if (pathname.startsWith('/admin')) {
+  if (pathname.startsWith('/admin') || pathname.startsWith('/studio')) {
     if (!user || user.email !== 'ryabushey@gmail.com') {
       const url = request.nextUrl.clone()
       url.pathname = user ? '/tutor/dashboard' : '/login'
