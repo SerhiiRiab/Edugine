@@ -105,9 +105,13 @@ export default async function TeachingLabPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const [teachingIdeasArticles, teachingPrinciplesArticles, edugineLabsArticles] = await Promise.all([
-    getTeachingLabArticlesBySection('Teaching Ideas'),
-    getTeachingLabArticlesBySection('Teaching Principles'),
+  // Teaching Ideas and Teaching Principles sections are hidden (moved to the blog) — see JSX below.
+  // const [teachingIdeasArticles, teachingPrinciplesArticles, edugineLabsArticles] = await Promise.all([
+  //   getTeachingLabArticlesBySection('Teaching Ideas'),
+  //   getTeachingLabArticlesBySection('Teaching Principles'),
+  //   getTeachingLabArticlesBySection('Edugine Labs'),
+  // ])
+  const [edugineLabsArticles] = await Promise.all([
     getTeachingLabArticlesBySection('Edugine Labs'),
   ])
 
@@ -315,7 +319,7 @@ export default async function TeachingLabPage() {
           </div>
         </CollapsibleSection>
 
-        {/* 4. Teaching Ideas */}
+        {/* 4. Teaching Ideas — hidden, moved to the blog
         <CollapsibleSection emoji="💡" title="Teaching Ideas">
           {teachingIdeasArticles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -333,8 +337,9 @@ export default async function TeachingLabPage() {
             </div>
           )}
         </CollapsibleSection>
+        */}
 
-        {/* 5. Teaching Principles */}
+        {/* 5. Teaching Principles — hidden, moved to the blog
         <CollapsibleSection emoji="🧠" title="Teaching Principles">
           {teachingPrinciplesArticles.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -350,6 +355,7 @@ export default async function TeachingLabPage() {
             </div>
           )}
         </CollapsibleSection>
+        */}
 
         {/* 6. Edugine Labs */}
         <CollapsibleSection emoji="🔬" title="Edugine Labs">
