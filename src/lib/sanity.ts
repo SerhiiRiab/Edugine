@@ -82,40 +82,62 @@ const TEACHING_LAB_ARTICLE_FIELDS = /* groq */ `
 `
 
 export async function getBlogPosts(): Promise<BlogPost[]> {
-  return sanityClient.fetch(
-    `*[_type == "blogPost" && published == true] | order(publishedAt desc) { ${BLOG_POST_FIELDS} }`,
-    {},
-    { next: { revalidate: 60 } },
-  )
+  try {
+    return await sanityClient.fetch(
+      `*[_type == "blogPost" && published == true] | order(publishedAt desc) { ${BLOG_POST_FIELDS} }`,
+      {},
+      { next: { revalidate: 60 } },
+    )
+  } catch (error) {
+    console.error('getBlogPosts failed:', error)
+    return []
+  }
 }
 
 export async function getBlogPostBySlug(slug: string): Promise<BlogPost | null> {
-  return sanityClient.fetch(
-    `*[_type == "blogPost" && slug.current == $slug && published == true][0] { ${BLOG_POST_FIELDS} }`,
-    { slug },
-    { next: { revalidate: 60 } },
-  )
+  try {
+    return await sanityClient.fetch(
+      `*[_type == "blogPost" && slug.current == $slug && published == true][0] { ${BLOG_POST_FIELDS} }`,
+      { slug },
+      { next: { revalidate: 60 } },
+    )
+  } catch (error) {
+    console.error(`getBlogPostBySlug(${slug}) failed:`, error)
+    return null
+  }
 }
 
 export async function getAllBlogPostSlugs(): Promise<string[]> {
-  const slugs: string[] = await sanityClient.fetch(
-    `*[_type == "blogPost" && published == true].slug.current`,
-  )
-  return slugs
+  try {
+    return await sanityClient.fetch(`*[_type == "blogPost" && published == true].slug.current`)
+  } catch (error) {
+    console.error('getAllBlogPostSlugs failed:', error)
+    return []
+  }
 }
 
 export async function getTeachingLabArticlesBySection(section: TeachingLabSection): Promise<TeachingLabArticle[]> {
-  return sanityClient.fetch(
-    `*[_type == "teachingLabArticle" && section == $section && published == true] | order(title asc) { ${TEACHING_LAB_ARTICLE_FIELDS} }`,
-    { section },
-    { next: { revalidate: 60 } },
-  )
+  try {
+    return await sanityClient.fetch(
+      `*[_type == "teachingLabArticle" && section == $section && published == true] | order(title asc) { ${TEACHING_LAB_ARTICLE_FIELDS} }`,
+      { section },
+      { next: { revalidate: 60 } },
+    )
+  } catch (error) {
+    console.error(`getTeachingLabArticlesBySection(${section}) failed:`, error)
+    return []
+  }
 }
 
 export async function getTeachingLabArticleBySlug(slug: string): Promise<TeachingLabArticle | null> {
-  return sanityClient.fetch(
-    `*[_type == "teachingLabArticle" && slug.current == $slug && published == true][0] { ${TEACHING_LAB_ARTICLE_FIELDS} }`,
-    { slug },
-    { next: { revalidate: 60 } },
-  )
+  try {
+    return await sanityClient.fetch(
+      `*[_type == "teachingLabArticle" && slug.current == $slug && published == true][0] { ${TEACHING_LAB_ARTICLE_FIELDS} }`,
+      { slug },
+      { next: { revalidate: 60 } },
+    )
+  } catch (error) {
+    console.error(`getTeachingLabArticleBySlug(${slug}) failed:`, error)
+    return null
+  }
 }
