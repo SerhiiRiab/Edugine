@@ -1,9 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, Plus, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Loader2, Plus, ChevronDown, ChevronUp, Sparkles, BookOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import { getDraft, updateBrief } from '@/app/admin/lesson-generator/actions'
+import { getDraft, updateBrief, saveDraftAsLesson } from '@/app/admin/lesson-generator/actions'
 import type { GeneratedBlock, LessonBrief, LessonDraft, LessonDraftSummary } from '@/app/admin/lesson-generator/types'
 import { BriefForm } from './BriefForm'
 import { BriefEditor } from './BriefEditor'
@@ -15,11 +16,13 @@ interface Props {
 }
 
 export function LessonGeneratorClient({ initialDrafts }: Props) {
+  const router = useRouter()
   const [drafts, setDrafts] = useState(initialDrafts)
   const [draft, setDraft] = useState<LessonDraft | null>(null)
   const [blocks, setBlocks] = useState<GeneratedBlock[]>([])
   const [loading, setLoading] = useState(false)
   const [briefOpen, setBriefOpen] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   const briefSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -61,6 +64,20 @@ export function LessonGeneratorClient({ initialDrafts }: Props) {
   function handleNewDraft() {
     setDraft(null)
     setBlocks([])
+  }
+
+  async function handleSaveAsLesson() {
+    if (!draft) return
+    setSaving(true)
+    try {
+      const { lessonId } = await saveDraftAsLesson(draft.id)
+      toast.success('Lesson saved!')
+      router.push(`/tutor/lessons/${lessonId}/edit`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to save lesson')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function upsertBlock(block: GeneratedBlock) {
@@ -116,9 +133,21 @@ export function LessonGeneratorClient({ initialDrafts }: Props) {
           <BriefForm onGenerated={handleBriefGenerated} />
         ) : (
           <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
-            <div>
-              <h1 className="text-lg font-extrabold text-slate-800">{draft.topic}</h1>
-              <p className="text-xs text-slate-400">{draft.cefrLevel}</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-lg font-extrabold text-slate-800">{draft.topic}</h1>
+                <p className="text-xs text-slate-400">{draft.cefrLevel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveAsLesson}
+                disabled={saving || blocks.every(b => b.items.length === 0)}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600
+                  disabled:opacity-40 text-white text-sm font-bold transition-colors shrink-0"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+                {saving ? 'Saving...' : 'Save as Lesson'}
+              </button>
             </div>
 
             {/* Lesson Brief */}

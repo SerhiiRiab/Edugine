@@ -10,11 +10,10 @@ import type { GeneratedBlock, LessonBrief } from '@/app/admin/lesson-generator/t
 import { bulkEnabledMechanicIds } from '@/app/admin/lesson-generator/types'
 import {
   generateBulkBlock, updateGeneratedItem, regenerateGeneratedItem, regenerateBlock,
-  deleteGeneratedItem, deleteBlock, insertBulkItem, insertAllBulkItems,
+  deleteGeneratedItem, deleteBlock,
 } from '@/app/admin/lesson-generator/actions'
 import { checkAlternatingPattern, rebalanceForAlternation } from '@/lib/mechanics/swipe-battle/alternating-check'
 import { GeneratedItemCard } from './GeneratedItemCard'
-import { InsertTargetPicker } from './InsertTargetPicker'
 import { fieldsForBlock } from './block-fields'
 
 interface Props {
@@ -121,12 +120,9 @@ function BulkBlockSection({
 }) {
   const [askText, setAskText] = useState('')
   const [askBusy, setAskBusy] = useState(false)
-  const [targetSetId, setTargetSetId] = useState<string | null>(null)
-  const [insertingAll, setInsertingAll] = useState(false)
   const mechanicId = block.mechanicId as MechanicId
   const def = MECHANICS[mechanicId]
   const fields = fieldsForBlock(block)
-  const pendingCount = block.items.filter(i => i.status === 'draft').length
 
   const alternatingCheck = mechanicId === 'swipe_battle'
     ? checkAlternatingPattern(block.items.map(i => ({ isCorrect: Boolean(i.data.isCorrect) })))
@@ -152,40 +148,6 @@ function BulkBlockSection({
   async function deleteItem(itemId: string) {
     onBlockUpdated({ ...block, items: block.items.filter(i => i.id !== itemId) })
     try { await deleteGeneratedItem(block.id, itemId) } catch { toast.error('Delete failed') }
-  }
-
-  async function insertItem(itemId: string) {
-    if (!targetSetId) { toast.error('Choose a content set first'); return }
-    try {
-      await insertBulkItem(block.id, itemId, targetSetId)
-      onBlockUpdated({
-        ...block,
-        items: block.items.map(i => i.id === itemId
-          ? { ...i, status: 'inserted' as const, insertedContentSetId: targetSetId }
-          : i),
-      })
-    } catch {
-      toast.error('Insert failed')
-    }
-  }
-
-  async function insertAll() {
-    if (!targetSetId) { toast.error('Choose a content set first'); return }
-    setInsertingAll(true)
-    try {
-      await insertAllBulkItems(block.id, targetSetId)
-      onBlockUpdated({
-        ...block,
-        items: block.items.map(i => i.status === 'draft'
-          ? { ...i, status: 'inserted' as const, insertedContentSetId: targetSetId }
-          : i),
-      })
-      toast.success(`Inserted ${pendingCount} items`)
-    } catch {
-      toast.error('Insert failed')
-    } finally {
-      setInsertingAll(false)
-    }
   }
 
   async function handleAskBlock() {
@@ -274,27 +236,6 @@ function BulkBlockSection({
         </button>
       </div>
 
-      {pendingCount > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 border-b border-slate-100 bg-white">
-          <InsertTargetPicker
-            mechanicId={mechanicId}
-            value={targetSetId}
-            onChange={setTargetSetId}
-            defaultTitle={`${def.name} — generated`}
-          />
-          <button
-            type="button"
-            onClick={insertAll}
-            disabled={insertingAll || !targetSetId}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500
-              hover:bg-emerald-600 disabled:opacity-40 text-white whitespace-nowrap transition-colors"
-          >
-            {insertingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            Insert all {pendingCount}
-          </button>
-        </div>
-      )}
-
       <div className="p-4 space-y-2">
         {block.items.map(item => (
           <GeneratedItemCard
@@ -304,8 +245,6 @@ function BulkBlockSection({
             onUpdate={(patch) => updateItemLocal(item.id, patch)}
             onRegenerate={(instruction) => regenerateItem(item.id, instruction)}
             onDelete={() => deleteItem(item.id)}
-            onInsert={() => insertItem(item.id)}
-            insertLabel="Insert"
           />
         ))}
       </div>

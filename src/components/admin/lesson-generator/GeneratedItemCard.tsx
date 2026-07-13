@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2, RefreshCw, MessageSquarePlus, Trash2, CheckCircle2, Sparkles, X } from 'lucide-react'
+import { Loader2, RefreshCw, MessageSquarePlus, Trash2, X } from 'lucide-react'
 import type { GeneratedItem } from '@/app/admin/lesson-generator/types'
 import type { BlockField } from './block-fields'
 
@@ -11,14 +11,12 @@ interface Props {
   onUpdate: (patch: Record<string, unknown>) => void
   onRegenerate: (instruction?: string) => Promise<void>
   onDelete: () => void
-  onInsert?: () => Promise<void>
-  insertLabel?: string
 }
 
-export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDelete, onInsert, insertLabel }: Props) {
+export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDelete }: Props) {
   const [askOpen, setAskOpen] = useState(false)
   const [askText, setAskText] = useState('')
-  const [busy, setBusy] = useState<'regen' | 'ask' | 'insert' | null>(null)
+  const [busy, setBusy] = useState<'regen' | 'ask' | null>(null)
 
   async function handleRegenerate() {
     setBusy('regen')
@@ -35,18 +33,8 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
     } finally { setBusy(null) }
   }
 
-  async function handleInsert() {
-    if (!onInsert) return
-    setBusy('insert')
-    try { await onInsert() } finally { setBusy(null) }
-  }
-
-  const inserted = item.status === 'inserted'
-
   return (
-    <div className={`rounded-xl border p-3 space-y-2 transition-colors ${
-      inserted ? 'border-emerald-200 bg-emerald-50/40' : 'border-slate-200 bg-white'
-    }`}>
+    <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 transition-colors">
       {/* Fields */}
       <div className="grid gap-2" style={{ gridTemplateColumns: fields.length > 2 ? '1fr 1fr' : '1fr' }}>
         {fields.map(field => (
@@ -57,9 +45,8 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
             {field.type === 'boolean' ? (
               <button
                 type="button"
-                disabled={inserted}
                 onClick={() => onUpdate({ [field.key]: !(item.data[field.key] as boolean) })}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 disabled:opacity-50 ${
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
                   item.data[field.key] ? 'bg-emerald-400' : 'bg-slate-200'
                 }`}
               >
@@ -71,11 +58,10 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
               <textarea
                 value={(item.data[field.key] as string) ?? ''}
                 onChange={(e) => onUpdate({ [field.key]: e.target.value })}
-                disabled={inserted}
                 rows={1}
                 className="w-full text-sm text-slate-800 bg-slate-50 rounded-lg border border-slate-200
                   focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none
-                  px-2.5 py-1.5 transition-colors resize-y disabled:opacity-70 disabled:cursor-not-allowed"
+                  px-2.5 py-1.5 transition-colors resize-y"
               />
             )}
           </div>
@@ -100,7 +86,7 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
       )}
 
       {/* Ask for a change */}
-      {askOpen && !inserted && (
+      {askOpen && (
         <div className="flex gap-2">
           <input
             autoFocus
@@ -128,57 +114,37 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
 
       {/* Actions */}
       <div className="flex items-center gap-1.5 pt-1">
-        {inserted ? (
-          <span className="flex items-center gap-1 text-xs font-semibold text-emerald-600">
-            <CheckCircle2 className="w-3.5 h-3.5" />Inserted
-          </span>
-        ) : (
-          <>
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={busy !== null}
-              title="Regenerate this one"
-              className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-slate-500
-                hover:bg-slate-100 disabled:opacity-40 transition-colors"
-            >
-              {busy === 'regen' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Regenerate
-            </button>
-            <button
-              type="button"
-              onClick={() => setAskOpen(v => !v)}
-              disabled={busy !== null}
-              title="Ask for a change"
-              className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-slate-500
-                hover:bg-slate-100 disabled:opacity-40 transition-colors"
-            >
-              <MessageSquarePlus className="w-3.5 h-3.5" />
-              Ask for a change
-            </button>
-            {onInsert && (
-              <button
-                type="button"
-                onClick={handleInsert}
-                disabled={busy !== null}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-lg
-                  bg-indigo-600 hover:bg-indigo-700 text-white disabled:opacity-40 transition-colors ml-auto"
-              >
-                {busy === 'insert' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                {insertLabel ?? 'Insert'}
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onDelete}
-              disabled={busy !== null}
-              title="Delete"
-              className={`p-1 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 transition-colors ${onInsert ? '' : 'ml-auto'}`}
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          onClick={handleRegenerate}
+          disabled={busy !== null}
+          title="Regenerate this one"
+          className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-slate-500
+            hover:bg-slate-100 disabled:opacity-40 transition-colors"
+        >
+          {busy === 'regen' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          Regenerate
+        </button>
+        <button
+          type="button"
+          onClick={() => setAskOpen(v => !v)}
+          disabled={busy !== null}
+          title="Ask for a change"
+          className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-slate-500
+            hover:bg-slate-100 disabled:opacity-40 transition-colors"
+        >
+          <MessageSquarePlus className="w-3.5 h-3.5" />
+          Ask for a change
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={busy !== null}
+          title="Delete"
+          className="p-1 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-400 transition-colors ml-auto"
+        >
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
       </div>
     </div>
   )

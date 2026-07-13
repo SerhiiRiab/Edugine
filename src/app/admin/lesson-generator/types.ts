@@ -9,15 +9,11 @@ export function bulkEnabledMechanicIds(): MechanicId[] {
 }
 
 export type BlockType = 'bulk_content' | 'grammar_table' | 'vocab_cards'
-export type GeneratedItemStatus = 'draft' | 'inserted'
 
 export interface GeneratedItem {
   id: string
   data: Record<string, unknown>
-  status: GeneratedItemStatus
   previousData?: Record<string, unknown>
-  insertedContentSetId?: string
-  insertedItemId?: string
 }
 
 export interface GeneratedBlock {

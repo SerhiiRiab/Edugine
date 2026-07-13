@@ -12,7 +12,9 @@ import {
 import type { GrammarTableRow, VocabCard } from '@/lib/mechanics/content-block/types'
 import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from '@/lib/mechanics/content-block/types'
 import type { MechanicId } from '@/lib/mechanics/types'
-import { createContentItem, bulkCreateContentItems, fetchContentSets } from '@/lib/actions/content-sets'
+import { MECHANICS } from '@/lib/mechanics/registry'
+import { createContentItem, bulkCreateContentItems } from '@/lib/actions/content-sets'
+import { linkContentSetToLesson } from '@/lib/actions/lessons'
 import type { LessonBrief } from '@/lib/ai/lesson-brief'
 import type { BlockType, GeneratedItem, GeneratedBlock, LessonDraft } from './types'
 
@@ -158,7 +160,7 @@ export async function updateBrief(draftId: string, brief: LessonBrief): Promise<
 // ── Block generation ─────────────────────────────────────────────────────────
 
 function newItem(data: Record<string, unknown>): GeneratedItem {
-  return { id: randomUUID(), data, status: 'draft' }
+  return { id: randomUUID(), data }
 }
 
 export async function generateBulkBlock(
@@ -337,72 +339,10 @@ export async function deleteBlock(blockId: string): Promise<void> {
   revalidatePath('/admin/lesson-generator')
 }
 
-// ── Insert targets ───────────────────────────────────────────────────────────
+// ── Save as Lesson ───────────────────────────────────────────────────────────
 
-export async function listInsertTargets(mechanicId: MechanicId) {
-  await assertAdmin()
-  const { items } = await fetchContentSets({ mechanicId, limit: 50 })
-  return items.map(s => ({ id: s.id, title: s.title, itemCount: s.item_count }))
-}
-
-export async function createInsertTargetSet(
-  mechanicId: MechanicId, title: string,
-): Promise<{ id: string; title: string }> {
-  const admin = await assertAdmin()
-  if (!title.trim()) throw new Error('Title is required')
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('content_sets')
-    .insert({ owner_id: admin.id, mechanic_id: mechanicId, title: title.trim(), language: 'en' })
-    .select('id, title')
-    .single()
-  if (error || !data) throw new Error(error?.message ?? 'Failed to create content set')
-  revalidatePath('/tutor/content-sets')
-  return data
-}
-
-// ── Insertion ────────────────────────────────────────────────────────────────
-
-export async function insertBulkItem(blockId: string, itemId: string, targetSetId: string): Promise<void> {
-  const admin = await assertAdmin()
-  const block = await loadBlock(blockId)
-  const item = block.items.find(i => i.id === itemId)
-  if (!item) throw new Error('Item not found')
-
-  const created = await createContentItem(targetSetId, item.data)
-  const items = block.items.map(i => i.id === itemId
-    ? { ...i, status: 'inserted' as const, insertedContentSetId: targetSetId, insertedItemId: created.id }
-    : i)
-  await saveBlockItems(blockId, items)
-  revalidatePath('/admin/lesson-generator')
-  revalidatePath(`/tutor/content-sets/${targetSetId}/edit`)
-}
-
-export async function insertAllBulkItems(blockId: string, targetSetId: string): Promise<void> {
-  const admin = await assertAdmin()
-  const block = await loadBlock(blockId)
-  const pending = block.items.filter(i => i.status === 'draft')
-  if (pending.length === 0) return
-
-  const created = await bulkCreateContentItems(targetSetId, pending.map(i => i.data))
-  const createdIds = new Map(pending.map((item, idx) => [item.id, created[idx]?.id]))
-
-  const items = block.items.map(i => createdIds.has(i.id)
-    ? { ...i, status: 'inserted' as const, insertedContentSetId: targetSetId, insertedItemId: createdIds.get(i.id) }
-    : i)
-  await saveBlockItems(blockId, items)
-  revalidatePath('/admin/lesson-generator')
-  revalidatePath(`/tutor/content-sets/${targetSetId}/edit`)
-}
-
-export async function insertStructuredBlock(blockId: string, targetSetId: string): Promise<void> {
-  const admin = await assertAdmin()
-  const block = await loadBlock(blockId)
-  if (block.block_type !== 'grammar_table' && block.block_type !== 'vocab_cards') {
-    throw new Error('Not a structured content_block block')
-  }
-
-  const contentItemData = {
+function buildStructuredContentItemData(block: BlockRow) {
+  return {
     type: block.block_type,
     text: '', videoUrl: '', images: [], imageLayout: null,
     discussionQuestions: [], trueFalseCards: [],
@@ -413,12 +353,67 @@ export async function insertStructuredBlock(blockId: string, targetSetId: string
       ? { whenToUse: block.when_to_use ?? '', cards: block.items.map(i => i.data) }
       : EMPTY_VOCAB_CARDS,
   }
+}
 
-  const created = await createContentItem(targetSetId, contentItemData)
-  const items = block.items.map(i => (
-    { ...i, status: 'inserted' as const, insertedContentSetId: targetSetId, insertedItemId: created.id }
-  ))
-  await saveBlockItems(blockId, items)
+export async function saveDraftAsLesson(draftId: string): Promise<{ lessonId: string }> {
+  const admin = await assertAdmin()
+  const draftRow = await loadDraft(draftId, admin.id)
+  const supabase = await createClient()
+
+  const { data: blockRows, error: blocksErr } = await supabase
+    .from('ai_generated_blocks')
+    .select('id, draft_id, block_type, mechanic_id, when_to_use, items, position')
+    .eq('draft_id', draftId)
+    .order('position', { ascending: true })
+  if (blocksErr) throw new Error(blocksErr.message)
+
+  const blocks = ((blockRows ?? []) as BlockRow[]).filter(b => b.items.length > 0)
+  if (blocks.length === 0) throw new Error('Generate some content before saving as a lesson')
+
+  const brief = draftRow.brief as LessonBrief
+  const { data: lesson, error: lessonErr } = await supabase
+    .from('lessons')
+    .insert({
+      owner_id: admin.id,
+      title: draftRow.topic.slice(0, 100),
+      description: brief.problem?.slice(0, 500) ?? null,
+      language: 'en',
+      level: draftRow.cefr_level,
+    })
+    .select('id')
+    .single()
+  if (lessonErr || !lesson) throw new Error(lessonErr?.message ?? 'Failed to create lesson')
+
+  for (const block of blocks) {
+    if (block.block_type === 'bulk_content' && !block.mechanic_id) {
+      throw new Error('Bulk content block missing mechanic_id')
+    }
+    const mechanicId = block.block_type === 'bulk_content' ? block.mechanic_id! : 'content_block'
+    const title = (block.block_type === 'bulk_content'
+      ? `${draftRow.topic} — ${MECHANICS[mechanicId as MechanicId].name}`
+      : block.block_type === 'grammar_table'
+        ? `${draftRow.topic} — Grammar Table`
+        : `${draftRow.topic} — Vocabulary Cards`
+    ).slice(0, 100)
+
+    const { data: set, error: setErr } = await supabase
+      .from('content_sets')
+      .insert({ owner_id: admin.id, mechanic_id: mechanicId, title, language: 'en' })
+      .select('id')
+      .single()
+    if (setErr || !set) throw new Error(setErr?.message ?? 'Failed to create content set')
+
+    if (block.block_type === 'bulk_content') {
+      await bulkCreateContentItems(set.id, block.items.map(i => i.data))
+    } else {
+      await createContentItem(set.id, buildStructuredContentItemData(block))
+    }
+
+    const linkResult = await linkContentSetToLesson(set.id, lesson.id)
+    if (linkResult.error) throw new Error(linkResult.error)
+  }
+
   revalidatePath('/admin/lesson-generator')
-  revalidatePath(`/tutor/content-sets/${targetSetId}/edit`)
+  revalidatePath('/tutor/lessons')
+  return { lessonId: lesson.id }
 }

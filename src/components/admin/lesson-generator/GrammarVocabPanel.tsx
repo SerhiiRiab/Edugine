@@ -6,10 +6,9 @@ import { toast } from 'sonner'
 import type { GeneratedBlock } from '@/app/admin/lesson-generator/types'
 import {
   generateGrammarBlock, generateVocabBlock, updateGeneratedItem, regenerateGeneratedItem,
-  regenerateBlock, deleteGeneratedItem, deleteBlock, updateBlockWhenToUse, insertStructuredBlock,
+  regenerateBlock, deleteGeneratedItem, deleteBlock, updateBlockWhenToUse,
 } from '@/app/admin/lesson-generator/actions'
 import { GeneratedItemCard } from './GeneratedItemCard'
-import { InsertTargetPicker } from './InsertTargetPicker'
 import { fieldsForBlock } from './block-fields'
 
 interface Props {
@@ -112,10 +111,7 @@ function StructuredBlockSection({
   const [askText, setAskText] = useState('')
   const [askBusy, setAskBusy] = useState(false)
   const [whenToUse, setWhenToUse] = useState(block.whenToUse ?? '')
-  const [targetSetId, setTargetSetId] = useState<string | null>(null)
-  const [inserting, setInserting] = useState(false)
   const fields = fieldsForBlock(block)
-  const allInserted = block.items.length > 0 && block.items.every(i => i.status === 'inserted')
 
   function updateItemLocal(itemId: string, patch: Record<string, unknown>) {
     onBlockUpdated({
@@ -157,23 +153,6 @@ function StructuredBlockSection({
       toast.error('Failed to apply change')
     } finally {
       setAskBusy(false)
-    }
-  }
-
-  async function handleInsert() {
-    if (!targetSetId) { toast.error('Choose a content set first'); return }
-    setInserting(true)
-    try {
-      await insertStructuredBlock(block.id, targetSetId)
-      onBlockUpdated({
-        ...block,
-        items: block.items.map(i => ({ ...i, status: 'inserted' as const, insertedContentSetId: targetSetId })),
-      })
-      toast.success('Inserted as a Content Block item')
-    } catch {
-      toast.error('Insert failed')
-    } finally {
-      setInserting(false)
     }
   }
 
@@ -227,27 +206,6 @@ function StructuredBlockSection({
           />
         ))}
       </div>
-
-      {!allInserted && block.items.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-3 border-t border-slate-100 bg-white">
-          <InsertTargetPicker
-            mechanicId="content_block"
-            value={targetSetId}
-            onChange={setTargetSetId}
-            defaultTitle={block.blockType === 'grammar_table' ? 'Grammar Table — generated' : 'Vocabulary Cards — generated'}
-          />
-          <button
-            type="button"
-            onClick={handleInsert}
-            disabled={inserting || !targetSetId}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500
-              hover:bg-emerald-600 disabled:opacity-40 text-white whitespace-nowrap transition-colors"
-          >
-            {inserting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-            Insert as Content Block
-          </button>
-        </div>
-      )}
     </div>
   )
 }
