@@ -6,6 +6,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
 import type { ContentBlockState, ContentBlockItem, ContentBlockTFCard } from '@/lib/mechanics/content-block/types'
+import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from '@/lib/mechanics/content-block/types'
 import type { VoteState } from '@/lib/mechanics/vote/types'
 import type { SpeedDebateState } from '@/lib/mechanics/speed-debate/types'
 import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
@@ -384,13 +385,15 @@ export async function initContentBlockState(
   const rawItem = rawItems[0]?.data ?? {}
 
   const content: ContentBlockItem = {
-    type: (rawItem.type as 'text' | 'video') ?? 'text',
+    type: (rawItem.type as ContentBlockItem['type']) ?? 'text',
     text: (rawItem.text as string) ?? '',
     videoUrl: (rawItem.videoUrl as string) ?? '',
     images: (rawItem.images as unknown[]) ?? [],
     imageLayout: null,
     discussionQuestions: (rawItem.discussionQuestions as string[]) ?? [],
     trueFalseCards: (rawItem.trueFalseCards as ContentBlockTFCard[]) ?? [],
+    grammarTable: (rawItem.grammarTable as ContentBlockItem['grammarTable']) ?? EMPTY_GRAMMAR_TABLE,
+    vocabCards: (rawItem.vocabCards as ContentBlockItem['vocabCards']) ?? EMPTY_VOCAB_CARDS,
   }
 
   const initialState: ContentBlockState = {

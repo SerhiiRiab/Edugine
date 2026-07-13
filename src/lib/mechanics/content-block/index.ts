@@ -5,7 +5,7 @@ import type { ComponentType } from 'react'
 function validateContentBlockItem(data: unknown): data is ContentBlockItem {
   if (typeof data !== 'object' || data === null) return false
   const d = data as Record<string, unknown>
-  return (d.type === 'text' || d.type === 'video')
+  return (d.type === 'text' || d.type === 'video' || d.type === 'grammar_table' || d.type === 'vocab_cards')
     && typeof d.text === 'string'
     && typeof d.videoUrl === 'string'
 }

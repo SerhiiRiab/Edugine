@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronRight, StopCircle, Users, Eye, FileText, Video, MessageSquare, ToggleLeft, Check, ChevronLeft } from 'lucide-react'
+import { ChevronRight, StopCircle, Users, Eye, FileText, Video, MessageSquare, ToggleLeft, Check, ChevronLeft, Table2, BookOpen } from 'lucide-react'
 import type { ContentBlockState } from './types'
 
 function extractYouTubeId(url: string): string | null {
@@ -85,7 +85,11 @@ export function ContentBlockHostPanel({
           bg-orange-100 text-orange-700 border border-orange-200">
           {content.type === 'text'
             ? <><FileText className="w-3 h-3" /> Text</>
-            : <><Video className="w-3 h-3" /> Video</>
+            : content.type === 'video'
+            ? <><Video className="w-3 h-3" /> Video</>
+            : content.type === 'grammar_table'
+            ? <><Table2 className="w-3 h-3" /> Grammar Table</>
+            : <><BookOpen className="w-3 h-3" /> Vocabulary Cards</>
           }
         </span>
         <span className="text-xs text-slate-400">
@@ -106,7 +110,7 @@ export function ContentBlockHostPanel({
               </p>
             </div>
           </div>
-        ) : (
+        ) : content.type === 'video' ? (
           <div className="p-4">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 px-2">
               Video (student view)
@@ -130,6 +134,48 @@ export function ContentBlockHostPanel({
                 </div>
               </div>
             )}
+          </div>
+        ) : content.type === 'grammar_table' ? (
+          <div className="px-6 py-5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+              Grammar Table (student view)
+            </p>
+            <div className="bg-slate-50 rounded-xl border border-slate-100 px-5 py-4 max-h-56 overflow-y-auto space-y-2">
+              {content.grammarTable.whenToUse && (
+                <p className="text-xs text-orange-600 font-semibold mb-2">{content.grammarTable.whenToUse}</p>
+              )}
+              {content.grammarTable.rows.length === 0 ? (
+                <p className="text-slate-300 italic text-sm">No rows yet</p>
+              ) : (
+                content.grammarTable.rows.map((row, i) => (
+                  <div key={i} className="text-sm border-b border-slate-100 last:border-0 pb-2 last:pb-0">
+                    <p className="font-semibold text-slate-800">{row.form}</p>
+                    <p className="text-slate-500 italic">{row.example}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="px-6 py-5">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+              Vocabulary Cards (student view)
+            </p>
+            <div className="bg-slate-50 rounded-xl border border-slate-100 px-5 py-4 max-h-56 overflow-y-auto space-y-2">
+              {content.vocabCards.whenToUse && (
+                <p className="text-xs text-orange-600 font-semibold mb-2">{content.vocabCards.whenToUse}</p>
+              )}
+              {content.vocabCards.cards.length === 0 ? (
+                <p className="text-slate-300 italic text-sm">No cards yet</p>
+              ) : (
+                content.vocabCards.cards.map((card, i) => (
+                  <div key={i} className="text-sm border-b border-slate-100 last:border-0 pb-2 last:pb-0">
+                    <p className="font-semibold text-slate-800">{card.word} <span className="text-xs font-normal text-slate-400">({card.pos})</span></p>
+                    <p className="text-slate-500">{card.definition}</p>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
       </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { CheckCircle2, FileText, Video, MessageSquare } from 'lucide-react'
+import { CheckCircle2, FileText, Video, MessageSquare, Table2, BookOpen } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ContentBlockState } from './types'
 
@@ -77,7 +77,11 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
       <div className="px-4 py-2.5 border-b border-slate-800 flex items-center gap-2">
         {content.type === 'text'
           ? <><FileText className="w-3.5 h-3.5 text-orange-400" /><span className="text-xs font-semibold text-slate-400">Reading</span></>
-          : <><Video className="w-3.5 h-3.5 text-orange-400" /><span className="text-xs font-semibold text-slate-400">Video</span></>
+          : content.type === 'video'
+          ? <><Video className="w-3.5 h-3.5 text-orange-400" /><span className="text-xs font-semibold text-slate-400">Video</span></>
+          : content.type === 'grammar_table'
+          ? <><Table2 className="w-3.5 h-3.5 text-orange-400" /><span className="text-xs font-semibold text-slate-400">Grammar</span></>
+          : <><BookOpen className="w-3.5 h-3.5 text-orange-400" /><span className="text-xs font-semibold text-slate-400">Vocabulary</span></>
         }
       </div>
 
@@ -159,7 +163,7 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
                 {content.text || <span className="text-slate-500 italic">No content</span>}
               </p>
             </motion.div>
-          ) : (
+          ) : content.type === 'video' ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.98 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -180,6 +184,79 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
                     <Video className="w-8 h-8 mx-auto" />
                     <p className="text-sm">Video not available</p>
                   </div>
+                </div>
+              )}
+            </motion.div>
+          ) : content.type === 'grammar_table' ? (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35 }}
+              className="bg-slate-800/60 rounded-2xl border border-slate-700/60 px-5 sm:px-7 py-6"
+            >
+              {content.grammarTable.whenToUse && (
+                <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 mb-5">
+                  <Table2 className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                  <p className="text-orange-200 text-sm leading-relaxed">{content.grammarTable.whenToUse}</p>
+                </div>
+              )}
+              {content.grammarTable.rows.length === 0 ? (
+                <p className="text-slate-500 italic">No rows yet</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-separate border-spacing-y-2">
+                    <thead>
+                      <tr className="text-xs font-bold text-slate-400 uppercase tracking-wide">
+                        <th className="pb-1 pr-4">Form</th>
+                        <th className="pb-1 pr-4">Example</th>
+                        <th className="pb-1">Note</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {content.grammarTable.rows.map((row, i) => (
+                        <tr key={i} className="bg-slate-900/50 align-top">
+                          <td className="rounded-l-xl px-3 py-3 text-white font-semibold whitespace-pre-wrap">{row.form}</td>
+                          <td className="px-3 py-3 text-slate-300 italic whitespace-pre-wrap">{row.example}</td>
+                          <td className="rounded-r-xl px-3 py-3 text-slate-400 text-sm whitespace-pre-wrap">{row.note}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35 }}
+            >
+              {content.vocabCards.whenToUse && (
+                <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 mb-5">
+                  <BookOpen className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                  <p className="text-orange-200 text-sm leading-relaxed">{content.vocabCards.whenToUse}</p>
+                </div>
+              )}
+              {content.vocabCards.cards.length === 0 ? (
+                <p className="text-slate-500 italic">No cards yet</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {content.vocabCards.cards.map((card, i) => (
+                    <div key={i} className="bg-slate-800/60 rounded-2xl border border-slate-700/60 px-5 py-4">
+                      <div className="flex items-baseline gap-2 mb-1.5">
+                        <span className="text-white font-bold text-lg">{card.word}</span>
+                        {card.pos && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-orange-300 bg-orange-500/10 rounded-full px-2 py-0.5">
+                            {card.pos}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-300 text-sm leading-relaxed">{card.definition}</p>
+                      {card.example && (
+                        <p className="text-slate-500 text-sm italic mt-1.5">&ldquo;{card.example}&rdquo;</p>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </motion.div>
