@@ -8,7 +8,6 @@ import {
   ArrowLeft, Check, AlertCircle, Loader2, Clapperboard,
   Rocket, AlertTriangle, CheckCircle2, FileText, Video,
   MessageSquare, ToggleLeft, ChevronDown, ChevronUp, Plus, X,
-  Table2, BookOpen,
 } from 'lucide-react'
 import {
   updateContentSet,
@@ -17,7 +16,7 @@ import {
 } from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
 import type {
-  ContentBlockItem, ContentBlockTFCard, GrammarTableRow, VocabCard,
+  ContentBlockItem, ContentBlockTFCard,
 } from './types'
 import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from './types'
 
@@ -119,32 +118,6 @@ function parseTFCards(raw: string): ContentBlockTFCard[] {
     .filter((x): x is ContentBlockTFCard => x !== null)
 }
 
-function parseGrammarRows(raw: string): GrammarTableRow[] {
-  return raw
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map(line => {
-      const parts = line.split('|').map(p => p.trim())
-      if (parts.length < 2 || !parts[0] || !parts[1]) return null
-      return { form: parts[0], example: parts[1], note: parts[2] ?? '' }
-    })
-    .filter((x): x is GrammarTableRow => x !== null)
-}
-
-function parseVocabCards(raw: string): VocabCard[] {
-  return raw
-    .split('\n')
-    .map(line => line.trim())
-    .filter(Boolean)
-    .map(line => {
-      const parts = line.split('|').map(p => p.trim())
-      if (parts.length < 2 || !parts[0] || !parts[1]) return null
-      return { word: parts[0], pos: parts[1], definition: parts[2] ?? '', example: parts[3] ?? '' }
-    })
-    .filter((x): x is VocabCard => x !== null)
-}
-
 export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
   const router = useRouter()
 
@@ -181,16 +154,6 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
     initial.trueFalseCards.map(c => `${c.statement} | ${c.isTrue ? 'True' : 'False'}`).join('\n')
   )
   const [tfOpen, setTfOpen] = useState(initial.trueFalseCards.length > 0)
-  const [grammarWhenToUse, setGrammarWhenToUse] = useState(initial.grammarTable.whenToUse)
-  const [grammarRows, setGrammarRows] = useState<GrammarTableRow[]>(initial.grammarTable.rows)
-  const [grammarBulkText, setGrammarBulkText] = useState(
-    initial.grammarTable.rows.map(r => `${r.form} | ${r.example} | ${r.note}`).join('\n')
-  )
-  const [vocabWhenToUse, setVocabWhenToUse] = useState(initial.vocabCards.whenToUse)
-  const [vocabCardsList, setVocabCardsList] = useState<VocabCard[]>(initial.vocabCards.cards)
-  const [vocabBulkText, setVocabBulkText] = useState(
-    initial.vocabCards.cards.map(c => `${c.word} | ${c.pos} | ${c.definition} | ${c.example}`).join('\n')
-  )
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [savedAt, setSavedAt] = useState<Date | null>(null)
   const [startingSession, startSessionTransition] = useTransition()
@@ -239,8 +202,8 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
   function buildItem(overrides: Partial<ContentBlockItem> = {}): ContentBlockItem {
     return {
       type, text, videoUrl, images: [], imageLayout: null, discussionQuestions, trueFalseCards,
-      grammarTable: { whenToUse: grammarWhenToUse, rows: grammarRows },
-      vocabCards: { whenToUse: vocabWhenToUse, cards: vocabCardsList },
+      grammarTable: initial.grammarTable,
+      vocabCards: initial.vocabCards,
       ...overrides,
     }
   }
@@ -256,38 +219,6 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
   function handleVideoUrlChange(v: string) {
     setVideoUrl(v)
     flushContent(buildItem({ videoUrl: v }))
-  }
-
-  function applyGrammarBulk() {
-    const rows = parseGrammarRows(grammarBulkText)
-    setGrammarRows(rows)
-    flushContent(buildItem({ grammarTable: { whenToUse: grammarWhenToUse, rows } }))
-  }
-  function removeGrammarRow(idx: number) {
-    const rows = grammarRows.filter((_, i) => i !== idx)
-    setGrammarRows(rows)
-    setGrammarBulkText(rows.map(r => `${r.form} | ${r.example} | ${r.note}`).join('\n'))
-    flushContent(buildItem({ grammarTable: { whenToUse: grammarWhenToUse, rows } }))
-  }
-  function handleGrammarWhenToUseChange(v: string) {
-    setGrammarWhenToUse(v)
-    flushContent(buildItem({ grammarTable: { whenToUse: v, rows: grammarRows } }))
-  }
-
-  function applyVocabBulk() {
-    const cards = parseVocabCards(vocabBulkText)
-    setVocabCardsList(cards)
-    flushContent(buildItem({ vocabCards: { whenToUse: vocabWhenToUse, cards } }))
-  }
-  function removeVocabCard(idx: number) {
-    const cards = vocabCardsList.filter((_, i) => i !== idx)
-    setVocabCardsList(cards)
-    setVocabBulkText(cards.map(c => `${c.word} | ${c.pos} | ${c.definition} | ${c.example}`).join('\n'))
-    flushContent(buildItem({ vocabCards: { whenToUse: vocabWhenToUse, cards } }))
-  }
-  function handleVocabWhenToUseChange(v: string) {
-    setVocabWhenToUse(v)
-    flushContent(buildItem({ vocabCards: { whenToUse: v, cards: vocabCardsList } }))
   }
 
   function applyDQBulk() {
@@ -318,8 +249,9 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
 
   const canPlay = type === 'text' ? text.trim().length > 0
     : type === 'video' ? extractYouTubeId(videoUrl) !== null
-    : type === 'grammar_table' ? grammarRows.length > 0
-    : vocabCardsList.length > 0
+    : type === 'grammar_table' ? initial.grammarTable.rows.length > 0
+    : type === 'vocab_cards' ? initial.vocabCards.cards.length > 0
+    : false
 
   // keep itemId in sync with flushContent closure
   useEffect(() => {}, [itemId])
@@ -430,30 +362,6 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
               <Video className="w-4 h-4" />
               YouTube Video
             </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('grammar_table')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                type === 'grammar_table'
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <Table2 className="w-4 h-4" />
-              Grammar Table
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('vocab_cards')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                type === 'vocab_cards'
-                  ? 'bg-white text-slate-800 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Vocabulary Cards
-            </button>
           </div>
         </div>
 
@@ -501,128 +409,6 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
               />
             </div>
             {videoUrl.trim() && <YouTubePreview url={videoUrl} />}
-          </div>
-        )}
-
-        {/* Grammar Table editor */}
-        {type === 'grammar_table' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">When to use this rule</label>
-              <input
-                type="text"
-                value={grammarWhenToUse}
-                onChange={(e) => handleGrammarWhenToUseChange(e.target.value)}
-                placeholder="e.g. Use the present perfect when describing experience up to now"
-                className="w-full text-sm text-slate-800 bg-white rounded-xl border-2 border-slate-200
-                  focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none
-                  px-4 py-3 transition-colors placeholder:text-slate-300"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Rows</label>
-              <p className="text-xs text-slate-400">
-                Format: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">form | example | note</code> (note optional), one per line
-              </p>
-              <textarea
-                value={grammarBulkText}
-                onChange={e => setGrammarBulkText(e.target.value)}
-                placeholder={"have/has + past participle | I have visited Paris twice. | No specific time mentioned"}
-                rows={5}
-                className="w-full text-sm text-slate-800 bg-slate-50 rounded-xl border border-slate-200
-                  focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none
-                  px-4 py-3 resize-y transition-colors placeholder:text-slate-300 leading-relaxed font-mono text-xs"
-              />
-              <button
-                type="button"
-                onClick={applyGrammarBulk}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600
-                  text-white text-sm font-semibold transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />Apply rows
-              </button>
-            </div>
-            {grammarRows.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  {grammarRows.length} row{grammarRows.length !== 1 ? 's' : ''}
-                </p>
-                {grammarRows.map((row, i) => (
-                  <div key={i} className="flex items-start gap-2.5 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-                    <div className="flex-1 min-w-0 text-sm text-slate-700 leading-relaxed">
-                      <p className="font-semibold">{row.form}</p>
-                      <p className="text-slate-500 italic">{row.example}</p>
-                      {row.note && <p className="text-xs text-slate-400 mt-0.5">{row.note}</p>}
-                    </div>
-                    <button type="button" onClick={() => removeGrammarRow(i)}
-                      className="text-slate-300 hover:text-red-400 transition-colors shrink-0 mt-0.5">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Vocabulary Cards editor */}
-        {type === 'vocab_cards' && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">When to use these words</label>
-              <input
-                type="text"
-                value={vocabWhenToUse}
-                onChange={(e) => handleVocabWhenToUseChange(e.target.value)}
-                placeholder="e.g. Words students will need to negotiate the deal in this lesson"
-                className="w-full text-sm text-slate-800 bg-white rounded-xl border-2 border-slate-200
-                  focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none
-                  px-4 py-3 transition-colors placeholder:text-slate-300"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">Cards</label>
-              <p className="text-xs text-slate-400">
-                Format: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">word | part of speech | definition | example</code>, one per line
-              </p>
-              <textarea
-                value={vocabBulkText}
-                onChange={e => setVocabBulkText(e.target.value)}
-                placeholder={"negotiate | verb | to discuss something to reach an agreement | We negotiated a lower price."}
-                rows={5}
-                className="w-full text-sm text-slate-800 bg-slate-50 rounded-xl border border-slate-200
-                  focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none
-                  px-4 py-3 resize-y transition-colors placeholder:text-slate-300 leading-relaxed font-mono text-xs"
-              />
-              <button
-                type="button"
-                onClick={applyVocabBulk}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600
-                  text-white text-sm font-semibold transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />Apply cards
-              </button>
-            </div>
-            {vocabCardsList.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                  {vocabCardsList.length} card{vocabCardsList.length !== 1 ? 's' : ''}
-                </p>
-                {vocabCardsList.map((card, i) => (
-                  <div key={i} className="flex items-start gap-2.5 bg-slate-50 rounded-xl px-4 py-3 border border-slate-200">
-                    <div className="flex-1 min-w-0 text-sm text-slate-700 leading-relaxed">
-                      <p className="font-semibold">{card.word} <span className="text-xs font-normal text-slate-400">({card.pos})</span></p>
-                      <p className="text-slate-500">{card.definition}</p>
-                      {card.example && <p className="text-xs text-slate-400 italic mt-0.5">{card.example}</p>}
-                    </div>
-                    <button type="button" onClick={() => removeVocabCard(i)}
-                      className="text-slate-300 hover:text-red-400 transition-colors shrink-0 mt-0.5">
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
