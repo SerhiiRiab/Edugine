@@ -224,8 +224,15 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
     flushContent(buildItem({ videoUrl: v }))
   }
 
+  function parseDQBulk(raw: string): string[] {
+    return raw.split('\n').map(l => l.trim()).filter(Boolean)
+  }
+
+  const dqPendingCount = parseDQBulk(dqBulkText).length
+  const tfPendingCount = parseTFCards(tfBulkText).length
+
   function applyDQBulk() {
-    const questions = dqBulkText.split('\n').map(l => l.trim()).filter(Boolean)
+    const questions = parseDQBulk(dqBulkText)
     setDiscussionQuestions(questions)
     flushContent(buildItem({ discussionQuestions: questions }))
   }
@@ -480,10 +487,12 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
                 <button
                   type="button"
                   onClick={applyDQBulk}
+                  disabled={dqPendingCount === 0}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600
-                    text-white text-sm font-semibold transition-colors"
+                    disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
                 >
-                  <Plus className="w-3.5 h-3.5" />Apply questions
+                  <Plus className="w-3.5 h-3.5" />
+                  {dqPendingCount > 0 ? `Apply ${dqPendingCount} question${dqPendingCount !== 1 ? 's' : ''}` : 'Paste some questions first'}
                 </button>
               </div>
 
@@ -565,10 +574,12 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
                 <button
                   type="button"
                   onClick={applyTFBulk}
+                  disabled={tfPendingCount === 0}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600
-                    text-white text-sm font-semibold transition-colors"
+                    disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
                 >
-                  <Plus className="w-3.5 h-3.5" />Apply cards
+                  <Plus className="w-3.5 h-3.5" />
+                  {tfPendingCount > 0 ? `Apply ${tfPendingCount} card${tfPendingCount !== 1 ? 's' : ''}` : 'Paste some cards first'}
                 </button>
               </div>
 

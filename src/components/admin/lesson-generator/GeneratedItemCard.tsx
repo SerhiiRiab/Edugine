@@ -38,7 +38,11 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
       {/* Fields */}
       <div className="grid gap-2" style={{ gridTemplateColumns: fields.length > 2 ? '1fr 1fr' : '1fr' }}>
         {fields.map(field => (
-          <div key={field.key} className={field.type === 'boolean' ? 'flex items-center gap-2' : ''}>
+          <div
+            key={field.key}
+            className={field.type === 'boolean' ? 'flex items-center gap-2' : ''}
+            style={field.long ? { gridColumn: '1 / -1' } : undefined}
+          >
             <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
               {field.label}
             </label>
@@ -58,7 +62,7 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
               <textarea
                 value={(item.data[field.key] as string) ?? ''}
                 onChange={(e) => onUpdate({ [field.key]: e.target.value })}
-                rows={1}
+                rows={field.long ? 4 : 1}
                 className="w-full text-sm text-slate-800 bg-slate-50 rounded-lg border border-slate-200
                   focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 outline-none
                   px-2.5 py-1.5 transition-colors resize-y"
@@ -113,7 +117,7 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
       )}
 
       {/* Actions */}
-      <div className="flex items-center gap-1.5 pt-1">
+      <div className="flex items-center flex-wrap gap-1.5 pt-1">
         <button
           type="button"
           onClick={handleRegenerate}
