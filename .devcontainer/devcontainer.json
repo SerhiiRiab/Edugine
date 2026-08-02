@@ -1,0 +1,19 @@
+{
+  "name": "Edugine Development",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+
+  // Ensure CLAUDE_CODE_OAUTH_TOKEN is available from Codespace Secrets
+  "remoteEnv": {
+    "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}"
+  },
+
+  // Unset ANTHROPIC_API_KEY to prevent conflict with Claude Pro OAuth authentication
+  "postStartCommand": "echo 'unset ANTHROPIC_API_KEY' >> ~/.bashrc && unset ANTHROPIC_API_KEY",
+
+  // Optional: Configure shell to use bash
+  "customizations": {
+    "codespaces": {
+      "openFiles": []
+    }
+  }
+}
