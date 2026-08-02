@@ -22,7 +22,10 @@ function requireBulkMechanic(mechanicId: MechanicId) {
   return { def, bulk }
 }
 
-function itemSchemaFor(mechanicId: MechanicId): Record<string, unknown> {
+// Exported so the in-editor "Fill with AI" generator (./editor-fill) derives
+// item shapes from exactly the same declaration, rather than keeping a second
+// hand-written copy of every mechanic's field list.
+export function itemSchemaFor(mechanicId: MechanicId): Record<string, unknown> {
   const { bulk } = requireBulkMechanic(mechanicId)
   const properties: Record<string, unknown> = {}
   const required: string[] = []
@@ -42,7 +45,7 @@ function itemSchemaFor(mechanicId: MechanicId): Record<string, unknown> {
   return { type: 'object', properties, required, additionalProperties: false }
 }
 
-function fieldDescriptions(mechanicId: MechanicId): string {
+export function fieldDescriptions(mechanicId: MechanicId): string {
   const { bulk } = requireBulkMechanic(mechanicId)
   const lines = bulk.fields.map(f => `- ${f.key}: ${f.label}${f.required ? ' (required)' : ' (optional)'}`)
   if (bulk.correctToggle) lines.push(`- ${bulk.correctToggle.field}: ${bulk.correctToggle.label} (true/false per item)`)

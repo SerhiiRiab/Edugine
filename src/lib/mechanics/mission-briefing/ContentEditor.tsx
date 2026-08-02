@@ -18,6 +18,8 @@ import {
 import { createSession } from '@/lib/actions/sessions'
 import { parseBulkText, SEPARATOR_OPTIONS, type BulkSeparator } from '@/lib/utils/bulk-import-parser'
 import type { ContentEditorProps } from '@/lib/mechanics/types'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
+import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
 import type { MissionBriefingItem } from './types'
 
 export function MissionBriefingContentEditorStub(_props: ContentEditorProps<MissionBriefingItem>) { return null }
@@ -146,9 +148,9 @@ const TEMPLATES: ScenarioTemplate[] = [
   },
 ]
 
-interface Props { set: ContentSet; initialItems: RawItem[] }
+interface Props { set: ContentSet; initialItems: RawItem[]; aiFill?: AiFill }
 
-export function MissionBriefingContentEditor({ set, initialItems }: Props) {
+export function MissionBriefingContentEditor({ set, initialItems, aiFill }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -347,6 +349,19 @@ export function MissionBriefingContentEditor({ set, initialItems }: Props) {
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 resize-none placeholder:text-slate-300 transition-colors"
             />
           </div>
+          {aiFill?.enabled && (
+            <FillWithAiPanel
+              contentSetId={set.id}
+              lessonId={aiFill.lessonId}
+              mechanicId="mission_briefing"
+              targets={[{
+                kind: 'mission_scenario',
+                label: 'Mission scenario',
+                hint: 'Shared situation, stakes and objective — never mentions how many players there are.',
+              }]}
+              onUse={text => { setScenario(text); flushMeta(title, text) }}
+            />
+          )}
         </div>
 
         {/* Add card panel */}
@@ -398,6 +413,20 @@ export function MissionBriefingContentEditor({ set, initialItems }: Props) {
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Format</p>
                 <pre className="text-xs font-mono text-slate-600 whitespace-pre-wrap leading-relaxed">{formatExample(bulkSep)}</pre>
               </div>
+              {aiFill?.enabled && (
+                <FillWithAiPanel
+                  contentSetId={set.id}
+                  lessonId={aiFill.lessonId}
+                  mechanicId="mission_briefing"
+                  targets={[{
+                    kind: 'bulk',
+                    label: 'Role cards',
+                    hint: '3-4 roles whose secret objectives pull against each other.',
+                  }]}
+                  separator={bulkSep}
+                  onUse={text => setBulkText(text)}
+                />
+              )}
               <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={6}
                 placeholder={formatExample(bulkSep)} spellCheck={false}
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono placeholder:text-slate-300 resize-none outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-colors leading-relaxed" />
