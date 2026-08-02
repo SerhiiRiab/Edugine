@@ -2,9 +2,9 @@
   "name": "Edugine Development",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
 
-  // Ensure CLAUDE_CODE_OAUTH_TOKEN is available from Codespace Secrets.
-  // NOTE: changes to remoteEnv only take effect after a full "Rebuild Container",
-  // not a plain restart/resume — rebuild once after editing this file.
+  // Best-effort: exposes CLAUDE_CODE_OAUTH_TOKEN to VS Code/code-server itself.
+  // Only takes effect after a full "Rebuild Container". The reliable path for
+  // shells is the /etc/profile.d script written by postStartCommand below.
   "remoteEnv": {
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}"
   },
@@ -14,8 +14,13 @@
   // present and picks up CLAUDE_CODE_OAUTH_TOKEN automatically on every start.
   "postCreateCommand": "bash -lc 'source /home/codespace/nvm/nvm.sh && nvm alias default 22 && npm install -g @anthropic-ai/claude-code'",
 
-  // Unset ANTHROPIC_API_KEY to prevent conflict with Claude Pro OAuth authentication
-  "postStartCommand": "echo 'unset ANTHROPIC_API_KEY' >> ~/.bashrc && unset ANTHROPIC_API_KEY",
+  // remoteEnv alone is unreliable here: it only reaches shells VS Code spawns
+  // after a full rebuild, and Claude Code's own process doesn't always see it
+  // (it re-execs itself for the TUI). Writing it to /etc/profile.d instead
+  // makes every login shell pick it up on each container start, no rebuild
+  // needed. Also unset ANTHROPIC_API_KEY to prevent conflict with Claude Pro
+  // OAuth authentication.
+  "postStartCommand": "bash -lc 'printf \"export CLAUDE_CODE_OAUTH_TOKEN=%q\\n\" \"$CLAUDE_CODE_OAUTH_TOKEN\" | sudo tee /etc/profile.d/claude-code-oauth.sh > /dev/null && sudo chmod 644 /etc/profile.d/claude-code-oauth.sh && ( grep -qxF \"unset ANTHROPIC_API_KEY\" ~/.bashrc || echo \"unset ANTHROPIC_API_KEY\" >> ~/.bashrc ) && unset ANTHROPIC_API_KEY'",
 
   // Optional: Configure shell to use bash
   "customizations": {
