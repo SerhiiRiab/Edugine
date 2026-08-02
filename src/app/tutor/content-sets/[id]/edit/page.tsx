@@ -28,6 +28,8 @@ import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { AddToLessonPrompt } from '@/components/tutor/add-to-lesson-prompt'
 import { ActivityLessonsPanel } from '@/components/tutor/activity-lessons-panel'
+import { isAdminEmail } from '@/lib/auth/admin'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
 
 export default async function EditContentSetPage({
   params,
@@ -100,11 +102,19 @@ export default async function EditContentSetPage({
   }))
   const allLessons = (allLessonsRaw.data ?? []) as { id: string; title: string }[]
 
+  // "Fill with AI" is admin-only — the platform owner is the only person who
+  // authors lessons directly, and the Anthropic key behind it is billed to one
+  // account. Regular tutors never see the button.
+  const aiFill: AiFill = {
+    enabled: isAdminEmail(user?.email),
+    lessonId: returnLessonId ?? null,
+  }
+
   function Editor() {
     if (set.mechanic_id === 'story_builder') return <StoryBuilderContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'speed_match')   return <SpeedMatchContentEditorPage set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'talk_time')     return <TalkTimeContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'content_block') return <ContentBlockContentEditorPage set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'content_block') return <ContentBlockContentEditorPage set={set} initialItems={items ?? []} aiFill={aiFill} />
     if (set.mechanic_id === 'true_false')    return <TrueFalseContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'multiple_choice') return <MultipleChoiceContentEditorPage set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'fill_the_gap')  return <FillTheGapContentEditor set={set} initialItems={items ?? []} />
@@ -114,16 +124,16 @@ export default async function EditContentSetPage({
     if (set.mechanic_id === 'speaking_challenge') return <SpeakingChallengeContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'word_choice')          return <WordChoiceContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'correct_the_mistake') return <CorrectTheMistakeContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'debate_roulette')      return <DebateRouletteContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'debate_roulette')      return <DebateRouletteContentEditor set={set} initialItems={items ?? []} aiFill={aiFill} />
     if (set.mechanic_id === 'hidden_role')          return <HiddenRoleContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'mission_briefing')     return <MissionBriefingContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'mission_briefing')     return <MissionBriefingContentEditor set={set} initialItems={items ?? []} aiFill={aiFill} />
     if (set.mechanic_id === 'drama_event')          return <DramaEventContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'taboo')                return <TabooContentEditor set={set} initialItems={items ?? []} />
-    if (set.mechanic_id === 'elevator_pitch')       return <ElevatorPitchContentEditor set={set} initialItems={items ?? []} />
+    if (set.mechanic_id === 'elevator_pitch')       return <ElevatorPitchContentEditor set={set} initialItems={items ?? []} aiFill={aiFill} />
     if (set.mechanic_id === 'jigsaw_reading')       return <JigsawReadingContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'predict_verify')       return <PredictVerifyContentEditor set={set} initialItems={items ?? []} />
     if (set.mechanic_id === 'lesson_board')         return <LessonBoardContentEditor set={set} initialItems={items ?? []} />
-    return <ContentSetEditor set={set} initialItems={items ?? []} />
+    return <ContentSetEditor set={set} initialItems={items ?? []} aiFill={aiFill} />
   }
 
   return (

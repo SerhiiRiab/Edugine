@@ -14,6 +14,8 @@ import {
 } from '@/lib/actions/content-sets'
 import { createSession } from '@/lib/actions/sessions'
 import type { ContentEditorProps } from '@/lib/mechanics/types'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
+import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
 import type { DebateRouletteItem } from './types'
 
 export function DebateRouletteContentEditorStub(_props: ContentEditorProps<DebateRouletteItem>) {
@@ -30,9 +32,9 @@ function rawToRow(item: RawItem): TopicRow {
   return { id: item.id, topic: (item.data.topic as string) ?? '' }
 }
 
-interface Props { set: ContentSet; initialItems: RawItem[] }
+interface Props { set: ContentSet; initialItems: RawItem[]; aiFill?: AiFill }
 
-export function DebateRouletteContentEditor({ set, initialItems }: Props) {
+export function DebateRouletteContentEditor({ set, initialItems, aiFill }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -237,6 +239,19 @@ export function DebateRouletteContentEditor({ set, initialItems }: Props) {
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Format</p>
                 <p className="text-xs text-slate-500">One debate topic per line</p>
               </div>
+              {aiFill?.enabled && (
+                <FillWithAiPanel
+                  contentSetId={set.id}
+                  lessonId={aiFill.lessonId}
+                  mechanicId="debate_roulette"
+                  targets={[{
+                    kind: 'bulk',
+                    label: 'Debate statements',
+                    hint: 'Statements only — never questions. One per line.',
+                  }]}
+                  onUse={text => setBulkText(text)}
+                />
+              )}
               <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={6}
                 placeholder={"Social media is harmful for teens\nTechnology makes us less creative\nEnglish should be mandatory in all schools"}
                 spellCheck={false}

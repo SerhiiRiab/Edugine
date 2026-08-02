@@ -15,6 +15,8 @@ import {
 import { createSession } from '@/lib/actions/sessions'
 import { parseBulkText, SEPARATOR_OPTIONS, type BulkSeparator } from '@/lib/utils/bulk-import-parser'
 import type { ContentEditorProps } from '@/lib/mechanics/types'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
+import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
 import type { ElevatorPitchItem } from './types'
 
 export function ElevatorPitchContentEditorStub(_props: ContentEditorProps<ElevatorPitchItem>) { return null }
@@ -66,9 +68,9 @@ function formatExample(sep: BulkSeparator) {
   return `Pitch a smart water bottle that tracks hydration${s}Your audience: a panel of tech investors\nPitch yourself for a CEO position at a startup${s}You have 60 seconds to impress the board\nPitch the idea of a 4-day work week${s}Your audience: a skeptical CFO`
 }
 
-interface Props { set: ContentSet; initialItems: RawItem[] }
+interface Props { set: ContentSet; initialItems: RawItem[]; aiFill?: AiFill }
 
-export function ElevatorPitchContentEditor({ set, initialItems }: Props) {
+export function ElevatorPitchContentEditor({ set, initialItems, aiFill }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [editingTitle, setEditingTitle] = useState(false)
@@ -326,6 +328,20 @@ export function ElevatorPitchContentEditor({ set, initialItems }: Props) {
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Format</p>
                 <pre className="text-xs font-mono text-slate-600 whitespace-pre-wrap leading-relaxed">{formatExample(bulkSep)}</pre>
               </div>
+              {aiFill?.enabled && (
+                <FillWithAiPanel
+                  contentSetId={set.id}
+                  lessonId={aiFill.lessonId}
+                  mechanicId="elevator_pitch"
+                  targets={[{
+                    kind: 'bulk',
+                    label: 'Pitch topics',
+                    hint: 'Each context names a concrete audience and an explicit time limit.',
+                  }]}
+                  separator={bulkSep}
+                  onUse={text => setBulkText(text)}
+                />
+              )}
               <textarea value={bulkText} onChange={e => setBulkText(e.target.value)} rows={6}
                 placeholder={formatExample(bulkSep)} spellCheck={false}
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-mono placeholder:text-slate-300 resize-none outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100 transition-colors leading-relaxed" />

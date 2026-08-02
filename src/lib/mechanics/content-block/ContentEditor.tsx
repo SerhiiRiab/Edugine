@@ -19,6 +19,8 @@ import type {
   ContentBlockItem, ContentBlockTFCard,
 } from './types'
 import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from './types'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
+import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -39,6 +41,7 @@ interface RawItem {
 interface Props {
   set: ContentSet
   initialItems: RawItem[]
+  aiFill?: AiFill
 }
 
 function extractYouTubeId(url: string): string | null {
@@ -118,7 +121,7 @@ function parseTFCards(raw: string): ContentBlockTFCard[] {
     .filter((x): x is ContentBlockTFCard => x !== null)
 }
 
-export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
+export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Props) {
   const router = useRouter()
 
   const rawItem = initialItems[0] ?? null
@@ -385,6 +388,20 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
                 leading-relaxed font-medium"
             />
             <p className="text-xs text-slate-400 text-right">{text.length} chars</p>
+            {aiFill?.enabled && (
+              <FillWithAiPanel
+                contentSetId={set.id}
+                lessonId={aiFill.lessonId}
+                mechanicId="content_block"
+                accent="orange"
+                targets={[{
+                  kind: 'content_text',
+                  label: 'Text content',
+                  hint: 'Say "grammar" or "vocabulary" in the extra context to choose which one — grammar by default.',
+                }]}
+                onUse={value => handleTextChange(value)}
+              />
+            )}
           </div>
         )}
 
@@ -437,6 +454,20 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide">
                   Questions (one per line)
                 </label>
+                {aiFill?.enabled && (
+                  <FillWithAiPanel
+                    contentSetId={set.id}
+                    lessonId={aiFill.lessonId}
+                    mechanicId="content_block"
+                    accent="orange"
+                    targets={[{
+                      kind: 'discussion_questions',
+                      label: 'Discussion questions',
+                      hint: 'Open questions only — nothing with a single retrievable answer.',
+                    }]}
+                    onUse={value => setDqBulkText(value)}
+                  />
+                )}
                 <textarea
                   value={dqBulkText}
                   onChange={e => setDqBulkText(e.target.value)}
@@ -508,6 +539,20 @@ export function ContentBlockContentEditorPage({ set, initialItems }: Props) {
                 <p className="text-xs text-slate-400">
                   Format: <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">statement | True</code> or <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono">statement | False</code>
                 </p>
+                {aiFill?.enabled && (
+                  <FillWithAiPanel
+                    contentSetId={set.id}
+                    lessonId={aiFill.lessonId}
+                    mechanicId="content_block"
+                    accent="orange"
+                    targets={[{
+                      kind: 'true_false_cards',
+                      label: 'True / False cards',
+                      hint: 'Comprehension checks against this block — false ones fail on a findable detail.',
+                    }]}
+                    onUse={value => setTfBulkText(value)}
+                  />
+                )}
                 <textarea
                   value={tfBulkText}
                   onChange={e => setTfBulkText(e.target.value)}

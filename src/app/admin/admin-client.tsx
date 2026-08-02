@@ -2,8 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid, Sparkles, PenSquare } from 'lucide-react'
+import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid, PenSquare } from 'lucide-react'
 import { updateUserPlan } from './actions'
 
 type UserRow = {
@@ -165,14 +164,9 @@ export default function AdminClient({ stats, users }: Props) {
           <h1 className="font-extrabold text-lg leading-none">Admin Panel</h1>
           <p className="text-xs text-violet-400 mt-0.5">Edugine</p>
         </div>
+        {/* /admin/lesson-generator is intentionally not linked here — it stays
+            reachable by direct URL (and is still admin-gated by its own page). */}
         <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/admin/lesson-generator"
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold bg-violet-700/60 hover:bg-violet-600 text-violet-200 hover:text-white transition-colors"
-          >
-            <Sparkles className="w-4 h-4" />
-            Lesson Generator
-          </Link>
           <a
             href="https://www.edugine.app/studio/"
             target="_blank"

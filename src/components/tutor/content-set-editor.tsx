@@ -49,6 +49,8 @@ import {
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { MECHANICS } from '@/lib/mechanics/registry'
 import type { MechanicId } from '@/lib/mechanics/types'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
+import type { FillTargetOption } from '@/components/ai/fill-with-ai-panel'
 import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL, isStatementCard } from '@/lib/mechanics/swipe-battle/types'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -221,12 +223,29 @@ function SortableCardRow({ item, index, onUpdate, onDelete }: CardRowProps) {
 
 // ── Main editor ──────────────────────────────────────────────────────────────
 
+// Swipe Battle mixes two card shapes in one activity, so the AI panel offers
+// both: pairs carry their own correct/incorrect values, statements are labelled
+// by hand afterwards.
+const SWIPE_FILL_TARGETS: FillTargetOption[] = [
+  {
+    kind: 'swipe_pairs',
+    label: 'Term | Definition pairs',
+    hint: 'Wrong definitions are related-but-wrong, never negations. Roughly a third are incorrect.',
+  },
+  {
+    kind: 'swipe_statements',
+    label: 'Single statements',
+    hint: 'One statement per line, no separator — you set the swipe labels and answers yourself.',
+  },
+]
+
 interface Props {
   set: ContentSet
   initialItems: RawItem[]
+  aiFill?: AiFill
 }
 
-export function ContentSetEditor({ set, initialItems }: Props) {
+export function ContentSetEditor({ set, initialItems, aiFill }: Props) {
   const router = useRouter()
   const [title, setTitle] = useState(set.title)
   const [description, setDescription] = useState(set.description ?? '')
@@ -653,6 +672,10 @@ export function ContentSetEditor({ set, initialItems }: Props) {
       {showBulkImport && bulkConfig && (
         <BulkImportModal
           config={bulkConfig}
+          mechanicId={set.mechanic_id as MechanicId}
+          contentSetId={set.id}
+          aiFill={aiFill}
+          aiTargets={set.mechanic_id === 'swipe_battle' ? SWIPE_FILL_TARGETS : undefined}
           onImport={handleBulkImport}
           onClose={() => setShowBulkImport(false)}
         />

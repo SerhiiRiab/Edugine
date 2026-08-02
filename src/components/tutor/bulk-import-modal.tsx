@@ -7,7 +7,9 @@ import {
   SEPARATOR_OPTIONS,
   type BulkSeparator,
 } from '@/lib/utils/bulk-import-parser'
-import type { BulkImportConfig } from '@/lib/mechanics/types'
+import type { BulkImportConfig, MechanicId } from '@/lib/mechanics/types'
+import type { AiFill } from '@/lib/ai/fill-editor-props'
+import { FillWithAiPanel, type FillTargetOption } from '@/components/ai/fill-with-ai-panel'
 
 const PREVIEW_MAX = 5
 const WARN_THRESHOLD = 200
@@ -16,13 +18,27 @@ interface Props {
   config: BulkImportConfig
   onImport: (items: Record<string, unknown>[]) => Promise<void>
   onClose: () => void
+  // ── "Fill with AI" — optional, so the editors that don't offer it (and
+  //    every non-admin viewer) keep the plain paste-only modal.
+  mechanicId?: MechanicId
+  contentSetId?: string
+  aiFill?: AiFill
+  /** Fill targets to offer; omit to hide the AI panel even for an admin. */
+  aiTargets?: FillTargetOption[]
 }
 
-export function BulkImportModal({ config, onImport, onClose }: Props) {
+export function BulkImportModal({
+  config, onImport, onClose, mechanicId, contentSetId, aiFill, aiTargets,
+}: Props) {
   const [text, setText] = useState('')
   const [separator, setSeparator] = useState<BulkSeparator>(config.defaultSeparator)
   const [toggleValue, setToggleValue] = useState(config.correctToggle?.default ?? true)
   const [isImporting, setIsImporting] = useState(false)
+  // Per-line correct/incorrect values from an AI fill. The two-column bulk
+  // format can't carry a third field, so they ride alongside the pasted text
+  // and replace the all-or-nothing toggle below — but only while the text is
+  // still line-for-line what was generated (see handleImport).
+  const [aiCorrectFlags, setAiCorrectFlags] = useState<boolean[] | null>(null)
 
   const multiField = config.fields.length > 1
 
@@ -31,19 +47,28 @@ export function BulkImportModal({ config, onImport, onClose }: Props) {
     [text, separator, config.parseLine],
   )
 
+  const flagsApply = aiCorrectFlags !== null && aiCorrectFlags.length === result.items.length
+
   async function handleImport() {
     if (!result.items.length || isImporting) return
     setIsImporting(true)
     try {
-      const items = result.items.map(item => ({
+      const items = result.items.map((item, i) => ({
         ...config.itemDefaults,
         ...item,
-        ...(config.correctToggle ? { [config.correctToggle.field]: toggleValue } : {}),
+        ...(config.correctToggle
+          ? { [config.correctToggle.field]: flagsApply ? aiCorrectFlags![i] : toggleValue }
+          : {}),
       }))
       await onImport(items)
     } finally {
       setIsImporting(false)
     }
+  }
+
+  function handleAiUse(value: string, correctFlags: boolean[] | null) {
+    setText(value)
+    setAiCorrectFlags(correctFlags)
   }
 
   const preview = result.items.slice(0, PREVIEW_MAX)
@@ -102,6 +127,18 @@ export function BulkImportModal({ config, onImport, onClose }: Props) {
                 </p>
               )}
             </div>
+          )}
+
+          {/* Fill with AI — admin only */}
+          {aiFill?.enabled && aiTargets && aiTargets.length > 0 && mechanicId && contentSetId && (
+            <FillWithAiPanel
+              contentSetId={contentSetId}
+              lessonId={aiFill.lessonId}
+              mechanicId={mechanicId}
+              targets={aiTargets}
+              separator={separator}
+              onUse={handleAiUse}
+            />
           )}
 
           {/* Textarea */}
@@ -185,7 +222,17 @@ export function BulkImportModal({ config, onImport, onClose }: Props) {
           )}
 
           {/* Correct toggle — only when mechanic declares one */}
-          {config.correctToggle && (
+          {config.correctToggle && flagsApply && (
+            <div className="flex items-start gap-1.5 rounded-xl bg-emerald-50 border border-emerald-200 px-3 py-2">
+              <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-emerald-700 leading-relaxed">
+                Using the per-card {config.correctToggle.label.toLowerCase().includes('correct') ? 'correct/incorrect' : ''} values
+                from the AI fill — {aiCorrectFlags!.filter(f => !f).length} of {aiCorrectFlags!.length} cards are marked incorrect.
+                Change the number of lines above and this falls back to the single toggle.
+              </p>
+            </div>
+          )}
+          {config.correctToggle && !flagsApply && (
             <div className="flex items-center gap-3">
               <button
                 type="button"
