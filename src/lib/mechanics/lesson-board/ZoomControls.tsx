@@ -15,9 +15,11 @@ const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPod|iPad/.test(n
 // `history.clear`) — its own undo/redo buttons live in the same footer as
 // its zoom controls, and unmount with it below the ~730px breakpoint (see
 // the module comment below). The documented way to trigger them from
-// outside is the same one a real keyboard would: Excalidraw's own key
-// handler listens on `document`, so a synthetic Ctrl/Cmd+Z (or +Shift+Z for
-// redo) keydown there reaches it exactly like a real shortcut would.
+// outside is the same one a real keyboard would: with `handleKeyboardGlobally`
+// passed to <Excalidraw> (see ExcalidrawHostCanvas), its key handler listens
+// on `document` instead of only its own container div, so a synthetic
+// Ctrl/Cmd+Z (or +Shift+Z for redo) keydown dispatched there reaches it
+// exactly like a real shortcut would.
 function dispatchUndoRedo(shiftKey: boolean) {
   document.dispatchEvent(new KeyboardEvent('keydown', {
     key: 'z',

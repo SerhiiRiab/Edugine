@@ -88,6 +88,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
     // an initial tool and falls back to "selection".)
     const appState: ExcalidrawInitialDataState['appState'] = {
       activeTool: { type: 'freedraw', customType: null, locked: false, lastActiveTool: null },
+      currentItemFontFamily: 2,
     }
     if (initialSnapshot && !isUsableLessonBoardSnapshot(initialSnapshot)) {
       console.warn('[LessonBoard] Discarding malformed saved snapshot, starting from an empty board', initialSnapshot)
@@ -386,6 +387,7 @@ export default function ExcalidrawHostCanvas({ initialSnapshot, onSnapshotChange
         onPointerUpdate={handlePointerUpdate}
         excalidrawAPI={setApi}
         theme="light"
+        handleKeyboardGlobally
       >
         {/* Custom menu — omits Excalidraw's default "Socials" item (GitHub,
             X/Twitter, Discord) and file-based load/save, which don't apply
