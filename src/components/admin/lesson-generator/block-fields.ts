@@ -5,6 +5,8 @@ export interface BlockField {
   key: string
   label: string
   type: 'text' | 'boolean'
+  /** Render as a taller box spanning the full row rather than being squeezed into a grid column. */
+  long?: boolean
 }
 
 const GRAMMAR_FIELDS: BlockField[] = [

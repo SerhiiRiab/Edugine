@@ -263,7 +263,7 @@ export function FillWithAiPanel({
       {activeTarget.hint && <p className="text-[11px] text-slate-500">{activeTarget.hint}</p>}
 
       {/* Extra context + generate */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <input
           value={extraNote}
           onChange={e => setExtraNote(e.target.value)}
@@ -288,7 +288,7 @@ export function FillWithAiPanel({
       {/* Preview */}
       {block && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
             <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
               Preview — {items.length} {items.length === 1 ? 'line' : 'lines'}
             </p>

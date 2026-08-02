@@ -25,10 +25,12 @@ interface Props {
   aiFill?: AiFill
   /** Fill targets to offer; omit to hide the AI panel even for an admin. */
   aiTargets?: FillTargetOption[]
+  /** Matches the mounting editor's theme; defaults to violet like the rest of this modal. */
+  aiAccent?: 'violet' | 'orange'
 }
 
 export function BulkImportModal({
-  config, onImport, onClose, mechanicId, contentSetId, aiFill, aiTargets,
+  config, onImport, onClose, mechanicId, contentSetId, aiFill, aiTargets, aiAccent,
 }: Props) {
   const [text, setText] = useState('')
   const [separator, setSeparator] = useState<BulkSeparator>(config.defaultSeparator)
@@ -80,7 +82,7 @@ export function BulkImportModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="w-full max-w-xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
@@ -138,6 +140,7 @@ export function BulkImportModal({
               targets={aiTargets}
               separator={separator}
               onUse={handleAiUse}
+              accent={aiAccent}
             />
           )}
 
