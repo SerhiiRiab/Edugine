@@ -2,10 +2,17 @@
   "name": "Edugine Development",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
 
-  // Ensure CLAUDE_CODE_OAUTH_TOKEN is available from Codespace Secrets
+  // Ensure CLAUDE_CODE_OAUTH_TOKEN is available from Codespace Secrets.
+  // NOTE: changes to remoteEnv only take effect after a full "Rebuild Container",
+  // not a plain restart/resume — rebuild once after editing this file.
   "remoteEnv": {
     "CLAUDE_CODE_OAUTH_TOKEN": "${localEnv:CLAUDE_CODE_OAUTH_TOKEN}"
   },
+
+  // Switch the default Node to 22 (required by @anthropic-ai/claude-code, see
+  // its package.json engines field) and install Claude Code globally so it's
+  // present and picks up CLAUDE_CODE_OAUTH_TOKEN automatically on every start.
+  "postCreateCommand": "bash -lc 'source /home/codespace/nvm/nvm.sh && nvm alias default 22 && npm install -g @anthropic-ai/claude-code'",
 
   // Unset ANTHROPIC_API_KEY to prevent conflict with Claude Pro OAuth authentication
   "postStartCommand": "echo 'unset ANTHROPIC_API_KEY' >> ~/.bashrc && unset ANTHROPIC_API_KEY",
