@@ -36,12 +36,14 @@ export function GeneratedItemCard({ item, fields, onUpdate, onRegenerate, onDele
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2 transition-colors">
       {/* Fields */}
-      <div className="grid gap-2" style={{ gridTemplateColumns: fields.length > 2 ? '1fr 1fr' : '1fr' }}>
+      <div
+        className="grid gap-2"
+        style={{ gridTemplateColumns: fields.length > 2 && !fields.some(f => f.long) ? '1fr 1fr' : '1fr' }}
+      >
         {fields.map(field => (
           <div
             key={field.key}
             className={field.type === 'boolean' ? 'flex items-center gap-2' : ''}
-            style={field.long ? { gridColumn: '1 / -1' } : undefined}
           >
             <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-0.5">
               {field.label}
