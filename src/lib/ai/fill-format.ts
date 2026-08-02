@@ -68,7 +68,7 @@ export interface FillField {
 
 const SWIPE_PAIR_FIELDS: FillField[] = [
   { key: 'word', label: 'Term', type: 'text' },
-  { key: 'translation', label: 'Definition', type: 'text' },
+  { key: 'translation', label: 'Definition', type: 'text', long: true },
   { key: 'isCorrect', label: 'Correct pairing', type: 'boolean' },
 ]
 
