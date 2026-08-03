@@ -24,9 +24,9 @@ import { OnboardingTour } from '@/components/onboarding/onboarding-tour'
 const NAV_ITEMS = [
   { href: '/tutor/dashboard',     label: 'Dashboard',    icon: LayoutDashboard },
   { href: '/tutor/programs',      label: 'Programs',     icon: BookOpen },
-  { href: '/tutor/lessons',       label: 'Lessons',      icon: GraduationCap },
+  { href: '/tutor/lessons',       label: 'My Lessons',   icon: GraduationCap },
   { href: '/tutor/content-sets',  label: 'Activities',   icon: Library },
-  { href: '/library',             label: 'Library',      icon: Globe },
+  { href: '/library',             label: 'Public Library', icon: Globe },
   { href: '/blog',                label: 'Blog',          icon: Newspaper },
   { href: '/teaching-lab',        label: 'Teaching Lab', icon: FlaskConical },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
