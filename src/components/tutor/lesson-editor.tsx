@@ -69,6 +69,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   updateLesson,
   updateLessonVisibility,
+  getOrCreateShareToken,
   addActivity,
   updateActivity,
   deleteActivity,
@@ -1253,6 +1254,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const [editingActivity, setEditingActivity] = useState<ActivityRow | null>(null)
   const [isLaunching, launchTransition] = useTransition()
   const [copyDone, setCopyDone] = useState(false)
+  const [isSharing, shareTransition] = useTransition()
 
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/lessons/share/${lesson.share_token}`
@@ -1311,6 +1313,19 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopyDone(true)
       setTimeout(() => setCopyDone(false), 2000)
+    })
+  }
+
+  function handleShare() {
+    shareTransition(async () => {
+      const result = await getOrCreateShareToken(lesson.id)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      const url = `${window.location.origin}/lessons/share/${result.token}`
+      await navigator.clipboard.writeText(url)
+      toast.success('Link copied to clipboard')
     })
   }
 
@@ -1483,6 +1498,19 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             <span className="text-xs text-slate-400 hidden sm:block">
               {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
             </span>
+            <button
+              type="button"
+              onClick={handleShare}
+              disabled={isSharing}
+              title="Copy a private share link — works without changing visibility"
+              className="flex items-center gap-2 border border-slate-300 bg-white text-slate-700
+                hover:border-slate-400 hover:bg-slate-100 hover:shadow-sm
+                active:bg-slate-200 active:scale-95 disabled:opacity-50
+                font-semibold px-4 py-2 rounded-xl text-sm transition-all duration-150"
+            >
+              {isSharing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Copy className="w-4 h-4" />}
+              Share
+            </button>
             <button
               type="button"
               onClick={() => router.push('/tutor/lessons')}

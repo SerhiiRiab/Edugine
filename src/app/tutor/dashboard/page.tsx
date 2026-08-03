@@ -5,6 +5,7 @@ import {
   ChevronRight, BookOpen, Eye,
 } from 'lucide-react'
 import { LaunchLessonButton } from '@/components/tutor/launch-lesson-button'
+import { ShareLessonButton } from '@/components/tutor/share-lesson-button'
 import { ActivityLibrary } from '@/components/tutor/activity-library'
 
 function timeAgo(iso: string) {
@@ -211,6 +212,7 @@ export default async function DashboardPage() {
                   >
                     <Eye className="w-4 h-4" />
                   </a>
+                  <ShareLessonButton lessonId={lesson.id} />
                   <LaunchLessonButton lessonId={lesson.id} />
                 </div>
               ))}

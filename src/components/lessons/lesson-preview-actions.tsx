@@ -7,7 +7,11 @@ import { Play, Copy, Edit2, Loader2 } from 'lucide-react'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { duplicateLesson } from '@/lib/actions/lessons'
 
-export function PublicLessonActions({ lessonId, isOwner }: { lessonId: string; isOwner: boolean }) {
+export function PublicLessonActions({ lessonId, isOwner, shareToken }: {
+  lessonId: string
+  isOwner: boolean
+  shareToken?: string
+}) {
   const router = useRouter()
   const [launchPending, startLaunch] = useTransition()
   const [dupPending, startDup] = useTransition()
@@ -25,7 +29,7 @@ export function PublicLessonActions({ lessonId, isOwner }: { lessonId: string; i
     setError(null)
     startDup(async () => {
       try {
-        const { lessonId: newId } = await duplicateLesson(lessonId)
+        const { lessonId: newId } = await duplicateLesson(lessonId, shareToken)
         router.push(`/tutor/lessons/${newId}/edit`)
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to add lesson')
