@@ -90,7 +90,7 @@ export function LessonCard({ lesson }: LessonCardProps) {
 
   return (
     <Link
-      href={`/tutor/lessons/${lesson.id}/edit`}
+      href={`/lessons/${lesson.slug ?? lesson.id}`}
       aria-disabled={busy}
       className={`group relative flex flex-col bg-white rounded-2xl border-2 border-slate-100 p-5 shadow-sm
         hover:border-violet-200 hover:shadow-md hover:scale-[1.02] transition-all duration-200
@@ -105,17 +105,6 @@ export function LessonCard({ lesson }: LessonCardProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
-            <DropdownMenuItem asChild>
-              <a
-                href={`/lessons/${lesson.slug ?? lesson.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                Preview
-              </a>
-            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/tutor/lessons/${lesson.id}/edit`} className="flex items-center gap-2">
                 <Edit2 className="w-3.5 h-3.5" />
@@ -185,9 +174,22 @@ export function LessonCard({ lesson }: LessonCardProps) {
         </span>
       </div>
 
-      {/* Start Session */}
-      <div data-tour="lesson-card-launch" onClick={(e) => e.preventDefault()} className="mt-3">
-        <LaunchLessonButton lessonId={lesson.id} />
+      {/* Preview + Start Session */}
+      <div className="flex items-center gap-2 mt-3">
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            window.open(`/lessons/${lesson.slug ?? lesson.id}`, '_blank', 'noopener,noreferrer')
+          }}
+          title="Preview"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-500 text-xs font-bold transition-colors shrink-0"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          Preview
+        </button>
+        <div data-tour="lesson-card-launch" onClick={(e) => e.preventDefault()}>
+          <LaunchLessonButton lessonId={lesson.id} />
+        </div>
       </div>
     </Link>
   )
