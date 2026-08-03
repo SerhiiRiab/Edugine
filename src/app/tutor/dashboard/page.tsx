@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   GraduationCap, LayoutList, Plus, Trophy,
-  ChevronRight, BookOpen,
+  ChevronRight, BookOpen, Eye,
 } from 'lucide-react'
 import { LaunchLessonButton } from '@/components/tutor/launch-lesson-button'
 import { ActivityLibrary } from '@/components/tutor/activity-library'
@@ -37,7 +37,7 @@ export default async function DashboardPage() {
 
     supabase
       .from('lessons')
-      .select('id, title, updated_at, lesson_activities(id)')
+      .select('id, title, updated_at, slug, lesson_activities(id)')
       .eq('owner_id', user!.id)
       .order('updated_at', { ascending: false })
       .limit(5),
@@ -202,6 +202,15 @@ export default async function DashboardPage() {
                       <span>· {timeAgo(lesson.updated_at)}</span>
                     </div>
                   </div>
+                  <a
+                    href={`/lessons/${lesson.slug ?? lesson.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Preview"
+                    className="flex items-center justify-center w-8 h-8 rounded-lg text-slate-400 hover:text-violet-600 hover:bg-violet-50 transition-colors shrink-0"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </a>
                   <LaunchLessonButton lessonId={lesson.id} />
                 </div>
               ))}
