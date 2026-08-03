@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap, Lock, Link2, Globe, Eye } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap, Lock, Link2, Globe, Eye, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { deleteLesson, duplicateLesson } from '@/lib/actions/lessons'
+import { deleteLesson, duplicateLesson, getOrCreateShareToken } from '@/lib/actions/lessons'
 import { LaunchLessonButton } from './launch-lesson-button'
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -88,6 +88,17 @@ export function LessonCard({ lesson }: LessonCardProps) {
     }
   }
 
+  async function handleShare(e: React.MouseEvent) {
+    e.preventDefault()
+    const result = await getOrCreateShareToken(lesson.id)
+    if ('error' in result) {
+      toast.error(result.error)
+      return
+    }
+    await navigator.clipboard.writeText(`${window.location.origin}/lessons/share/${result.token}`)
+    toast.success('Link copied to clipboard')
+  }
+
   return (
     <Link
       href={`/lessons/${lesson.slug ?? lesson.id}`}
@@ -110,6 +121,10 @@ export function LessonCard({ lesson }: LessonCardProps) {
                 <Edit2 className="w-3.5 h-3.5" />
                 Edit
               </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleShare} className="flex items-center gap-2 cursor-pointer">
+              <Share2 className="w-3.5 h-3.5" />
+              Share
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleDuplicate} className="flex items-center gap-2 cursor-pointer">
               <Copy className="w-3.5 h-3.5" />

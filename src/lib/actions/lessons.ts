@@ -1,6 +1,8 @@
 'use server'
 
+import { randomUUID } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -153,20 +155,43 @@ export async function deleteLesson(id: string) {
   revalidatePath('/tutor/lessons')
 }
 
-export async function duplicateLesson(id: string): Promise<{ lessonId: string }> {
+export async function duplicateLesson(id: string, shareToken?: string): Promise<{ lessonId: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Accept lessons the user owns OR that are publicly/unlisted-ly visible
-  const { data: original, error: fetchErr } = await supabase
-    .from('lessons')
-    .select('title, description, language, level, lesson_activities(content_set_id, mechanic_id, position, mode, config)')
-    .eq('id', id)
-    .or(`owner_id.eq.${user.id},visibility.eq.public,visibility.eq.unlisted`)
-    .single()
+  const selectCols = 'title, description, language, level, lesson_activities(content_set_id, mechanic_id, position, mode, config)'
 
-  if (fetchErr || !original) throw new Error('Not found')
+  let original: {
+    title: string
+    description: string | null
+    language: string | null
+    level: string | null
+    lesson_activities: unknown
+  } | null = null
+
+  if (shareToken) {
+    // A share_token match is itself the authorization here — verified via the
+    // admin client, since RLS has no safe way to check "does the caller's
+    // claimed token match this row" (same reasoning as
+    // /lessons/share/[share_token]/page.tsx).
+    const admin = createAdminClient()
+    const { data } = await admin.from('lessons').select(selectCols).eq('id', id).eq('share_token', shareToken).maybeSingle()
+    original = data
+  }
+
+  if (!original) {
+    // Accept lessons the user owns OR that are publicly/unlisted-ly visible
+    const { data } = await supabase
+      .from('lessons')
+      .select(selectCols)
+      .eq('id', id)
+      .or(`owner_id.eq.${user.id},visibility.eq.public,visibility.eq.unlisted`)
+      .maybeSingle()
+    original = data
+  }
+
+  if (!original) throw new Error('Not found')
 
   const { data: newLesson, error: insertErr } = await supabase
     .from('lessons')
@@ -206,6 +231,37 @@ export async function duplicateLesson(id: string): Promise<{ lessonId: string }>
 
   revalidatePath('/tutor/lessons')
   return { lessonId: newLesson.id }
+}
+
+// Owner-only. Returns the lesson's existing share_token, generating and
+// persisting one first if it's somehow missing (every lesson gets one by
+// default at creation — see 027_lesson_visibility.sql — so this is a defensive
+// fallback, not the common path). Never changes visibility: a share link
+// works for a private lesson without publishing it.
+export async function getOrCreateShareToken(lessonId: string): Promise<{ token: string } | { error: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const { data: lesson, error } = await supabase
+    .from('lessons')
+    .select('share_token')
+    .eq('id', lessonId)
+    .eq('owner_id', user.id)
+    .single()
+
+  if (error || !lesson) return { error: 'Lesson not found or you do not have permission to share it' }
+  if (lesson.share_token) return { token: lesson.share_token }
+
+  const token = randomUUID()
+  const { error: updateErr } = await supabase
+    .from('lessons')
+    .update({ share_token: token })
+    .eq('id', lessonId)
+    .eq('owner_id', user.id)
+
+  if (updateErr) return { error: 'Failed to generate share link' }
+  return { token }
 }
 
 export async function addActivity(
