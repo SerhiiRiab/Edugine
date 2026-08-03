@@ -37,6 +37,10 @@ export interface Lesson {
   title: string
   description: string | null
   language: string | null
+  level: string | null
+  visibility: 'private' | 'unlisted' | 'public'
+  slug: string | null
+  share_token: string | null
   created_at: string
   updated_at: string
 }
@@ -47,7 +51,7 @@ export interface LessonActivity {
   content_set_id: string
   mechanic_id: string
   position: number
-  mode: 'individual' | 'shared'
+  mode: 'individual' | 'shared' | 'vote'
   config: Record<string, unknown>
   created_at: string
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap, Lock, Link2, Globe } from 'lucide-react'
+import { MoreHorizontal, Edit2, Copy, Trash2, Clock, LayoutList, GraduationCap, Lock, Link2, Globe, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   DropdownMenu,
@@ -34,6 +34,7 @@ interface LessonCardProps {
     updated_at: string
     visibility?: string | null
     level?: string | null
+    slug?: string | null
   }
 }
 
@@ -104,6 +105,17 @@ export function LessonCard({ lesson }: LessonCardProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem asChild>
+              <a
+                href={`/lessons/${lesson.slug ?? lesson.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                Preview
+              </a>
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={`/tutor/lessons/${lesson.id}/edit`} className="flex items-center gap-2">
                 <Edit2 className="w-3.5 h-3.5" />

@@ -2,7 +2,9 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { PublicLessonActions } from './lesson-actions'
+import { MechanicPreview, type PreviewContentItem } from './mechanic-preview'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
 import {
   GraduationCap,
@@ -31,6 +33,7 @@ import {
   Puzzle,
   Search,
   Presentation,
+  Lock,
 } from 'lucide-react'
 
 type Props = { params: Promise<{ slug: string }> }
@@ -70,63 +73,148 @@ const LEVEL_COLORS: Record<string, string> = {
   C2: 'bg-purple-100 text-purple-700 border-purple-200',
 }
 
-async function fetchLesson(slug: string) {
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const FULL_SELECT = `
+  id, title, description, level, language, owner_id, visibility,
+  lesson_activities(
+    id, mechanic_id, mode, position, config,
+    content_sets(id, title, description, content_items(id, position, data))
+  )
+`
+
+// RLS-respecting — resolves for public/unlisted lessons (anyone) and private
+// lessons (owner only, via the lessons_owner_all policy).
+async function fetchLesson(slugOrId: string) {
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('lessons')
-    .select(`
-      id, title, description, level, owner_id,
-      lesson_activities(
-        id, mechanic_id, mode, position,
-        content_sets(id, title)
-      )
-    `)
-    .eq('slug', slug)
-    .eq('visibility', 'public')
-    .single()
+  let { data } = await supabase.from('lessons').select(FULL_SELECT).eq('slug', slugOrId).maybeSingle()
+  if (!data && UUID_RE.test(slugOrId)) {
+    ;({ data } = await supabase.from('lessons').select(FULL_SELECT).eq('id', slugOrId).maybeSingle())
+  }
+  return data
+}
+
+// Admin client — metadata only (id/visibility/owner/title), never content.
+// Used solely to tell "doesn't exist" (404) apart from "exists but private,
+// not yours" (friendly notice) when the RLS-respecting query above finds nothing.
+async function fetchLessonExistence(slugOrId: string) {
+  const admin = createAdminClient()
+  const cols = 'id, visibility, owner_id, title'
+  let { data } = await admin.from('lessons').select(cols).eq('slug', slugOrId).maybeSingle()
+  if (!data && UUID_RE.test(slugOrId)) {
+    ;({ data } = await admin.from('lessons').select(cols).eq('id', slugOrId).maybeSingle())
+  }
   return data
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params
-  const lesson = await fetchLesson(slug)
+  const { slug: slugOrId } = await params
+  const lesson = await fetchLesson(slugOrId)
+  const url = `https://edugine.app/lessons/${slugOrId}`
 
-  if (!lesson) return { title: 'Lesson not found — Edugine' }
-
-  const title = `${lesson.title} — Edugine`
-  const description = lesson.description ?? 'A public lesson on Edugine — interactive lessons for online tutors.'
-  const url = `https://edugine.app/lessons/${slug}`
-
-  return {
-    title,
-    description,
-    alternates: { canonical: url },
-    openGraph: {
-      type: 'website',
-      url,
+  if (lesson) {
+    const title = `${lesson.title} — Edugine`
+    const description = lesson.description ?? 'A lesson on Edugine — interactive lessons for online tutors.'
+    // Unlisted lessons are deliberately left out of the sitemap — keep the
+    // rendered page's own metadata consistent with that.
+    const noindex = lesson.visibility !== 'public'
+    return {
       title,
       description,
-      images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: title }],
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: ['https://edugine.app/og-image.png'],
-    },
+      alternates: { canonical: url },
+      ...(noindex ? { robots: { index: false, follow: false } } : {}),
+      openGraph: {
+        type: 'website',
+        url,
+        title,
+        description,
+        images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: title }],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title,
+        description,
+        images: ['https://edugine.app/og-image.png'],
+      },
+    }
   }
+
+  const existence = await fetchLessonExistence(slugOrId)
+  if (existence) {
+    return { title: `${existence.title} — Edugine`, robots: { index: false, follow: false } }
+  }
+  return { title: 'Lesson not found — Edugine', robots: { index: false, follow: false } }
+}
+
+function TopBar({ user }: { user: { id: string } | null }) {
+  return (
+    <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <Link href="/" className="flex items-center gap-2 shrink-0">
+          <GraduationCap className="w-5 h-5 text-violet-600" />
+          <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
+        </Link>
+        <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+          Browse lessons
+        </Link>
+      </div>
+      {user ? (
+        <Link
+          href="/tutor/dashboard"
+          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+        >
+          Dashboard →
+        </Link>
+      ) : (
+        <Link
+          href="/signup"
+          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+        >
+          Sign up
+        </Link>
+      )}
+    </header>
+  )
 }
 
 export default async function PublicLessonPage({ params }: Props) {
-  const { slug } = await params
+  const { slug: slugOrId } = await params
 
   const supabase = await createClient()
   const [{ data: { user } }, lesson] = await Promise.all([
     supabase.auth.getUser(),
-    fetchLesson(slug),
+    fetchLesson(slugOrId),
   ])
 
-  if (!lesson) notFound()
+  if (!lesson) {
+    const existence = await fetchLessonExistence(slugOrId)
+    if (!existence) notFound()
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50/30 flex flex-col">
+        <TopBar user={user} />
+        <main className="flex-1 flex flex-col items-center justify-center pt-12 px-4 pb-16">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-slate-100 shadow-sm p-8 text-center">
+            <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-6 h-6 text-slate-400" />
+            </div>
+            <h1 className="text-lg font-bold text-slate-800 mb-1">This lesson is private</h1>
+            <p className="text-slate-400 text-sm mb-6">
+              &quot;{existence.title}&quot; is only visible to its owner.
+            </p>
+            {!user && (
+              <Link
+                href={`/login?redirect=/lessons/${slugOrId}`}
+                className="inline-flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
+              >
+                Sign in
+              </Link>
+            )}
+          </div>
+        </main>
+      </div>
+    )
+  }
 
   const { data: creatorProfile } = lesson.owner_id
     ? await supabase
@@ -136,25 +224,40 @@ export default async function PublicLessonPage({ params }: Props) {
         .single()
     : { data: null }
 
+  type RawContentSet = {
+    id: string
+    title: string
+    description: string | null
+    content_items: PreviewContentItem[]
+  }
   type RawActivity = {
     id: string
     mechanic_id: string
     mode: string
     position: number
-    content_sets: { id: string; title: string } | null
+    config: Record<string, unknown>
+    content_sets: RawContentSet | null
   }
 
   const activities = ((lesson.lesson_activities ?? []) as unknown as RawActivity[])
+    .slice()
     .sort((a, b) => a.position - b.position)
+    .map(a => ({
+      ...a,
+      content_sets: a.content_sets
+        ? { ...a.content_sets, content_items: [...(a.content_sets.content_items ?? [])].sort((x, y) => x.position - y.position) }
+        : null,
+    }))
 
+  const isOwner = user?.id === lesson.owner_id
   const levelColor = lesson.level ? (LEVEL_COLORS[lesson.level] ?? '') : ''
 
   const lessonJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'LearningResource',
     name: lesson.title,
-    description: lesson.description ?? 'A public lesson on Edugine — interactive lessons for online tutors.',
-    url: `https://edugine.app/lessons/${slug}`,
+    description: lesson.description ?? 'A lesson on Edugine — interactive lessons for online tutors.',
+    url: `https://edugine.app/lessons/${slugOrId}`,
     ...(lesson.level ? { educationalLevel: lesson.level } : {}),
     learningResourceType: 'Interactive lesson',
     provider: { '@type': 'Organization', name: 'Edugine', url: 'https://edugine.app' },
@@ -167,41 +270,10 @@ export default async function PublicLessonPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(lessonJsonLd) }}
       />
-      {/* Top bar */}
-      <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <GraduationCap className="w-5 h-5 text-violet-600" />
-            <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
-          </Link>
-          <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
-            Browse lessons
-          </Link>
-          <Link href="/teaching-lab" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
-            Teaching Lab
-          </Link>
-        </div>
-        {user ? (
-          <Link
-            href="/tutor/dashboard"
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-          >
-            Dashboard →
-          </Link>
-        ) : (
-          <Link
-            href={`/signup?redirect=/lessons/${slug}`}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-          >
-            Open in Edugine
-            <ExternalLink className="w-3.5 h-3.5" />
-          </Link>
-        )}
-      </header>
+      <TopBar user={user} />
 
-      {/* Main */}
       <main className="flex-1 flex flex-col items-center pt-12 px-4 pb-16">
-        <div className="w-full max-w-lg">
+        <div className="w-full max-w-2xl">
 
           {/* Lesson header card */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-4">
@@ -217,6 +289,11 @@ export default async function PublicLessonPage({ params }: Props) {
                       {lesson.level}
                     </span>
                   )}
+                  {lesson.language && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border bg-slate-100 text-slate-500 border-slate-200">
+                      {lesson.language.toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <h1 className="text-xl font-extrabold text-slate-800 leading-snug">{lesson.title}</h1>
                 {creatorProfile?.full_name && (
@@ -230,29 +307,28 @@ export default async function PublicLessonPage({ params }: Props) {
               </div>
             </div>
             {lesson.description && (
-              <p className="text-slate-500 text-sm leading-relaxed">{lesson.description}</p>
+              <p className="text-slate-500 text-sm leading-relaxed mb-3">{lesson.description}</p>
             )}
+            <div className="flex items-center gap-1.5 text-xs text-slate-400 pt-3 border-t border-slate-100">
+              <LayoutList className="w-3.5 h-3.5" />
+              {activities.length} {activities.length === 1 ? 'Activity' : 'Activities'}
+            </div>
           </div>
 
-          {/* Activities */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-100">
-              <LayoutList className="w-4 h-4 text-slate-400" />
-              <span className="text-sm font-semibold text-slate-600">
-                {activities.length} {activities.length === 1 ? 'Activity' : 'Activities'}
-              </span>
-            </div>
-
+          {/* Activities — full content, per mechanic */}
+          <div className="space-y-4">
             {activities.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-sm">No activities yet.</div>
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm py-10 text-center text-slate-400 text-sm">
+                No activities yet.
+              </div>
             ) : (
-              <ul className="divide-y divide-slate-50">
-                {activities.map((activity, index) => {
-                  const meta = MECHANIC_META[activity.mechanic_id] ?? { label: activity.mechanic_id, Icon: Gamepad2 }
-                  const { Icon } = meta
-                  const isShared = activity.mode !== 'individual'
-                  return (
-                    <li key={activity.id} className="flex items-center gap-3 px-5 py-3.5">
+              activities.map((activity, index) => {
+                const meta = MECHANIC_META[activity.mechanic_id] ?? { label: activity.mechanic_id, Icon: Gamepad2 }
+                const { Icon } = meta
+                const isShared = activity.mode !== 'individual'
+                return (
+                  <div key={activity.id} className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+                    <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-100 bg-slate-50/40">
                       <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
                         {index + 1}
                       </span>
@@ -270,10 +346,18 @@ export default async function PublicLessonPage({ params }: Props) {
                           ? <><Users className="w-3 h-3" />Shared</>
                           : <><User className="w-3 h-3" />Individual</>}
                       </span>
-                    </li>
-                  )
-                })}
-              </ul>
+                    </div>
+                    <div className="px-5 py-4">
+                      <MechanicPreview
+                        mechanicId={activity.mechanic_id}
+                        config={activity.config ?? {}}
+                        description={activity.content_sets?.description ?? ''}
+                        items={activity.content_sets?.content_items ?? []}
+                      />
+                    </div>
+                  </div>
+                )
+              })
             )}
           </div>
 
@@ -281,28 +365,27 @@ export default async function PublicLessonPage({ params }: Props) {
           <div className="mt-6 text-center">
             {user ? (
               <>
-                <p className="text-slate-400 text-sm mb-3">Use this lesson with your students</p>
-                <PublicLessonActions lessonId={lesson.id} />
+                <p className="text-slate-400 text-sm mb-3">
+                  {isOwner ? 'Manage this lesson' : 'Use this lesson with your students'}
+                </p>
+                <PublicLessonActions lessonId={lesson.id} isOwner={isOwner} />
               </>
             ) : (
-              <>
-                <p className="text-slate-400 text-sm mb-3">Want to use this lesson with your students?</p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Link
-                    href={`/signup?redirect=/lessons/${slug}`}
-                    className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
-                  >
-                    Get started free
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </Link>
-                  <Link
-                    href={`/login?redirect=/lessons/${slug}`}
-                    className="inline-flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
-                  >
-                    Sign in
-                  </Link>
-                </div>
-              </>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Link
+                  href={`/signup?redirect=/lessons/${slugOrId}`}
+                  className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
+                >
+                  Use this lesson with your students → Sign up free
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+                <Link
+                  href={`/login?redirect=/lessons/${slugOrId}`}
+                  className="inline-flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 text-slate-600 font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
+                >
+                  Sign in
+                </Link>
+              </div>
             )}
           </div>
         </div>

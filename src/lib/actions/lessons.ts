@@ -158,12 +158,12 @@ export async function duplicateLesson(id: string): Promise<{ lessonId: string }>
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  // Accept lessons the user owns OR that are publicly visible
+  // Accept lessons the user owns OR that are publicly/unlisted-ly visible
   const { data: original, error: fetchErr } = await supabase
     .from('lessons')
     .select('title, description, language, level, lesson_activities(content_set_id, mechanic_id, position, mode, config)')
     .eq('id', id)
-    .or(`owner_id.eq.${user.id},visibility.eq.public`)
+    .or(`owner_id.eq.${user.id},visibility.eq.public,visibility.eq.unlisted`)
     .single()
 
   if (fetchErr || !original) throw new Error('Not found')
@@ -372,6 +372,7 @@ export type LessonListItem = {
   updated_at: string
   visibility: string | null
   level: string | null
+  slug: string | null
 }
 
 export async function fetchLessons({
@@ -393,7 +394,7 @@ export async function fetchLessons({
 
   let query = supabase
     .from('lessons')
-    .select('id, title, description, language, updated_at, visibility, level, lesson_activities(id)')
+    .select('id, title, description, language, updated_at, visibility, level, slug, lesson_activities(id)')
     .eq('owner_id', user.id)
     .order('updated_at', { ascending: false })
     .range(offset, offset + limit)
@@ -413,6 +414,7 @@ export async function fetchLessons({
     updated_at: l.updated_at,
     visibility: l.visibility,
     level: l.level,
+    slug: l.slug,
     activity_count: ((l.lesson_activities ?? []) as { id: string }[]).length,
   }))
   return { items, hasMore }
