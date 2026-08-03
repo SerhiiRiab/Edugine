@@ -823,7 +823,7 @@ interface EditModalProps {
 }
 
 function EditActivityModal({ activity, lessonId, onSave, onClose }: EditModalProps) {
-  const [tab, setTab] = useState<'settings' | 'content'>('settings')
+  const [tab, setTab] = useState<'settings' | 'content'>('content')
   const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>(activity.mode)
   const [timerSeconds, setTimerSeconds] = useState(
     typeof activity.config.timerSeconds === 'number' ? String(activity.config.timerSeconds) : '',
