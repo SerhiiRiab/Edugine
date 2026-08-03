@@ -25,6 +25,7 @@ import { PredictVerifyContentEditor } from '@/lib/mechanics/predict-verify/Conte
 import { LessonBoardContentEditor } from '@/lib/mechanics/lesson-board/ContentEditor'
 import { LessonReturnBanner } from '@/components/tutor/lesson-return-banner'
 import { BackToLessonBanner } from '@/components/tutor/back-to-lesson-banner'
+import { ActivitySettingsPanel } from '@/components/tutor/activity-settings-panel'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { AddToLessonPrompt } from '@/components/tutor/add-to-lesson-prompt'
 import { ActivityLessonsPanel } from '@/components/tutor/activity-lessons-panel'
@@ -36,10 +37,10 @@ export default async function EditContentSetPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ lessonId?: string; justCreated?: string; returnToLesson?: string }>
+  searchParams: Promise<{ lessonId?: string; justCreated?: string; returnToLesson?: string; activityId?: string }>
 }) {
   const { id } = await params
-  const { lessonId, justCreated, returnToLesson } = await searchParams
+  const { lessonId, justCreated, returnToLesson, activityId } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -63,7 +64,7 @@ export default async function EditContentSetPage({
   // Always fetch: linked lessons + all tutor lessons (for Lessons panel)
   const returnLessonId = returnToLesson ?? lessonId
 
-  const [lessonResult, returnLessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw, lessonBoardLessonsRaw] = await Promise.all([
+  const [lessonResult, returnLessonResult, justCreatedLessonsResult, linkedRaw, allLessonsRaw, lessonBoardLessonsRaw, activityResult] = await Promise.all([
     lessonId
       ? supabase.from('lessons').select('id, title').eq('id', lessonId).single()
       : Promise.resolve({ data: null }),
@@ -88,12 +89,16 @@ export default async function EditContentSetPage({
     justCreated === '1' && set.mechanic_id === 'lesson_board'
       ? supabase.from('lesson_activities').select('lesson_id').eq('mechanic_id', 'lesson_board')
       : Promise.resolve({ data: null }),
+    activityId
+      ? supabase.from('lesson_activities').select('id, mode, config').eq('id', activityId).eq('content_set_id', id).single()
+      : Promise.resolve({ data: null }),
   ])
 
   const lessonInfo = lessonResult.data as { id: string; title: string } | null
   const returnLessonInfo = (returnLessonResult.data ?? lessonInfo) as { id: string; title: string } | null
   const tutorLessons = (justCreatedLessonsResult.data ?? []) as { id: string; title: string }[]
   const lessonBoardLessonIds = ((lessonBoardLessonsRaw.data ?? []) as { lesson_id: string }[]).map(r => r.lesson_id)
+  const activityInfo = activityResult.data as { id: string; mode: 'individual' | 'shared' | 'vote'; config: Record<string, unknown> } | null
 
   const linked = (linkedRaw.data ?? []).map(la => ({
     activityId: la.id,
@@ -143,6 +148,14 @@ export default async function EditContentSetPage({
       )}
       {lessonId && lessonInfo && (
         <LessonReturnBanner contentSetId={id} lessonId={lessonId} lessonTitle={lessonInfo.title} />
+      )}
+      {activityInfo && set.mechanic_id !== 'lesson_board' && (
+        <ActivitySettingsPanel
+          activityId={activityInfo.id}
+          mechanicId={set.mechanic_id}
+          initialMode={activityInfo.mode}
+          initialConfig={activityInfo.config ?? {}}
+        />
       )}
       <ErrorBoundary fallback="Editor failed to load. Please refresh the page.">
         <Editor />
