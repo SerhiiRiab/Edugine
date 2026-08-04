@@ -306,6 +306,55 @@ export async function addActivity(
   return { id: activity.id }
 }
 
+// Creates a content set + lesson_activities row for a Lesson Board in one
+// step, so callers (the lesson editor's "+ Lesson Board" button, the
+// dashboard's minimal board-creation form) don't have to chain the
+// content-set-creation and attach-to-lesson flows used for regular activities.
+export async function createLessonBoard(
+  lessonId: string,
+  title = 'Lesson Board',
+): Promise<{ contentSetId?: string; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Unauthorized' }
+
+  const dupError = await duplicateLessonBoardError(supabase, lessonId, 'lesson_board')
+  if (dupError) return { error: dupError }
+
+  const { data: set, error: setError } = await supabase
+    .from('content_sets')
+    .insert({ title: title.trim() || 'Lesson Board', language: 'en', mechanic_id: 'lesson_board', owner_id: user.id })
+    .select('id')
+    .single()
+
+  if (setError || !set) return { error: setError?.message ?? 'Failed to create board' }
+
+  const { data: lastPos } = await supabase
+    .from('lesson_activities')
+    .select('position')
+    .eq('lesson_id', lessonId)
+    .order('position', { ascending: false })
+    .limit(1)
+
+  const position = lastPos && lastPos.length > 0 ? lastPos[0].position + 1 : 0
+
+  const { error: activityError } = await supabase
+    .from('lesson_activities')
+    .insert({
+      lesson_id: lessonId,
+      content_set_id: set.id,
+      mechanic_id: 'lesson_board',
+      mode: 'shared',
+      position,
+      config: {},
+    })
+
+  if (activityError) return { error: activityError.message }
+
+  revalidatePath(`/tutor/lessons/${lessonId}/edit`)
+  return { contentSetId: set.id }
+}
+
 export async function updateActivity(
   id: string,
   data: { mode?: 'individual' | 'shared' | 'vote'; config?: Record<string, unknown> },

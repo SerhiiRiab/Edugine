@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   const name = user?.email?.split('@')[0] ?? 'teacher'
 
-  const [profileResult, mechanicsResult, lessonsResult, programsResult] = await Promise.all([
+  const [profileResult, mechanicsResult, lessonsResult, programsResult, allLessonsResult] = await Promise.all([
     supabase
       .from('profiles')
       .select('sessions_completed')
@@ -49,6 +49,12 @@ export default async function DashboardPage() {
       .eq('tutor_id', user!.id)
       .order('created_at', { ascending: false })
       .limit(3),
+
+    supabase
+      .from('lessons')
+      .select('id, title')
+      .eq('owner_id', user!.id)
+      .order('updated_at', { ascending: false }),
   ])
 
   const sessionsCompleted = profileResult.data?.sessions_completed ?? 0
@@ -65,6 +71,7 @@ export default async function DashboardPage() {
     title: p.title,
     lesson_count: ((p.program_lessons ?? []) as { lesson_id: string }[]).length,
   }))
+  const allLessons = allLessonsResult.data ?? []
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-10">
@@ -94,7 +101,7 @@ export default async function DashboardPage() {
           <h2 className="text-xl font-bold text-slate-800">Quick Start</h2>
           <p className="text-sm text-slate-400 mt-0.5">Create a new activity and launch a live session</p>
         </div>
-        <ActivityLibrary mechanics={mechanics} />
+        <ActivityLibrary mechanics={mechanics} lessons={allLessons} />
       </section>
 
       {/* ── Section 2: My Programs + Recent Lessons ──────────────────────────── */}
