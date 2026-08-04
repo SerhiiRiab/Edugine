@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { LiveObject, type Json } from '@liveblocks/client'
 import { LiveblocksProvider, RoomProvider, ClientSideSuspense } from '@liveblocks/react/suspense'
 import { lessonBoardRoomId, type LessonBoardSnapshot } from './types'
@@ -20,6 +20,17 @@ interface Props {
 }
 
 export function LessonBoardRoom({ sessionId, activityIndex, participantId, initialSnapshot, children }: Props) {
+  // Liveblocks injects the "Powered by" badge as a raw DOM node appended
+  // directly to document.body (outside React, see its own brand.ts) and
+  // never removes it itself, even on client.destroy() — so it survives this
+  // component unmounting (e.g. the tutor closing the floating board) and is
+  // left floating over whatever activity is shown next. Clean it up
+  // ourselves on unmount; if another instance is still mounted elsewhere it
+  // re-injects on its own next room-state message.
+  useEffect(() => () => {
+    document.getElementById('liveblocks-badge')?.remove()
+  }, [])
+
   return (
     <LiveblocksProvider
       authEndpoint={async (room) => {
