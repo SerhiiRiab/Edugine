@@ -82,12 +82,14 @@ interface LessonOption {
   title: string
 }
 
+const NO_LESSON = '__none__'
+
 export function ActivityLibrary({ mechanics, lessons }: { mechanics: Mechanic[]; lessons: LessonOption[] }) {
   const router = useRouter()
   const [category, setCategory] = useState('all')
   const [boardModalOpen, setBoardModalOpen] = useState(false)
   const [boardTitle, setBoardTitle] = useState('Lesson Board')
-  const [boardLessonId, setBoardLessonId] = useState('')
+  const [boardLessonId, setBoardLessonId] = useState(NO_LESSON)
   const [isCreatingBoard, createBoardTransition] = useTransition()
 
   const gridMechanics = mechanics.filter(m => m.id !== 'lesson_board')
@@ -101,17 +103,14 @@ export function ActivityLibrary({ mechanics, lessons }: { mechanics: Mechanic[];
 
   function openBoardModal() {
     setBoardTitle('Lesson Board')
-    setBoardLessonId('')
+    setBoardLessonId(NO_LESSON)
     setBoardModalOpen(true)
   }
 
   function handleCreateBoard() {
-    if (!boardLessonId) {
-      toast.error('Choose a lesson first')
-      return
-    }
     createBoardTransition(async () => {
-      const result = await createLessonBoard(boardLessonId, boardTitle)
+      const lessonId = boardLessonId === NO_LESSON ? null : boardLessonId
+      const result = await createLessonBoard(lessonId, boardTitle)
       if (result.error || !result.contentSetId) {
         toast.error(result.error ?? 'Failed to create Lesson Board')
         return
@@ -240,7 +239,7 @@ export function ActivityLibrary({ mechanics, lessons }: { mechanics: Mechanic[];
               </button>
             </div>
             <p className="text-sm text-slate-400 mb-4">
-              Create a persistent workspace and attach it to one of your lessons.
+              Create a persistent workspace — optionally attach it to one of your lessons now.
             </p>
 
             <label className="block text-xs font-semibold text-slate-500 mb-1">Board name</label>
@@ -253,20 +252,24 @@ export function ActivityLibrary({ mechanics, lessons }: { mechanics: Mechanic[];
                 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
             />
 
-            <label className="block text-xs font-semibold text-slate-500 mb-1">Lesson</label>
+            <label className="block text-xs font-semibold text-slate-500 mb-1">
+              Lesson <span className="font-normal text-slate-300 normal-case">(optional)</span>
+            </label>
             {lessons.length === 0 ? (
               <p className="text-sm text-slate-400 mb-4">
-                You don&apos;t have any lessons yet.{' '}
+                You don&apos;t have any lessons yet — the board will be created unattached, and you can{' '}
                 <Link href="/tutor/lessons/new" className="text-indigo-600 font-semibold hover:underline">
-                  Create one first
-                </Link>.
+                  create a lesson
+                </Link>{' '}
+                to attach it to later.
               </p>
             ) : (
               <Select value={boardLessonId} onValueChange={setBoardLessonId}>
                 <SelectTrigger className="w-full h-10 text-sm mb-4">
-                  <SelectValue placeholder="Choose a lesson" />
+                  <SelectValue placeholder="No lesson (attach later)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value={NO_LESSON}>No lesson (attach later)</SelectItem>
                   {lessons.map((l) => (
                     <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>
                   ))}
@@ -284,7 +287,7 @@ export function ActivityLibrary({ mechanics, lessons }: { mechanics: Mechanic[];
               </button>
               <button
                 type="button"
-                disabled={isCreatingBoard || lessons.length === 0 || !boardTitle.trim()}
+                disabled={isCreatingBoard || !boardTitle.trim()}
                 onClick={handleCreateBoard}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white
                   bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
