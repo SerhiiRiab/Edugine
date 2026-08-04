@@ -22,7 +22,7 @@ export const lessonBoardDefinition: MechanicDefinition<
 > = {
   id: 'lesson_board',
   name: 'Lesson Board',
-  description: 'A live shared whiteboard — the host draws, writes and explains while students watch in real time.',
+  description: 'A live shared whiteboard — the host and students draw, write and explain together in real time.',
   skill_category: 'content',
   skill_categories: ['content'],
 

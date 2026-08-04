@@ -161,7 +161,10 @@ function FloatingBoardHostCanvasSync() {
     if (clearLaserTimeoutRef.current) clearTimeout(clearLaserTimeoutRef.current)
   }, [])
 
-  const canvas = useStorage((root) => root.canvas)
+  // Kept live (not just read once) now that students can also write to this
+  // room — feeds FloatingBoardExcalidrawHostCanvas's `incomingSnapshot`,
+  // which reconciles their edits into the tutor's own canvas as they arrive.
+  const canvas = useStorage((root) => root.canvas) as LessonBoardSnapshot
   const [snapshotAtMount] = useState<LessonBoardSnapshot | null>(() =>
     canvas ? { elements: canvas.elements, files: canvas.files } : null)
 
@@ -184,6 +187,7 @@ function FloatingBoardHostCanvasSync() {
     <FloatingBoardExcalidrawHostCanvas
       initialSnapshot={snapshotAtMount}
       onSnapshotChange={handleSnapshotChange}
+      incomingSnapshot={canvas}
       defaultTool="laser"
       onLaserPointerMove={handleLaserPointerMove}
     />
@@ -5395,7 +5399,7 @@ export function SessionHostView({ session, lesson }: Props) {
           <div className="flex items-center gap-3 px-5 py-3 border-b border-slate-800 bg-slate-950 shrink-0">
             <span className="text-lg leading-none">📋</span>
             <p className="text-white font-semibold text-sm">Lesson Board</p>
-            <span className="text-xs text-slate-500">Visible to every student — closing resumes the activity</span>
+            <span className="text-xs text-slate-500">Every student can draw here too — closing resumes the activity</span>
             <button
               type="button"
               onClick={handleCloseBoard}

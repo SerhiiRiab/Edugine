@@ -55,7 +55,7 @@ export function LessonBoardHostPanel({
           <PenLine className="w-3 h-3" />Lesson Board
         </span>
         <span className="text-xs text-slate-400">
-          Draw, write and explain — students watch live
+          Draw, write and explain — students can join in live
         </span>
       </div>
 
@@ -113,12 +113,11 @@ function LessonBoardHostCanvasSync() {
   }, [])
 
   // Current Storage content — already loaded by the time this renders,
-  // since it's mounted inside <LessonBoardRoom>'s <ClientSideSuspense>.
-  // Read once for the initial mount (ExcalidrawHostCanvas captures
-  // `initialSnapshot` in a `useState` initializer and ignores later prop
-  // changes — see its own comment — so this covers both a fresh room seeded
-  // from the prepared board and a reconnect picking up mid-session content).
-  const canvas = useStorage((root) => root.canvas)
+  // since it's mounted inside <LessonBoardRoom>'s <ClientSideSuspense>. Kept
+  // live (not just read once) now that students can also write: this feeds
+  // ExcalidrawHostCanvas's `incomingSnapshot`, which reconciles their edits
+  // into the tutor's own canvas as they arrive.
+  const canvas = useStorage((root) => root.canvas) as LessonBoardSnapshot
   const [snapshotAtMount] = useState<LessonBoardSnapshot | null>(() =>
     canvas ? { elements: canvas.elements, files: canvas.files } : null)
 
@@ -155,6 +154,7 @@ function LessonBoardHostCanvasSync() {
     <ExcalidrawHostCanvas
       initialSnapshot={snapshotAtMount}
       onSnapshotChange={handleSnapshotChange}
+      incomingSnapshot={canvas}
       defaultTool="laser"
       onLaserPointerMove={handleLaserPointerMove}
     />

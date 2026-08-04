@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import { PenLine } from 'lucide-react'
-import { useOthers, useStorage } from '@liveblocks/react/suspense'
+import { useMutation, useOthers, useSelf, useStorage } from '@liveblocks/react/suspense'
+import type { Json } from '@liveblocks/client'
 import { lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
 import { ErrorBoundary } from '@/components/error-boundary'
 import { LessonBoardRoom } from './LessonBoardRoom'
@@ -42,8 +43,22 @@ export function LessonBoardPlayerPanel({ sessionId, activityIndex, participantId
 function LessonBoardPlayerCanvasSync() {
   const canvas = useStorage((root) => root.canvas) as LessonBoardSnapshot
   const laserPointer = useTutorLaserPointer()
+  // Reflects the scope /api/liveblocks-auth actually granted, rather than
+  // assuming every student gets it — collaborative mode is always on today,
+  // but this keeps the canvas honest about the real permission instead of a
+  // hardcoded `true`.
+  const canWrite = useSelf((me) => me.canWrite)
 
-  if (!lessonBoardSnapshotHasContent(canvas)) {
+  const handleSnapshotChange = useMutation(({ storage }, snapshot: LessonBoardSnapshot) => {
+    const canvasObj = storage.get('canvas')
+    canvasObj.set('elements', snapshot.elements as unknown as Json[])
+    canvasObj.set('files', snapshot.files as unknown as Record<string, Json>)
+  }, [])
+
+  // A pure viewer with nothing drawn yet has nothing to look at — but a
+  // writer should be able to start on a blank board immediately rather than
+  // being told to wait for the tutor.
+  if (!canWrite && !lessonBoardSnapshotHasContent(canvas)) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
         <PenLine className="w-12 h-12 text-orange-400" />
@@ -55,7 +70,14 @@ function LessonBoardPlayerCanvasSync() {
     )
   }
 
-  return <ExcalidrawPlayerCanvas snapshot={canvas} laserPointer={laserPointer} />
+  return (
+    <ExcalidrawPlayerCanvas
+      snapshot={canvas}
+      laserPointer={laserPointer}
+      canWrite={canWrite}
+      onSnapshotChange={handleSnapshotChange}
+    />
+  )
 }
 
 // The tutor is the only one who ever sets `laserPointer` presence — find it

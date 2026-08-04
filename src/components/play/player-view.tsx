@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { useOthers, useStorage } from '@liveblocks/react/suspense'
+import { useMutation, useOthers, useSelf, useStorage } from '@liveblocks/react/suspense'
+import type { Json } from '@liveblocks/client'
 import { BookOpen, Target, Rocket, BookText, Star, Trophy, PartyPopper, Dumbbell, User, XCircle, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -79,8 +80,22 @@ function FloatingBoardPlayerCanvasSync() {
   const canvas = useStorage((root) => root.canvas) as LessonBoardSnapshot
   const others = useOthers()
   const laserPointer = others.find((o) => o.presence.laserPointer)?.presence.laserPointer ?? null
+  // Reflects the scope /api/liveblocks-auth actually granted, rather than
+  // assuming every student gets it — collaborative mode is always on today,
+  // but this keeps the canvas honest about the real permission instead of a
+  // hardcoded `true`.
+  const canWrite = useSelf((me) => me.canWrite)
 
-  if (!lessonBoardSnapshotHasContent(canvas)) {
+  const handleSnapshotChange = useMutation(({ storage }, snapshot: LessonBoardSnapshot) => {
+    const canvasObj = storage.get('canvas')
+    canvasObj.set('elements', snapshot.elements as unknown as Json[])
+    canvasObj.set('files', snapshot.files as unknown as Record<string, Json>)
+  }, [])
+
+  // A pure viewer with nothing drawn yet has nothing to look at — but a
+  // writer should be able to start on a blank board immediately rather than
+  // being told to wait for the tutor.
+  if (!canWrite && !lessonBoardSnapshotHasContent(canvas)) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
         <p className="text-slate-400 text-sm">Waiting for the tutor to start drawing…</p>
@@ -88,7 +103,14 @@ function FloatingBoardPlayerCanvasSync() {
     )
   }
 
-  return <FloatingBoardExcalidrawPlayerCanvas snapshot={canvas} laserPointer={laserPointer} />
+  return (
+    <FloatingBoardExcalidrawPlayerCanvas
+      snapshot={canvas}
+      laserPointer={laserPointer}
+      canWrite={canWrite}
+      onSnapshotChange={handleSnapshotChange}
+    />
+  )
 }
 
 type Phase = 'nickname' | 'waiting' | 'playing' | 'activity_transition' | 'finished'

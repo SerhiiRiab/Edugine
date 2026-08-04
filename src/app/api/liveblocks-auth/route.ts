@@ -54,9 +54,11 @@ export async function POST(request: Request) {
   }
 
   // Student: must be a participant already recorded on this session — gets
-  // read-only access, matching the mechanic (host draws, students watch).
-  // Presence write is still needed so late joiners' laser-pointer viewer
-  // state stays in sync, though only the tutor ever actually sets it.
+  // read access plus storage write, so they can draw on the board alongside
+  // the tutor (collaborative mode is always on). Room-level access stays
+  // read-only (e.g. no Comments/other-feature write) — only Storage, which
+  // is all the board's canvas actually lives in, is elevated. Presence write
+  // is still needed for their own laser-pointer viewer state to stay in sync.
   if (body?.participantId) {
     const { data: participant } = await supabase
       .from('session_participants')
@@ -68,7 +70,7 @@ export async function POST(request: Request) {
       const session = liveblocks.prepareSession(`participant:${participant.id}`, {
         userInfo: { name: participant.nickname ?? 'Student', role: 'student' },
       })
-      session.allow(room, ['room:read', 'room:presence:write'])
+      session.allow(room, ['room:read', 'storage:write', 'room:presence:write'])
       const { status, body: authBody } = await session.authorize()
       return new Response(authBody, { status })
     }

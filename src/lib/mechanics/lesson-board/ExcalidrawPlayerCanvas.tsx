@@ -1,21 +1,27 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Excalidraw, CaptureUpdateAction } from '@excalidraw/excalidraw'
+import { Excalidraw, MainMenu, CaptureUpdateAction } from '@excalidraw/excalidraw'
 import type {
   Collaborator,
   ExcalidrawImperativeAPI,
   ExcalidrawInitialDataState,
   SocketId,
 } from '@excalidraw/excalidraw/types'
-import type { BinaryFileData } from '@excalidraw/excalidraw/types'
 import '@excalidraw/excalidraw/index.css'
 import { isUsableLessonBoardSnapshot, lessonBoardSnapshotHasContent, type LessonBoardSnapshot } from './types'
+import { useLessonBoardWriteSync } from './useLessonBoardWriteSync'
 import ZoomControls from './ZoomControls'
 
 interface Props {
   snapshot: LessonBoardSnapshot | null
   laserPointer?: { x: number; y: number; button: 'down' | 'up' } | null
+  // Whether the room granted this participant storage write access (see
+  // useSelf(me => me.canWrite) at the call site) — collaborative mode is
+  // always on, so any student the auth route trusts gets this, but the
+  // canvas still reacts to the actual granted scope rather than assuming it.
+  canWrite?: boolean
+  onSnapshotChange?: (snapshot: LessonBoardSnapshot) => void
 }
 
 // Fake collaborator id standing in for "the tutor" — this student's canvas
@@ -34,22 +40,32 @@ const LASER_COLOR = 'red'
 // to still exist while it plays out.
 const LASER_CLEAR_DELAY_MS = 500
 
-export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null }: Props) {
+export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null, canWrite = false, onSnapshotChange }: Props) {
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null)
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
 
   const [snapshotAtMount] = useState<ExcalidrawInitialDataState | undefined>(() => {
+    // Default a writer to the pencil rather than the selection tool — same
+    // reasoning as the host/prepare-before-class canvas: the natural first
+    // gesture on a whiteboard is to click-and-drag to draw. A pure viewer has
+    // no tool to select, so this only matters when canWrite.
+    const appState: ExcalidrawInitialDataState['appState'] | undefined = canWrite
+      ? { activeTool: { type: 'freedraw', customType: null, locked: false, lastActiveTool: null }, currentItemFontFamily: 2 }
+      : undefined
     if (snapshot && !isUsableLessonBoardSnapshot(snapshot)) {
       console.warn('[LessonBoard] Discarding malformed saved snapshot, starting from an empty board', snapshot)
-      return undefined
+      return appState ? { appState } : undefined
     }
-    if (!snapshot) return undefined
+    if (!snapshot) return appState ? { appState } : undefined
     return {
       elements: snapshot.elements as ExcalidrawInitialDataState['elements'],
       files: snapshot.files as ExcalidrawInitialDataState['files'],
+      appState,
     }
   })
+
+  const { handleChange, oversized } = useLessonBoardWriteSync({ api, onSnapshotChange, incomingSnapshot: snapshot })
 
   // Captured once, from the same initial `snapshot` value as
   // `snapshotAtMount` above — whether *this join* started with prepared
@@ -75,23 +91,11 @@ export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null }
     return unsubscribe
   }, [api, hadInitialContent])
 
-  // Later snapshots arrive as broadcasts — push elements only, with
-  // captureUpdate: NEVER (Excalidraw's documented mechanism for remote
-  // updates), so the student's own pan/zoom and undo stack aren't disturbed.
-  useEffect(() => {
-    if (!snapshot || !isUsableLessonBoardSnapshot(snapshot)) return
-    try {
-      apiRef.current?.updateScene({
-        elements: snapshot.elements as ExcalidrawInitialDataState['elements'],
-        captureUpdate: CaptureUpdateAction.NEVER,
-      })
-      if (snapshot.files) {
-        apiRef.current?.addFiles(Object.values(snapshot.files as Record<string, BinaryFileData>))
-      }
-    } catch (err) {
-      console.warn('[LessonBoard] Failed to apply incoming snapshot, keeping current view', err)
-    }
-  }, [snapshot])
+  // Later snapshots arrive as broadcasts — merged in by useLessonBoardWriteSync
+  // above (reconciled by per-element version rather than a blind overwrite,
+  // since a writer's own in-flight edits need to survive another writer's
+  // concurrent save; harmless for a pure viewer too, where it's equivalent to
+  // the plain overwrite this used to do directly).
 
   // Last point/button fed to Excalidraw, kept outside React state — needed
   // so the null branch below (an "up" never arrived, e.g. the tutor
@@ -142,26 +146,45 @@ export default function ExcalidrawPlayerCanvas({ snapshot, laserPointer = null }
 
   return (
     <div ref={containerRef} style={{ position: 'absolute', inset: 0 }}>
-      {/* Students only ever view the board, never need Excalidraw's own
-          chrome — hide the hamburger menu (with its Discord/GitHub links,
-          Help, dark mode toggle) and the standalone Help "?" button
-          entirely, leaving just the canvas and our own <ZoomControls>.
-          Excalidraw's own zoom controls unmount themselves below ~730px
-          width (its own "mobile" breakpoint) too — hidden here and
-          replaced by <ZoomControls>, which renders identically at every
-          viewport size. */}
+      {/* A pure viewer never needs Excalidraw's own chrome — hide the
+          hamburger menu (with its Discord/GitHub links, Help, dark mode
+          toggle) and the standalone Help "?" button entirely, leaving just
+          the canvas and our own <ZoomControls>. A writer gets the same
+          reduced <MainMenu> as the tutor instead (see below), so only the
+          zoom-actions rule (replaced by <ZoomControls> at every viewport
+          size, unlike Excalidraw's own which unmounts below ~730px) applies
+          to both. */}
       <style>{`
         .zoom-actions { display: none !important; }
-        .main-menu-trigger { display: none !important; }
-        .help-icon { display: none !important; }
+        ${canWrite ? '' : `
+          .main-menu-trigger { display: none !important; }
+          .help-icon { display: none !important; }
+        `}
       `}</style>
+      {oversized && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 px-3 py-1.5 rounded-lg
+          bg-red-600 text-white text-xs font-semibold shadow-lg">
+          Board too large to save — remove some content to keep syncing
+        </div>
+      )}
       <Excalidraw
         initialData={snapshotAtMount}
+        onChange={canWrite ? handleChange : undefined}
         excalidrawAPI={(api) => { apiRef.current = api; setApi(api) }}
-        viewModeEnabled
+        viewModeEnabled={!canWrite}
         theme="light"
-      />
-      <ZoomControls api={api} containerRef={containerRef} />
+        handleKeyboardGlobally={canWrite}
+      >
+        {canWrite && (
+          <MainMenu>
+            <MainMenu.DefaultItems.ClearCanvas />
+            <MainMenu.DefaultItems.SaveAsImage />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
+            <MainMenu.DefaultItems.Help />
+          </MainMenu>
+        )}
+      </Excalidraw>
+      <ZoomControls api={api} containerRef={containerRef} showPanTool={canWrite} showUndoRedo={canWrite} />
     </div>
   )
 }

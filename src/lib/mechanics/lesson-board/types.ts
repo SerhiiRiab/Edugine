@@ -1,5 +1,7 @@
-// v1: host draws live on an Excalidraw canvas, students watch in real time
-// (read-only). No collaborative drawing yet — see mechanic description.
+// v2: everyone draws live on a shared Excalidraw canvas — the host and every
+// student (granted storage:write by /api/liveblocks-auth) can write to it at
+// once, reconciled per-element (see useLessonBoardWriteSync) so concurrent
+// edits merge instead of clobbering each other.
 
 export interface LessonBoardConfig {
   // reserved
