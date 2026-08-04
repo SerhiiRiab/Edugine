@@ -15,9 +15,18 @@ import { isUsableLessonBoardSnapshot, type LessonBoardSnapshot } from './types'
 
 const IMAGE_BUCKET = 'lesson-board-images'
 const SNAPSHOT_DEBOUNCE_MS = 300
-const MAX_IMAGE_DIMENSION = 900
-const IMAGE_JPEG_QUALITY = 0.55
+// Only the resulting Storage URL ever syncs through Liveblocks (see
+// uploadImageFile below) — raising these no longer risks re-triggering the
+// 2026-07 incident (that was about embedding the bytes themselves into a
+// live-synced row). What's still bounded by them: Supabase Storage volume
+// and how long a student on a slow connection waits to see an inserted
+// image — a real but much cheaper tradeoff than the old one.
+const MAX_IMAGE_DIMENSION = 1280
+const IMAGE_JPEG_QUALITY = 0.72
 const SKIP_COMPRESSION_UNDER_BYTES = 200_000
+// The room's whole element+URL list, not image bytes (those never reach
+// this JSON) — a soft client-side guard against Liveblocks' own per-room
+// Storage size limit, unrelated to Supabase.
 const MAX_SNAPSHOT_BYTES = 1_500_000
 
 interface Options {
