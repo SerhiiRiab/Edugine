@@ -73,6 +73,7 @@ import {
   addActivity,
   deleteActivity,
   reorderActivities,
+  createLessonBoard,
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
 import { searchContentSets } from '@/lib/actions/content-sets'
@@ -953,6 +954,19 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const [isLaunching, launchTransition] = useTransition()
   const [copyDone, setCopyDone] = useState(false)
   const [isSharing, shareTransition] = useTransition()
+  const [isCreatingBoard, createBoardTransition] = useTransition()
+  const hasLessonBoard = activities.some(a => a.mechanic_id === 'lesson_board')
+
+  function handleCreateLessonBoard() {
+    createBoardTransition(async () => {
+      const result = await createLessonBoard(lesson.id)
+      if (result.error || !result.contentSetId) {
+        toast.error(result.error ?? 'Failed to create Lesson Board')
+        return
+      }
+      router.push(`/tutor/content-sets/${result.contentSetId}/edit`)
+    })
+  }
 
   const shareUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/lessons/share/${lesson.share_token}`
@@ -1440,17 +1454,32 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
           </div>
         )}
 
-        {/* Add activity button */}
-        <button
-          type="button"
-          onClick={() => setShowAddModal(true)}
-          className="mt-4 w-full flex items-center justify-center gap-2 py-4 rounded-2xl
-            border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
-            text-slate-400 hover:text-violet-500 font-medium text-sm transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Add activity
-        </button>
+        {/* Add activity buttons */}
+        <div className="mt-4 flex flex-col sm:flex-row gap-3">
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl
+              border-2 border-dashed border-slate-200 hover:border-violet-300 hover:bg-violet-50/50
+              text-slate-400 hover:text-violet-500 font-medium text-sm transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Add activity
+          </button>
+          <button
+            type="button"
+            disabled={hasLessonBoard || isCreatingBoard}
+            title={hasLessonBoard ? 'This lesson already has a Lesson Board' : 'Create a Lesson Board for this lesson'}
+            onClick={handleCreateLessonBoard}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl
+              border-2 border-indigo-200 bg-indigo-50 hover:border-indigo-400 hover:bg-indigo-100
+              text-indigo-600 hover:text-indigo-700 font-semibold text-sm transition-all
+              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-indigo-200 disabled:hover:bg-indigo-50"
+          >
+            {isCreatingBoard ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            {isCreatingBoard ? 'Creating...' : 'Lesson Board'}
+          </button>
+        </div>
       </div>
 
       {/* ── Modals ─────────────────────────────────────────────────────────── */}
@@ -1458,7 +1487,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         <AddActivityModal
           lessonId={lesson.id}
           initialSets={contentSets}
-          hasLessonBoard={activities.some(a => a.mechanic_id === 'lesson_board')}
+          hasLessonBoard={hasLessonBoard}
           onAdd={handleAddActivity}
           onClose={() => setShowAddModal(false)}
         />

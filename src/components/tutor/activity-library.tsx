@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
-import { ArrowRight, Gamepad2, Plus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { ArrowRight, Gamepad2, Plus, Loader2, X } from 'lucide-react'
 import type { ComponentType } from 'react'
 import {
   Target, Zap, PenLine, Mic, Mic2, Clapperboard, CheckSquare,
@@ -16,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { createLessonBoard } from '@/lib/actions/lessons'
 
 const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   swipe_battle:    Target,
@@ -74,8 +77,18 @@ interface Mechanic {
   skill_categories: string[]
 }
 
-export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
+interface LessonOption {
+  id: string
+  title: string
+}
+
+export function ActivityLibrary({ mechanics, lessons }: { mechanics: Mechanic[]; lessons: LessonOption[] }) {
+  const router = useRouter()
   const [category, setCategory] = useState('all')
+  const [boardModalOpen, setBoardModalOpen] = useState(false)
+  const [boardTitle, setBoardTitle] = useState('Lesson Board')
+  const [boardLessonId, setBoardLessonId] = useState('')
+  const [isCreatingBoard, createBoardTransition] = useTransition()
 
   const gridMechanics = mechanics.filter(m => m.id !== 'lesson_board')
   const visible = category === 'all'
@@ -86,13 +99,35 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
           : m.skill_category === category
       )
 
+  function openBoardModal() {
+    setBoardTitle('Lesson Board')
+    setBoardLessonId('')
+    setBoardModalOpen(true)
+  }
+
+  function handleCreateBoard() {
+    if (!boardLessonId) {
+      toast.error('Choose a lesson first')
+      return
+    }
+    createBoardTransition(async () => {
+      const result = await createLessonBoard(boardLessonId, boardTitle)
+      if (result.error || !result.contentSetId) {
+        toast.error(result.error ?? 'Failed to create Lesson Board')
+        return
+      }
+      router.push(`/tutor/content-sets/${result.contentSetId}/edit`)
+    })
+  }
+
   return (
     <div className="space-y-4">
       {/* Featured: Lesson Board */}
-      <Link
-        href="/tutor/content-sets/new?mechanic=lesson_board"
+      <button
+        type="button"
+        onClick={openBoardModal}
         className="group flex items-center gap-4 sm:gap-6 bg-gradient-to-r from-indigo-600 to-indigo-500
-          rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-lg transition-all duration-150 w-full lg:w-2/3"
+          rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-lg transition-all duration-150 w-full lg:w-2/3 text-left"
       >
         <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
           <Presentation className="w-6 h-6 text-white" />
@@ -113,7 +148,7 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
           Open Board
           <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
         </div>
-      </Link>
+      </button>
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -176,6 +211,89 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
               </Link>
             )
           })}
+        </div>
+      )}
+
+      {/* Create Lesson Board modal */}
+      {boardModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setBoardModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+                  <Presentation className="w-[18px] h-[18px] text-indigo-600" />
+                </div>
+                <h3 className="font-bold text-slate-800 text-base">New Lesson Board</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBoardModalOpen(false)}
+                className="text-slate-300 hover:text-slate-500 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-400 mb-4">
+              Create a persistent workspace and attach it to one of your lessons.
+            </p>
+
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Board name</label>
+            <input
+              type="text"
+              value={boardTitle}
+              onChange={(e) => setBoardTitle(e.target.value)}
+              maxLength={100}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-4
+                focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-indigo-400"
+            />
+
+            <label className="block text-xs font-semibold text-slate-500 mb-1">Lesson</label>
+            {lessons.length === 0 ? (
+              <p className="text-sm text-slate-400 mb-4">
+                You don&apos;t have any lessons yet.{' '}
+                <Link href="/tutor/lessons/new" className="text-indigo-600 font-semibold hover:underline">
+                  Create one first
+                </Link>.
+              </p>
+            ) : (
+              <Select value={boardLessonId} onValueChange={setBoardLessonId}>
+                <SelectTrigger className="w-full h-10 text-sm mb-4">
+                  <SelectValue placeholder="Choose a lesson" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lessons.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>{l.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            <div className="flex items-center justify-end gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setBoardModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isCreatingBoard || lessons.length === 0 || !boardTitle.trim()}
+                onClick={handleCreateBoard}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white
+                  bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {isCreatingBoard ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                {isCreatingBoard ? 'Creating...' : 'Create & Open'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
