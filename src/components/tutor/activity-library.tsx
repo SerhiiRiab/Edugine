@@ -77,9 +77,10 @@ interface Mechanic {
 export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
   const [category, setCategory] = useState('all')
 
+  const gridMechanics = mechanics.filter(m => m.id !== 'lesson_board')
   const visible = category === 'all'
-    ? mechanics
-    : mechanics.filter(m =>
+    ? gridMechanics
+    : gridMechanics.filter(m =>
         m.skill_categories.length > 0
           ? m.skill_categories.includes(category)
           : m.skill_category === category
@@ -87,6 +88,33 @@ export function ActivityLibrary({ mechanics }: { mechanics: Mechanic[] }) {
 
   return (
     <div className="space-y-4">
+      {/* Featured: Lesson Board */}
+      <Link
+        href="/tutor/content-sets/new?mechanic=lesson_board"
+        className="group flex items-center gap-4 sm:gap-6 bg-gradient-to-r from-indigo-600 to-indigo-500
+          rounded-2xl p-5 sm:p-6 shadow-sm hover:shadow-lg transition-all duration-150 w-full lg:w-2/3"
+      >
+        <div className="w-12 h-12 rounded-2xl bg-white/15 flex items-center justify-center shrink-0">
+          <Presentation className="w-6 h-6 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-white text-base leading-snug">Lesson Board</p>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-white/20 text-white">
+              Workspace
+            </span>
+          </div>
+          <p className="text-indigo-100 text-sm mt-0.5">
+            Your persistent lesson workspace — always available during sessions
+          </p>
+        </div>
+        <div className="flex items-center gap-1.5 text-sm font-semibold text-indigo-700 bg-white px-4 py-2
+          rounded-xl shrink-0 group-hover:bg-indigo-50 transition-colors">
+          Open Board
+          <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+        </div>
+      </Link>
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Select value={category} onValueChange={setCategory}>
