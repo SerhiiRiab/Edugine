@@ -237,7 +237,7 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
   lesson_board: {
     label: 'Lesson Board',
     Icon: Presentation,
-    classes: 'bg-slate-100 text-slate-600 border-slate-200',
+    classes: 'bg-indigo-100 text-indigo-700 border-indigo-200',
   },
 }
 
@@ -811,6 +811,7 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
   const style = { transform: CSS.Transform.toString(transform), transition }
   const mechanic = MECHANIC_META[activity.mechanic_id]
   const ActivityIcon = mechanic?.Icon ?? Gamepad2
+  const isLessonBoard = activity.mechanic_id === 'lesson_board'
   const timer = TIMER_SUPPORTED.has(activity.mechanic_id) && typeof activity.config.timerSeconds === 'number'
     ? activity.config.timerSeconds : null
   const hasInstructions = typeof activity.config.instructions === 'string' && activity.config.instructions.length > 0
@@ -823,10 +824,12 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-3 bg-white rounded-2xl border-2 p-4 group transition-all duration-150 ${
+      className={`flex items-center gap-3 rounded-2xl border-2 p-4 group transition-all duration-150 ${
         isDragging
-          ? 'border-violet-300 shadow-xl opacity-60 z-50'
-          : 'border-slate-100 hover:border-violet-100 hover:shadow-sm'
+          ? 'bg-white border-violet-300 shadow-xl opacity-60 z-50'
+          : isLessonBoard
+          ? 'bg-gradient-to-r from-indigo-50 to-white border-indigo-300 shadow-sm hover:border-indigo-400 hover:shadow-md'
+          : 'bg-white border-slate-100 hover:border-violet-100 hover:shadow-sm'
       }`}
     >
       {/* Drag handle */}
@@ -839,12 +842,25 @@ function SortableActivityCard({ activity, index, onEdit, onDelete }: ActivityCar
       </div>
 
       {/* Number badge */}
-      <div className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
-        <span className="text-xs font-bold">{index + 1}</span>
+      <div
+        className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+          isLessonBoard ? 'bg-indigo-600 text-white' : 'bg-violet-100 text-violet-700'
+        }`}
+      >
+        {isLessonBoard ? (
+          <Presentation className="w-3.5 h-3.5" />
+        ) : (
+          <span className="text-xs font-bold">{index + 1}</span>
+        )}
       </div>
 
       {/* Activity info */}
       <div className="flex-1 min-w-0 flex items-center gap-2.5 flex-wrap">
+        {isLessonBoard && (
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-indigo-600 text-white shrink-0">
+            Workspace
+          </span>
+        )}
         <span
           className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border shrink-0 ${
             mechanic?.classes ?? 'bg-slate-100 text-slate-600 border-slate-200'
