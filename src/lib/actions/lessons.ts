@@ -311,15 +311,17 @@ export async function addActivity(
 // dashboard's minimal board-creation form) don't have to chain the
 // content-set-creation and attach-to-lesson flows used for regular activities.
 export async function createLessonBoard(
-  lessonId: string,
+  lessonId: string | null,
   title = 'Lesson Board',
 ): Promise<{ contentSetId?: string; error?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Unauthorized' }
 
-  const dupError = await duplicateLessonBoardError(supabase, lessonId, 'lesson_board')
-  if (dupError) return { error: dupError }
+  if (lessonId) {
+    const dupError = await duplicateLessonBoardError(supabase, lessonId, 'lesson_board')
+    if (dupError) return { error: dupError }
+  }
 
   const { data: set, error: setError } = await supabase
     .from('content_sets')
@@ -328,6 +330,8 @@ export async function createLessonBoard(
     .single()
 
   if (setError || !set) return { error: setError?.message ?? 'Failed to create board' }
+
+  if (!lessonId) return { contentSetId: set.id }
 
   const { data: lastPos } = await supabase
     .from('lesson_activities')
