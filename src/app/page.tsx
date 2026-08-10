@@ -26,7 +26,7 @@ export default async function Home() {
             href="/library"
             className="px-4 py-2 text-white/80 font-medium hover:text-white transition-colors text-sm"
           >
-            Library
+            Public Lessons
           </Link>
           <Link
             href="/blog"

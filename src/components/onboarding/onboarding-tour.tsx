@@ -68,8 +68,8 @@ export function OnboardingTour({ autoStart }: Props) {
         steps: [{
           popover: {
             title: "You're ready!",
-            description: 'Start with a lesson from the Library or create your own.',
-            nextBtnText: 'Go to Library',
+            description: 'Start with a lesson from Public Lessons or create your own.',
+            nextBtnText: 'Go to Public Lessons',
             onNextClick: () => finish(true),
           },
         }],

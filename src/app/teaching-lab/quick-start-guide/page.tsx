@@ -56,7 +56,7 @@ export default async function QuickStartGuidePage() {
 
           <nav className="hidden sm:flex items-center gap-6">
             <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
-              Library
+              Public Lessons
             </Link>
             <Link href="/teaching-lab" className="text-violet-600 font-semibold text-sm">
               Teaching Lab
@@ -125,7 +125,7 @@ export default async function QuickStartGuidePage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="bg-white rounded-xl border border-slate-100 p-4">
                 <p className="text-xs font-semibold text-violet-600 uppercase tracking-wide mb-1">Option A · Fastest</p>
-                <p className="text-slate-700 text-sm leading-relaxed">Use a ready-made lesson from the Library</p>
+                <p className="text-slate-700 text-sm leading-relaxed">Use a ready-made lesson from Public Lessons</p>
               </div>
               <div className="bg-white rounded-xl border border-slate-100 p-4">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Option B</p>
@@ -180,7 +180,7 @@ export default async function QuickStartGuidePage() {
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <li className="flex items-center gap-2 bg-white rounded-xl border border-slate-100 px-4 py-2.5 text-sm text-slate-600">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-                Start with a Library lesson before building your own
+                Start with a Public Lessons lesson before building your own
               </li>
               <li className="flex items-center gap-2 bg-white rounded-xl border border-slate-100 px-4 py-2.5 text-sm text-slate-600">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />

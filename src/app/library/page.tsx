@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { LibraryContent } from './library-client'
 
 export const metadata: Metadata = {
-  title: 'Lesson Library — Free Interactive English Lessons | Edugine',
+  title: 'Public Lessons — Free Interactive English Lessons | Edugine',
   description:
     'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
   alternates: { canonical: 'https://edugine.app/library' },
@@ -13,14 +13,14 @@ export const metadata: Metadata = {
     type: 'website',
     url: 'https://edugine.app/library',
     siteName: 'Edugine',
-    title: 'Lesson Library — Free Interactive English Lessons | Edugine',
+    title: 'Public Lessons — Free Interactive English Lessons | Edugine',
     description:
       'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
-    images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: 'Edugine Lesson Library' }],
+    images: [{ url: 'https://edugine.app/og-image.png', width: 1200, height: 630, alt: 'Edugine Public Lessons' }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Lesson Library — Free Interactive English Lessons | Edugine',
+    title: 'Public Lessons — Free Interactive English Lessons | Edugine',
     description:
       'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
     images: ['https://edugine.app/og-image.png'],
@@ -36,6 +36,7 @@ export type LibraryLesson = {
   activity_count: number
   mechanic_ids: string[]
   author_name: string | null
+  tags: string[]
 }
 
 export default async function LibraryPage() {
@@ -45,7 +46,7 @@ export default async function LibraryPage() {
     supabase.auth.getUser(),
     supabase
       .from('lessons')
-      .select('id, title, description, level, slug, owner_id, lesson_activities(id, mechanic_id), profiles(full_name)')
+      .select('id, title, description, level, slug, tags, owner_id, lesson_activities(id, mechanic_id), profiles(full_name)')
       .eq('visibility', 'public')
       .not('slug', 'is', null)
       .order('created_at', { ascending: false }),
@@ -66,6 +67,7 @@ export default async function LibraryPage() {
         activity_count: acts.length,
         mechanic_ids: [...new Set(acts.map((a) => a.mechanic_id))],
         author_name: profile?.full_name ?? null,
+        tags: (l.tags ?? []) as string[],
       }
     })
 
@@ -81,7 +83,7 @@ export default async function LibraryPage() {
 
           <nav className="hidden sm:flex items-center gap-6">
             <Link href="/library" className="text-violet-600 font-semibold text-sm">
-              Library
+              Public Lessons
             </Link>
             <Link href="/teaching-lab" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
               Teaching Lab

@@ -117,7 +117,7 @@ export default async function MechanicPage({ params }: Props) {
 
           <nav className="hidden sm:flex items-center gap-6">
             <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
-              Library
+              Public Lessons
             </Link>
             <Link href="/teaching-lab" className="text-violet-600 font-semibold text-sm">
               Teaching Lab
@@ -283,7 +283,7 @@ export default async function MechanicPage({ params }: Props) {
             href="/library"
             className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
           >
-            Try it in the Library →
+            Try it in Public Lessons →
           </Link>
         </div>
 

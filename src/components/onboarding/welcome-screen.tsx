@@ -48,7 +48,7 @@ export function WelcomeScreen({ onDone }: Props) {
               text-white font-semibold px-5 py-3.5 rounded-xl text-sm transition-colors"
           >
             <Library className="w-4 h-4" />
-            Explore the Library →
+            Explore Public Lessons →
           </button>
           <button
             onClick={() => goTo('/tutor/lessons/new')}

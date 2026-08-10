@@ -76,7 +76,7 @@ export default async function BlogPostPage({ params }: Props) {
 
           <nav className="hidden sm:flex items-center gap-6">
             <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
-              Library
+              Public Lessons
             </Link>
             <Link href="/blog" className="text-violet-600 font-semibold text-sm">
               Blog

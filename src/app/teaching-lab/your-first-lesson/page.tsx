@@ -32,7 +32,7 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: 'Find a lesson',
-    body: 'Go to the Library and find a lesson that fits your student\'s level and goals. Click "Add to my lessons."',
+    body: 'Go to Public Lessons and find a lesson that fits your student\'s level and goals. Click "Add to my lessons."',
   },
   {
     title: 'Open your lesson',
@@ -69,7 +69,7 @@ export default async function YourFirstLessonPage() {
 
           <nav className="hidden sm:flex items-center gap-6">
             <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
-              Library
+              Public Lessons
             </Link>
             <Link href="/teaching-lab" className="text-violet-600 font-semibold text-sm">
               Teaching Lab
@@ -165,7 +165,7 @@ export default async function YourFirstLessonPage() {
             href="/library"
             className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
           >
-            Browse the Library →
+            Browse Public Lessons →
           </Link>
         </div>
 

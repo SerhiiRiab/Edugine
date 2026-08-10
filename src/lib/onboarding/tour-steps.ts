@@ -17,7 +17,7 @@ export const TOUR_STEP_META: Record<Exclude<TourStepId, 'finish'>, {
   library: {
     path: '/tutor/dashboard',
     selector: '[data-tour="nav-library"]',
-    title: 'Explore the Library',
+    title: 'Explore Public Lessons',
     description: 'Browse 30+ ready-made Business English lessons. Add any to your account with one click.',
   },
   'new-lesson': {
