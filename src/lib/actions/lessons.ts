@@ -122,9 +122,25 @@ export async function updateLessonVisibility(
   return {}
 }
 
+const MAX_TAGS = 15
+const MAX_TAG_LENGTH = 30
+
+function normalizeTags(tags: string[]): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const raw of tags) {
+    const tag = raw.trim().toLowerCase().slice(0, MAX_TAG_LENGTH)
+    if (!tag || seen.has(tag)) continue
+    seen.add(tag)
+    normalized.push(tag)
+    if (normalized.length >= MAX_TAGS) break
+  }
+  return normalized
+}
+
 export async function updateLesson(
   id: string,
-  data: { title?: string; description?: string; language?: string },
+  data: { title?: string; description?: string; language?: string; tags?: string[] },
 ) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -132,7 +148,7 @@ export async function updateLesson(
 
   const { error } = await supabase
     .from('lessons')
-    .update(data)
+    .update(data.tags ? { ...data, tags: normalizeTags(data.tags) } : data)
     .eq('id', id)
     .eq('owner_id', user.id)
 
@@ -160,13 +176,14 @@ export async function duplicateLesson(id: string, shareToken?: string): Promise<
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
 
-  const selectCols = 'title, description, language, level, lesson_activities(content_set_id, mechanic_id, position, mode, config)'
+  const selectCols = 'title, description, language, level, tags, lesson_activities(content_set_id, mechanic_id, position, mode, config)'
 
   let original: {
     title: string
     description: string | null
     language: string | null
     level: string | null
+    tags: string[] | null
     lesson_activities: unknown
   } | null = null
 
@@ -201,6 +218,7 @@ export async function duplicateLesson(id: string, shareToken?: string): Promise<
       description: original.description,
       language: original.language,
       level: original.level,
+      tags: original.tags ?? [],
       visibility: 'private',
     })
     .select('id')
@@ -482,6 +500,7 @@ export type LessonListItem = {
   visibility: string | null
   level: string | null
   slug: string | null
+  tags: string[]
 }
 
 export async function fetchLessons({
@@ -503,12 +522,16 @@ export async function fetchLessons({
 
   let query = supabase
     .from('lessons')
-    .select('id, title, description, language, updated_at, visibility, level, slug, lesson_activities(id)')
+    .select('id, title, description, language, updated_at, visibility, level, slug, tags, lesson_activities(id)')
     .eq('owner_id', user.id)
     .order('updated_at', { ascending: false })
     .range(offset, offset + limit)
 
-  if (search.trim()) query = query.ilike('title', `%${search.trim()}%`)
+  // A search term also matches an exact tag — lets clicking a tag chip (which
+  // fills the search box with that tag) and typing a tag name both work through
+  // this one path, instead of needing a separate tag-filter parameter.
+  const term = search.trim().replace(/,/g, '')
+  if (term) query = query.or(`title.ilike.%${term}%,tags.cs.{"${term.toLowerCase()}"}`)
   if (level) query = query.eq('level', level)
   if (visibility) query = query.eq('visibility', visibility)
 
@@ -524,6 +547,7 @@ export async function fetchLessons({
     visibility: l.visibility,
     level: l.level,
     slug: l.slug,
+    tags: (l.tags ?? []) as string[],
     activity_count: ((l.lesson_activities ?? []) as { id: string }[]).length,
   }))
   return { items, hasMore }

@@ -35,7 +35,9 @@ interface LessonCardProps {
     visibility?: string | null
     level?: string | null
     slug?: string | null
+    tags?: string[]
   }
+  onTagClick?: (tag: string) => void
 }
 
 const VISIBILITY_META = {
@@ -54,7 +56,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-export function LessonCard({ lesson }: LessonCardProps) {
+export function LessonCard({ lesson, onTagClick }: LessonCardProps) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
 
@@ -173,6 +175,22 @@ export function LessonCard({ lesson }: LessonCardProps) {
       {/* Description */}
       {lesson.description && (
         <p className="text-slate-400 text-sm line-clamp-2 mb-2">{lesson.description}</p>
+      )}
+
+      {/* Tags */}
+      {lesson.tags && lesson.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {lesson.tags.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTagClick?.(tag) }}
+              className="px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-500 hover:bg-violet-100 hover:text-violet-700 transition-colors"
+            >
+              #{tag}
+            </button>
+          ))}
+        </div>
       )}
 
       <div className="flex-1" />

@@ -11,7 +11,7 @@ type Props = { params: Promise<{ slug: string }> }
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const FULL_SELECT = `
-  id, title, description, level, language, owner_id, visibility,
+  id, title, description, level, language, owner_id, visibility, tags,
   lesson_activities(
     id, mechanic_id, mode, position, config,
     content_sets(id, title, description, content_items(id, position, data))

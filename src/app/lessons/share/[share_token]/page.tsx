@@ -7,7 +7,7 @@ import { LessonPreviewBody, normalizeActivities } from '@/components/lessons/les
 type Props = { params: Promise<{ share_token: string }> }
 
 const FULL_SELECT = `
-  id, title, description, level, language, owner_id, visibility,
+  id, title, description, level, language, owner_id, visibility, tags,
   lesson_activities(
     id, mechanic_id, mode, position, config,
     content_sets(id, title, description, content_items(id, position, data))

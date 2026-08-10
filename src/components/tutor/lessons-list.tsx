@@ -62,6 +62,12 @@ export function LessonsList({ initialItems, initialHasMore }: Props) {
     searchTimer.current = setTimeout(() => load({ s: val, lv: level, vis: visibility, off: 0, append: false }), 400)
   }
 
+  function handleTagClick(tag: string) {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    setSearch(tag)
+    load({ s: tag, lv: level, vis: visibility, off: 0, append: false })
+  }
+
   function handleLevel(val: string) {
     const lv = val === level ? '' : val
     setLevel(lv)
@@ -174,7 +180,7 @@ export function LessonsList({ initialItems, initialHasMore }: Props) {
         </div>
       ) : (
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 transition-opacity ${isPending ? 'opacity-60' : ''}`}>
-          {items.map(lesson => <LessonCard key={lesson.id} lesson={lesson} />)}
+          {items.map(lesson => <LessonCard key={lesson.id} lesson={lesson} onTagClick={handleTagClick} />)}
         </div>
       )}
 

@@ -26,7 +26,7 @@ export default async function LessonEditPage({
     supabase
       .from('lessons')
       .select(`
-        id, title, description, visibility, share_token, slug, level,
+        id, title, description, visibility, share_token, slug, level, tags,
         lesson_activities(
           id, content_set_id, mechanic_id, mode, position, config,
           content_sets(id, title, content_items(id))
@@ -98,6 +98,7 @@ export default async function LessonEditPage({
           share_token: lesson.share_token ?? null,
           slug: lesson.slug ?? null,
           level: lesson.level ?? null,
+          tags: lesson.tags ?? [],
         }}
         initialActivities={activities}
         contentSets={contentSets}

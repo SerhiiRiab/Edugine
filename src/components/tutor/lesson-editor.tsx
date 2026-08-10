@@ -94,6 +94,7 @@ interface Lesson {
   share_token: string | null
   slug: string | null
   level: string | null
+  tags: string[]
 }
 
 function generateSlug(text: string): string {
@@ -941,6 +942,8 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   const router = useRouter()
   const [title, setTitle] = useState(lesson.title)
   const [description, setDescription] = useState(lesson.description ?? '')
+  const [tags, setTags] = useState<string[]>(lesson.tags ?? [])
+  const [tagInput, setTagInput] = useState('')
   const [visibility, setVisibility] = useState<Visibility>(lesson.visibility)
   const pubSlug = generateSlug(title)
   const [pubLevel, setPubLevel] = useState(lesson.level ?? '')
@@ -1079,6 +1082,43 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
   function handleDescriptionChange(val: string) {
     setDescription(val)
     flushMeta(title, val)
+  }
+
+  // ── Tags ───────────────────────────────────────────────────────────────────
+
+  function persistTags(next: string[]) {
+    setSaveStatus('saving')
+    updateLesson(lesson.id, { tags: next })
+      .then(markSaved)
+      .catch(() => setSaveStatus('error'))
+  }
+
+  function addTag() {
+    const val = tagInput.trim().toLowerCase()
+    setTagInput('')
+    if (!val || tags.includes(val)) return
+    if (tags.length >= 15) {
+      toast.error('Up to 15 tags allowed')
+      return
+    }
+    const next = [...tags, val]
+    setTags(next)
+    persistTags(next)
+  }
+
+  function removeTag(tag: string) {
+    const next = tags.filter((t) => t !== tag)
+    setTags(next)
+    persistTags(next)
+  }
+
+  function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag()
+    } else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+      removeTag(tags[tags.length - 1])
+    }
   }
 
   // ── DnD reorder ────────────────────────────────────────────────────────────
@@ -1259,6 +1299,38 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
             focus:border-violet-400 outline-none resize-none py-1 text-sm transition-colors
             placeholder:text-slate-300"
         />
+
+        {/* Tags */}
+        <div className="mb-8 p-4 rounded-2xl border border-slate-100 bg-white space-y-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Tags</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-xs font-semibold
+                  bg-violet-50 text-violet-700 border border-violet-200"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag)}
+                  className="rounded-full hover:bg-violet-100 p-0.5 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            <input
+              value={tagInput}
+              onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={handleTagKeyDown}
+              onBlur={addTag}
+              placeholder={tags.length === 0 ? 'Add tags… (press Enter)' : 'Add another…'}
+              className="flex-1 min-w-[120px] bg-transparent text-sm text-slate-700 outline-none
+                placeholder:text-slate-300 py-1"
+            />
+          </div>
+        </div>
 
         {/* Visibility selector */}
         <div className="mb-8 p-4 rounded-2xl border border-slate-100 bg-white space-y-3">
