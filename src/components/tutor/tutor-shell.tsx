@@ -26,7 +26,7 @@ const NAV_ITEMS = [
   { href: '/tutor/programs',      label: 'Programs',     icon: BookOpen },
   { href: '/tutor/lessons',       label: 'My Lessons',   icon: GraduationCap },
   { href: '/tutor/content-sets',  label: 'Activities',   icon: Library },
-  { href: '/library',             label: 'Public Lessons', icon: Globe },
+  { href: '/public-lessons',             label: 'Public Lessons', icon: Globe },
   { href: '/blog',                label: 'Blog',          icon: Newspaper },
   { href: '/teaching-lab',        label: 'Teaching Lab', icon: FlaskConical },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },
@@ -83,7 +83,7 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, showWelcome, a
               key={href}
               href={href}
               onClick={closeMobile}
-              data-tour={tourEnabled && href === '/library' ? 'nav-library' : undefined}
+              data-tour={tourEnabled && href === '/public-lessons' ? 'nav-public-lessons' : undefined}
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 active
                   ? 'bg-violet-600 text-white'

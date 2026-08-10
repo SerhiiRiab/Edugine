@@ -29,7 +29,7 @@ import {
   Puzzle,
   Presentation,
 } from 'lucide-react'
-import type { LibraryLesson } from './page'
+import type { PublicLesson } from './page'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ const MECHANIC_META: Record<string, {
 
 // ── Lesson card ───────────────────────────────────────────────────────────────
 
-function LessonCard({ lesson, onTagClick }: { lesson: LibraryLesson; onTagClick: (tag: string) => void }) {
+function LessonCard({ lesson, onTagClick }: { lesson: PublicLesson; onTagClick: (tag: string) => void }) {
   const levelMeta = lesson.level ? LEVEL_COLORS[lesson.level] : null
   const visibleMechanics = lesson.mechanic_ids.slice(0, 4)
 
@@ -170,9 +170,9 @@ function LessonCard({ lesson, onTagClick }: { lesson: LibraryLesson; onTagClick:
   )
 }
 
-// ── Main library content ───────────────────────────────────────────────────────
+// ── Main public lessons content ───────────────────────────────────────────────────────
 
-export function LibraryContent({ lessons }: { lessons: LibraryLesson[] }) {
+export function PublicLessonsContent({ lessons }: { lessons: PublicLesson[] }) {
   const [search, setSearch] = useState('')
   const [level, setLevel] = useState('')
   const [tagFilter, setTagFilter] = useState('')
@@ -276,7 +276,7 @@ export function LibraryContent({ lessons }: { lessons: LibraryLesson[] }) {
         </p>
       )}
 
-      {/* Empty library */}
+      {/* Empty catalog */}
       {isEmpty && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="w-16 h-16 rounded-2xl bg-violet-100 flex items-center justify-center mb-4">

@@ -102,7 +102,7 @@ export function TopBar({ user }: { user: { id: string } | null }) {
           <GraduationCap className="w-5 h-5 text-violet-600" />
           <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
         </Link>
-        <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+        <Link href="/public-lessons" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
           Browse lessons
         </Link>
       </div>

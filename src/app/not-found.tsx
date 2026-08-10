@@ -23,7 +23,7 @@ export default function NotFound() {
           Go home
         </Link>
         <Link
-          href="/library"
+          href="/public-lessons"
           className="px-6 py-3 bg-white/10 backdrop-blur text-white font-bold rounded-2xl hover:bg-white/20 transition-colors border border-white/20"
         >
           Browse lessons

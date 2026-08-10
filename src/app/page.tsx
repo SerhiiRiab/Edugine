@@ -23,7 +23,7 @@ export default async function Home() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/library"
+            href="/public-lessons"
             className="px-4 py-2 text-white/80 font-medium hover:text-white transition-colors text-sm"
           >
             Public Lessons

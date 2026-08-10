@@ -53,7 +53,7 @@ export function OnboardingTour({ autoStart }: Props) {
     runningRef.current = false
     completeOnboarding()
     if (searchParams.get('tour')) router.replace('/tutor/dashboard')
-    if (goToLibrary) router.push('/library')
+    if (goToLibrary) router.push('/public-lessons')
   }, [teardown, router, searchParams])
 
   const showStep = useCallback(async (stepId: TourStepId) => {

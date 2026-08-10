@@ -2,16 +2,16 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { GraduationCap } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { LibraryContent } from './library-client'
+import { PublicLessonsContent } from './public-lessons-client'
 
 export const metadata: Metadata = {
   title: 'Public Lessons — Free Interactive English Lessons | Edugine',
   description:
     'Browse free interactive English lessons created by tutors. Speaking activities, vocabulary games, grammar practice and more.',
-  alternates: { canonical: 'https://edugine.app/library' },
+  alternates: { canonical: 'https://edugine.app/public-lessons' },
   openGraph: {
     type: 'website',
-    url: 'https://edugine.app/library',
+    url: 'https://edugine.app/public-lessons',
     siteName: 'Edugine',
     title: 'Public Lessons — Free Interactive English Lessons | Edugine',
     description:
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   },
 }
 
-export type LibraryLesson = {
+export type PublicLesson = {
   id: string
   title: string
   description: string | null
@@ -39,7 +39,7 @@ export type LibraryLesson = {
   tags: string[]
 }
 
-export default async function LibraryPage() {
+export default async function PublicLessonsPage() {
   const supabase = await createClient()
 
   const [{ data: { user } }, { data: raw }] = await Promise.all([
@@ -52,7 +52,7 @@ export default async function LibraryPage() {
       .order('created_at', { ascending: false }),
   ])
 
-  const lessons: LibraryLesson[] = (raw ?? [])
+  const lessons: PublicLesson[] = (raw ?? [])
     .filter((l) => l.slug)
     .map((l) => {
       const acts = (l.lesson_activities ?? []) as { id: string; mechanic_id: string }[]
@@ -82,7 +82,7 @@ export default async function LibraryPage() {
           </Link>
 
           <nav className="hidden sm:flex items-center gap-6">
-            <Link href="/library" className="text-violet-600 font-semibold text-sm">
+            <Link href="/public-lessons" className="text-violet-600 font-semibold text-sm">
               Public Lessons
             </Link>
             <Link href="/teaching-lab" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
@@ -118,7 +118,7 @@ export default async function LibraryPage() {
         </div>
       </header>
 
-      <LibraryContent lessons={lessons} />
+      <PublicLessonsContent lessons={lessons} />
     </div>
   )
 }

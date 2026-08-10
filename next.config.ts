@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [{ protocol: 'https', hostname: 'cdn.sanity.io' }],
   },
+  async redirects() {
+    return [
+      // /library was the original URL for the public lesson catalog, renamed
+      // to /public-lessons to match the "Public Lessons" naming used in the UI.
+      { source: '/library', destination: '/public-lessons', permanent: true },
+    ]
+  },
 };
 
 export default nextConfig;

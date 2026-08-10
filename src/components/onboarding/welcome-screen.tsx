@@ -43,7 +43,7 @@ export function WelcomeScreen({ onDone }: Props) {
 
         <div className="mt-8 space-y-3">
           <button
-            onClick={() => goTo('/library')}
+            onClick={() => goTo('/public-lessons')}
             className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700
               text-white font-semibold px-5 py-3.5 rounded-xl text-sm transition-colors"
           >

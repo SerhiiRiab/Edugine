@@ -22,7 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // pages, so they're intentionally left out of the sitemap.
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: BASE,                  lastModified: new Date(), changeFrequency: 'weekly',  priority: 1.0 },
-    { url: `${BASE}/library`,     lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
+    { url: `${BASE}/public-lessons`,     lastModified: new Date(), changeFrequency: 'daily',   priority: 0.9 },
     { url: `${BASE}/teaching-lab`, lastModified: new Date(), changeFrequency: 'weekly', priority: 0.8 },
     { url: `${BASE}/teaching-lab/your-first-lesson`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },
     { url: `${BASE}/teaching-lab/quick-start-guide`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.5 },

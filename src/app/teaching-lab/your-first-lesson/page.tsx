@@ -68,7 +68,7 @@ export default async function YourFirstLessonPage() {
           </Link>
 
           <nav className="hidden sm:flex items-center gap-6">
-            <Link href="/library" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+            <Link href="/public-lessons" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
               Public Lessons
             </Link>
             <Link href="/teaching-lab" className="text-violet-600 font-semibold text-sm">
@@ -162,7 +162,7 @@ export default async function YourFirstLessonPage() {
         {/* CTA */}
         <div className="text-center">
           <Link
-            href="/library"
+            href="/public-lessons"
             className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
           >
             Browse Public Lessons →
