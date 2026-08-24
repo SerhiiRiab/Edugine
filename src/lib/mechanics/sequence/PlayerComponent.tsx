@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, ArrowUp, ArrowDown } from 'lucide-react'
+import { Check, X, ArrowUp, ArrowDown, GripVertical } from 'lucide-react'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
@@ -24,8 +32,9 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a
 }
 
-// ── SequenceRow — no drag: up/down buttons only. Reliable on touch, where
-// HTML5/pointer drag proved fragile enough to trigger a full Sorting rework.
+// ── SequenceRow — drag it (mouse or finger, via the grip handle) to reorder,
+// or use the up/down buttons. PointerSensor alone handles mouse/touch/pen
+// uniformly, so both work without a dual-sensor conflict.
 
 function SequenceRow({
   item, index, total, disabled, correct, onMove,
@@ -37,14 +46,26 @@ function SequenceRow({
   correct?: boolean
   onMove: (dir: -1 | 1) => void
 }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled })
   return (
     <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
-        correct === true ? 'bg-emerald-900/40 border-emerald-500'
+        isDragging ? 'shadow-lg z-50 opacity-80'
+        : correct === true ? 'bg-emerald-900/40 border-emerald-500'
         : correct === false ? 'bg-rose-900/40 border-rose-500'
         : 'bg-slate-800 border-slate-700'
       }`}
     >
+      {!disabled && (
+        <span
+          {...attributes} {...listeners}
+          className="text-slate-500 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        >
+          <GripVertical className="w-4 h-4" />
+        </span>
+      )}
       <span className="w-6 h-6 rounded-full bg-slate-700 text-slate-300 flex items-center justify-center text-xs font-bold shrink-0">
         {index + 1}
       </span>
@@ -112,6 +133,10 @@ export function SequencePlayerPanel({
 
   useEffect(() => { setOrder(shuffleArray(items)); setSubmitted(false); setScore(0) }, [activityIndex, items])
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  )
+
   function handleMove(index: number, dir: -1 | 1) {
     if (submitted) return
     const target = index + dir
@@ -120,6 +145,17 @@ export function SequencePlayerPanel({
       const next = [...prev]
       ;[next[index], next[target]] = [next[target], next[index]]
       return next
+    })
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    if (submitted) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    setOrder(prev => {
+      const oldIdx = prev.findIndex(i => i.id === active.id)
+      const newIdx = prev.findIndex(i => i.id === over.id)
+      return arrayMove(prev, oldIdx, newIdx)
     })
   }
 
@@ -199,7 +235,7 @@ export function SequencePlayerPanel({
           </div>
         )}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-slate-400">Use the arrows to put them in order</span>
+          <span className="text-sm text-slate-400">Drag into order, or use the arrows</span>
           <span className="text-lg font-black text-sky-400">{score} pts</span>
         </div>
       </div>
@@ -211,15 +247,19 @@ export function SequencePlayerPanel({
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.2 }} className="space-y-3"
           >
-            <div className="space-y-2">
-              {order.map((item, i) => (
-                <SequenceRow
-                  key={item.id} item={item} index={i} total={order.length} disabled={submitted}
-                  correct={submitted ? item.id === items[i]?.id : undefined}
-                  onMove={dir => handleMove(i, dir)}
-                />
-              ))}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={order.map(i => i.id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-2">
+                  {order.map((item, i) => (
+                    <SequenceRow
+                      key={item.id} item={item} index={i} total={order.length} disabled={submitted}
+                      correct={submitted ? item.id === items[i]?.id : undefined}
+                      onMove={dir => handleMove(i, dir)}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
 
             {!submitted && (
               <button
@@ -267,31 +307,52 @@ export function SequenceSharedPlayerPanel({
   const byId = new Map(items.map(i => [i.id, i]))
   const orderedItems = sharedState.order.map(id => byId.get(id)).filter((i): i is RuntimeItem => !!i)
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  )
+
+  function sendMove(itemId: string, newIndex: number) {
+    channelRef.current?.send({
+      type: 'broadcast', event: 'sequence_move',
+      payload: { itemId, newIndex, activityIndex },
+    })
+  }
+
   function handleMove(index: number, dir: -1 | 1) {
     if (revealed) return
     const target = index + dir
     if (target < 0 || target >= orderedItems.length) return
-    channelRef.current?.send({
-      type: 'broadcast', event: 'sequence_move',
-      payload: { itemId: orderedItems[index].id, newIndex: target, activityIndex },
-    })
+    sendMove(orderedItems[index].id, target)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    if (revealed) return
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const newIndex = sharedState.order.indexOf(over.id as string)
+    if (newIndex === -1) return
+    sendMove(active.id as string, newIndex)
   }
 
   return (
     <div className="flex-1 flex flex-col px-4 py-4 gap-4 overflow-y-auto">
       <p className="text-sm text-slate-400 text-center">
-        {revealed ? 'Order checked by teacher' : 'Use the arrows to put them in order'}
+        {revealed ? 'Order checked by teacher' : 'Drag into order, or use the arrows'}
       </p>
 
-      <div className="space-y-2">
-        {orderedItems.map((item, i) => (
-          <SequenceRow
-            key={item.id} item={item} index={i} total={orderedItems.length} disabled={revealed}
-            correct={revealed ? items[i]?.id === item.id : undefined}
-            onMove={dir => handleMove(i, dir)}
-          />
-        ))}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={orderedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-2">
+            {orderedItems.map((item, i) => (
+              <SequenceRow
+                key={item.id} item={item} index={i} total={orderedItems.length} disabled={revealed}
+                correct={revealed ? items[i]?.id === item.id : undefined}
+                onMove={dir => handleMove(i, dir)}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {revealed && (
         <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3 text-center">

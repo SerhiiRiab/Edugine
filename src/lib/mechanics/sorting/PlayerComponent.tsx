@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
 import { Check, X } from 'lucide-react'
+import {
+  DndContext, useDraggable, useDroppable,
+  PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
@@ -24,37 +29,85 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a
 }
 
-// ── Chip — a single block. Tap to select / place / pick back up ──────────────
-// No HTML5/pointer drag: tap-to-select-then-tap-target is the only interaction,
-// so this works identically (and reliably) on touch and desktop.
+// ── Chip — a block. Drag it (mouse or finger, via Pointer Events) onto a
+// category, OR tap it to select then tap a category — both work at once.
+// PointerSensor alone (no separate TouchSensor) handles mouse/touch/pen
+// uniformly, so there's no dual-sensor race, and a plain tap below the
+// activation distance still fires a normal click instead of starting a drag.
 
 function Chip({
-  block, selected, correct, disabled, onClick,
+  block, selected, correct, disabled, onSelect,
 }: {
   block: SortingBlock
   selected: boolean
   correct?: boolean
   disabled: boolean
-  onClick: () => void
+  onSelect: () => void
 }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: block.id, disabled,
+  })
+  const style = transform
+    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
+    : undefined
   return (
     <motion.button
-      layout
+      ref={setNodeRef}
+      style={style}
+      layout={!isDragging}
       layoutId={`sorting-block-${block.id}`}
       transition={{ type: 'spring', stiffness: 500, damping: 35 }}
       type="button"
-      onClick={(e) => { e.stopPropagation(); onClick() }}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => { e.stopPropagation(); onSelect() }}
       disabled={disabled}
-      className={`px-3.5 py-2 rounded-2xl text-sm font-semibold border-2 shadow-sm transition-colors select-none ${
+      className={`px-3.5 py-2 rounded-2xl text-sm font-semibold border-2 shadow-sm transition-colors select-none touch-none ${
+        isDragging ? 'z-50 shadow-xl opacity-90 cursor-grabbing' : ''
+      } ${
         correct === true ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
         : correct === false ? 'bg-rose-900/40 border-rose-500 text-rose-300'
         : selected ? 'bg-sky-600 border-sky-400 text-white ring-2 ring-sky-400/50 scale-105'
         : disabled ? 'border-slate-700 text-slate-500 bg-slate-800 cursor-default'
-        : 'border-slate-600 bg-slate-700/60 text-slate-100 active:scale-95 cursor-pointer hover:border-sky-500'
+        : 'border-slate-600 bg-slate-700/60 text-slate-100 active:scale-95 cursor-grab hover:border-sky-500'
       }`}
     >
       {block.text}
     </motion.button>
+  )
+}
+
+// ── DropZone — a category column or the Unplaced tray. Accepts a drag AND
+// a tap-to-place (when a block is selected via tap).
+
+function DropZone({
+  id, label, clickable, isDragging, onClick, children,
+}: {
+  id: string
+  label: string
+  clickable: boolean
+  isDragging: boolean
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id })
+  const highlighted = isOver || (clickable && !isDragging)
+  return (
+    <div
+      ref={setNodeRef}
+      role="button"
+      tabIndex={clickable ? 0 : -1}
+      onClick={onClick}
+      onKeyDown={(e) => { if (clickable && (e.key === 'Enter' || e.key === ' ')) onClick() }}
+      className={`text-left rounded-2xl border-2 p-3 space-y-2 min-h-[90px] transition-colors ${
+        isOver ? 'border-sky-400 bg-sky-900/20'
+        : highlighted ? 'border-sky-500/70 bg-sky-900/10'
+        : 'border-slate-700 bg-slate-800'
+      }`}
+    >
+      <p className="text-xs font-bold uppercase tracking-wide text-slate-300">{label}</p>
+      <div className="flex flex-wrap gap-1.5">{children}</div>
+    </div>
   )
 }
 
@@ -78,25 +131,47 @@ function SortingBoard({
   revealed: boolean
   disabled: boolean
   onSelectBlock: (blockId: string) => void
-  onPlaceInCategory: (categoryId: string) => void
+  onPlaceInCategory: (categoryId: string | null) => void
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null)
   const unplaced = blocks.filter(b => !placements[b.id])
   const colCount = Math.min(Math.max(categories.length, 1), 4)
   const gridColsClass = GRID_COLS[colCount] ?? 'grid-cols-2'
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  )
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveId(null)
+    if (disabled) return
+    const { active, over } = event
+    if (!over) return
+    onPlaceInCategory(over.id === 'tray' ? null : (over.id as string))
+    void active
+  }
+
   return (
     <LayoutGroup>
-      <div className="space-y-4">
-        {/* Unplaced tray — always on top */}
-        <div className="rounded-2xl border-2 border-dashed border-slate-600 bg-slate-900/40 p-3 min-h-[76px]">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
-            Unplaced {unplaced.length > 0 && `(${unplaced.length})`}
-          </p>
-          <div className="flex flex-wrap gap-2">
+      <DndContext
+        sensors={sensors}
+        onDragStart={(e) => setActiveId(e.active.id as string)}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActiveId(null)}
+      >
+        <div className="space-y-4">
+          {/* Unplaced tray — always on top */}
+          <DropZone
+            id="tray"
+            label={`Unplaced${unplaced.length > 0 ? ` (${unplaced.length})` : ''}`}
+            clickable={!disabled && !!selectedId}
+            isDragging={!!activeId}
+            onClick={() => selectedId && onPlaceInCategory(null)}
+          >
             {unplaced.map(b => (
               <Chip
                 key={b.id} block={b} selected={selectedId === b.id} disabled={disabled}
-                onClick={() => onSelectBlock(b.id)}
+                onSelect={() => onSelectBlock(b.id)}
               />
             ))}
             {unplaced.length === 0 && blocks.length === 0 && (
@@ -105,40 +180,32 @@ function SortingBoard({
             {unplaced.length === 0 && blocks.length > 0 && (
               <p className="text-xs text-slate-500 py-1">Every block has been placed</p>
             )}
-          </div>
-        </div>
+          </DropZone>
 
-        {/* Category columns */}
-        <div className={`grid gap-3 ${gridColsClass}`}>
-          {categories.map(cat => {
-            const inCategory = blocks.filter(b => placements[b.id] === cat.id)
-            const clickable = !disabled && !!selectedId
-            return (
-              <div
-                key={cat.id}
-                role="button"
-                tabIndex={clickable ? 0 : -1}
-                onClick={() => { if (clickable) onPlaceInCategory(cat.id) }}
-                onKeyDown={(e) => { if (clickable && (e.key === 'Enter' || e.key === ' ')) onPlaceInCategory(cat.id) }}
-                className={`text-left rounded-2xl border-2 p-3 space-y-2 min-h-[110px] transition-colors ${
-                  clickable ? 'border-sky-500/70 bg-sky-900/10 hover:bg-sky-900/20 cursor-pointer' : 'border-slate-700 bg-slate-800'
-                }`}
-              >
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-300">{cat.name}</p>
-                <div className="flex flex-wrap gap-1.5">
+          {/* Category columns */}
+          <div className={`grid gap-3 ${gridColsClass}`}>
+            {categories.map(cat => {
+              const inCategory = blocks.filter(b => placements[b.id] === cat.id)
+              return (
+                <DropZone
+                  key={cat.id} id={cat.id} label={cat.name}
+                  clickable={!disabled && !!selectedId}
+                  isDragging={!!activeId}
+                  onClick={() => selectedId && onPlaceInCategory(cat.id)}
+                >
                   {inCategory.map(b => (
                     <Chip
                       key={b.id} block={b} selected={false} disabled={disabled}
                       correct={revealed ? b.categoryId === cat.id : undefined}
-                      onClick={() => onSelectBlock(b.id)}
+                      onSelect={() => onSelectBlock(b.id)}
                     />
                   ))}
-                </div>
-              </div>
-            )
-          })}
+                </DropZone>
+              )
+            })}
+          </div>
         </div>
-      </div>
+      </DndContext>
     </LayoutGroup>
   )
 }
@@ -188,9 +255,9 @@ export function SortingPlayerPanel({
   }, [activityIndex])
 
   // Stable per-activity shuffle — keyed on activityIndex + the actual set of
-  // block ids (not the `blocks` array reference, which is rebuilt fresh on
-  // every parent re-render) so unrelated re-renders never reshuffle the tray,
-  // but a genuinely different/late-arriving block set is still picked up.
+  // block ids (not the `blocks` array reference, rebuilt fresh every render)
+  // so unrelated re-renders never reshuffle the tray, but a genuinely
+  // different/late-arriving block set is still picked up.
   const blockIdsKey = blocks.map(b => b.id).join(',')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex, blockIdsKey])
@@ -210,9 +277,18 @@ export function SortingPlayerPanel({
     setSelectedId(prev => prev === blockId ? null : blockId)
   }
 
-  function handlePlaceInCategory(categoryId: string) {
-    if (submitted || !selectedId) return
-    setPlacements(prev => ({ ...prev, [selectedId]: categoryId }))
+  function handlePlaceInCategory(categoryId: string | null) {
+    if (submitted) return
+    const blockId = selectedId
+    if (!blockId) return
+    setPlacements(prev => {
+      if (categoryId === null) {
+        const next = { ...prev }
+        delete next[blockId]
+        return next
+      }
+      return { ...prev, [blockId]: categoryId }
+    })
     setSelectedId(null)
   }
 
@@ -296,7 +372,7 @@ export function SortingPlayerPanel({
         )}
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm text-slate-400">
-            {selectedId ? 'Tap a category to place it' : 'Tap a block, then tap its category'}
+            {selectedId ? 'Tap a category to place it' : 'Drag a block into its category, or tap it'}
           </span>
           <span className="text-lg font-black text-sky-400">{score} pts</span>
         </div>
@@ -365,8 +441,7 @@ export function SortingSharedPlayerPanel({
   const placements = useMemo(() => sharedState.placements, [sharedState.placements])
   // Stable per-activity shuffle — keyed on activityIndex + the actual set of
   // block ids (not the `blocks` array reference, rebuilt fresh every render)
-  // so state updates from other students never reshuffle the tray, but a
-  // genuinely different/late-arriving block set is still picked up.
+  // so state updates from other students never reshuffle the tray.
   const blockIdsKey = blocks.map(b => b.id).join(',')
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex, blockIdsKey])
@@ -386,11 +461,13 @@ export function SortingSharedPlayerPanel({
     setSelectedId(prev => prev === blockId ? null : blockId)
   }
 
-  function handlePlaceInCategory(categoryId: string) {
-    if (revealed || !selectedId) return
+  function handlePlaceInCategory(categoryId: string | null) {
+    if (revealed) return
+    const blockId = selectedId
+    if (!blockId) return
     channelRef.current?.send({
       type: 'broadcast', event: 'sorting_place',
-      payload: { blockId: selectedId, categoryId, activityIndex },
+      payload: { blockId, categoryId, activityIndex },
     })
     setSelectedId(null)
   }
@@ -398,7 +475,7 @@ export function SortingSharedPlayerPanel({
   return (
     <div className="flex-1 flex flex-col px-4 py-4 gap-4 overflow-y-auto">
       <p className="text-sm text-slate-400 text-center">
-        {revealed ? 'Answers checked by teacher' : selectedId ? 'Tap a category to place it' : 'Tap a block, then tap its category'}
+        {revealed ? 'Answers checked by teacher' : selectedId ? 'Tap a category to place it' : 'Drag a block into its category, or tap it'}
       </p>
 
       <SortingBoard
