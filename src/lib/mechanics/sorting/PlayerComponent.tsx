@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { motion, AnimatePresence, LayoutGroup } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X } from 'lucide-react'
 import {
   DndContext, useDraggable, useDroppable,
@@ -47,23 +47,26 @@ function Chip({
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: block.id, disabled,
   })
-  const style = transform
-    ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
-    : undefined
+  const style: React.CSSProperties = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    // dnd-kit owns this element's transform while dragging — framer-motion's
+    // `layout` animation writes to the same CSS property, and the two
+    // fighting over it every frame is what made dragging look like jittering
+    // instead of smooth movement. Keep this chip a plain button; the FLIP
+    // "flying" animation isn't needed once real drag physics do the moving.
+    zIndex: isDragging ? 50 : undefined,
+  }
   return (
-    <motion.button
+    <button
       ref={setNodeRef}
       style={style}
-      layout={!isDragging}
-      layoutId={`sorting-block-${block.id}`}
-      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
       type="button"
       {...listeners}
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       disabled={disabled}
       className={`px-3.5 py-2 rounded-2xl text-sm font-semibold border-2 shadow-sm transition-colors select-none touch-none ${
-        isDragging ? 'z-50 shadow-xl opacity-90 cursor-grabbing' : ''
+        isDragging ? 'shadow-xl opacity-90 cursor-grabbing' : ''
       } ${
         correct === true ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
         : correct === false ? 'bg-rose-900/40 border-rose-500 text-rose-300'
@@ -73,7 +76,7 @@ function Chip({
       }`}
     >
       {block.text}
-    </motion.button>
+    </button>
   )
 }
 
@@ -152,61 +155,59 @@ function SortingBoard({
   }
 
   return (
-    <LayoutGroup>
-      <DndContext
-        sensors={sensors}
-        onDragStart={(e) => setActiveId(e.active.id as string)}
-        onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveId(null)}
-      >
-        <div className="space-y-4">
-          {/* Unplaced tray — always on top */}
-          <DropZone
-            id="tray"
-            label={`Unplaced${unplaced.length > 0 ? ` (${unplaced.length})` : ''}`}
-            clickable={!disabled && !!selectedId}
-            isDragging={!!activeId}
-            onClick={() => selectedId && onPlaceInCategory(null)}
-          >
-            {unplaced.map(b => (
-              <Chip
-                key={b.id} block={b} selected={selectedId === b.id} disabled={disabled}
-                onSelect={() => onSelectBlock(b.id)}
-              />
-            ))}
-            {unplaced.length === 0 && blocks.length === 0 && (
-              <p className="text-xs text-amber-500 py-1">This activity has no blocks yet — ask your tutor to add some</p>
-            )}
-            {unplaced.length === 0 && blocks.length > 0 && (
-              <p className="text-xs text-slate-500 py-1">Every block has been placed</p>
-            )}
-          </DropZone>
+    <DndContext
+      sensors={sensors}
+      onDragStart={(e) => setActiveId(e.active.id as string)}
+      onDragEnd={handleDragEnd}
+      onDragCancel={() => setActiveId(null)}
+    >
+      <div className="space-y-4">
+        {/* Unplaced tray — always on top */}
+        <DropZone
+          id="tray"
+          label={`Unplaced${unplaced.length > 0 ? ` (${unplaced.length})` : ''}`}
+          clickable={!disabled && !!selectedId}
+          isDragging={!!activeId}
+          onClick={() => selectedId && onPlaceInCategory(null)}
+        >
+          {unplaced.map(b => (
+            <Chip
+              key={b.id} block={b} selected={selectedId === b.id} disabled={disabled}
+              onSelect={() => onSelectBlock(b.id)}
+            />
+          ))}
+          {unplaced.length === 0 && blocks.length === 0 && (
+            <p className="text-xs text-amber-500 py-1">This activity has no blocks yet — ask your tutor to add some</p>
+          )}
+          {unplaced.length === 0 && blocks.length > 0 && (
+            <p className="text-xs text-slate-500 py-1">Every block has been placed</p>
+          )}
+        </DropZone>
 
-          {/* Category columns */}
-          <div className={`grid gap-3 ${gridColsClass}`}>
-            {categories.map(cat => {
-              const inCategory = blocks.filter(b => placements[b.id] === cat.id)
-              return (
-                <DropZone
-                  key={cat.id} id={cat.id} label={cat.name}
-                  clickable={!disabled && !!selectedId}
-                  isDragging={!!activeId}
-                  onClick={() => selectedId && onPlaceInCategory(cat.id)}
-                >
-                  {inCategory.map(b => (
-                    <Chip
-                      key={b.id} block={b} selected={false} disabled={disabled}
-                      correct={revealed ? b.categoryId === cat.id : undefined}
-                      onSelect={() => onSelectBlock(b.id)}
-                    />
-                  ))}
-                </DropZone>
-              )
-            })}
-          </div>
+        {/* Category columns */}
+        <div className={`grid gap-3 ${gridColsClass}`}>
+          {categories.map(cat => {
+            const inCategory = blocks.filter(b => placements[b.id] === cat.id)
+            return (
+              <DropZone
+                key={cat.id} id={cat.id} label={cat.name}
+                clickable={!disabled && !!selectedId}
+                isDragging={!!activeId}
+                onClick={() => selectedId && onPlaceInCategory(cat.id)}
+              >
+                {inCategory.map(b => (
+                  <Chip
+                    key={b.id} block={b} selected={false} disabled={disabled}
+                    correct={revealed ? b.categoryId === cat.id : undefined}
+                    onSelect={() => onSelectBlock(b.id)}
+                  />
+                ))}
+              </DropZone>
+            )
+          })}
         </div>
-      </DndContext>
-    </LayoutGroup>
+      </div>
+    </DndContext>
   )
 }
 
