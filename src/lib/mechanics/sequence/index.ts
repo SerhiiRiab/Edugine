@@ -14,8 +14,8 @@ export const sequenceDefinition: MechanicDefinition<SequenceConfig, SequenceItem
   id: 'sequence',
   name: 'Sequence',
   description: 'Students arrange shuffled words, sentences, or steps into the correct order.',
-  skill_category: 'grammar',
-  skill_categories: ['grammar', 'writing', 'reading'],
+  skill_category: 'interactive-blocks',
+  skill_categories: ['interactive-blocks'],
 
   HostComponent: SequenceHostComponent,
   PlayerComponent: SequencePlayerComponent,

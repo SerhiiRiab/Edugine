@@ -15,8 +15,8 @@ export const speedDebateDefinition: MechanicDefinition<SpeedDebateConfig, SpeedD
   id: 'speed_debate',
   name: 'Speed Debate',
   description: 'Debate statements in real-time with assigned positions.',
-  skill_category: 'speaking',
-  skill_categories: ['speaking'],
+  skill_category: 'discussion-speaking',
+  skill_categories: ['discussion-speaking'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: HostStub as any,

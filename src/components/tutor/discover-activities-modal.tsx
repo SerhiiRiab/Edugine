@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { SKILL_CATEGORIES } from '@/lib/mechanics/skill-categories'
 
 export const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   swipe_battle:    Target,
@@ -47,27 +48,16 @@ export const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }
 }
 
 export const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {
-  vocabulary: { tile: 'hover:border-blue-200',   icon: 'bg-blue-100 text-blue-600' },
-  speaking:   { tile: 'hover:border-orange-200', icon: 'bg-orange-100 text-orange-600' },
-  writing:    { tile: 'hover:border-green-200',  icon: 'bg-green-100 text-green-600' },
-  grammar:    { tile: 'hover:border-purple-200', icon: 'bg-purple-100 text-purple-600' },
-  listening:  { tile: 'hover:border-yellow-200', icon: 'bg-yellow-100 text-yellow-600' },
-  reading:    { tile: 'hover:border-teal-200',   icon: 'bg-teal-100 text-teal-600' },
-  content:     { tile: 'hover:border-slate-300',  icon: 'bg-slate-100 text-slate-500' },
-  simulations: { tile: 'hover:border-rose-200',   icon: 'bg-rose-50 text-rose-600' },
+  simulations:           { tile: 'hover:border-rose-200',   icon: 'bg-rose-100 text-rose-600' },
+  'discussion-speaking': { tile: 'hover:border-emerald-200', icon: 'bg-emerald-100 text-emerald-600' },
+  'knowledge-check':     { tile: 'hover:border-sky-200',     icon: 'bg-sky-100 text-sky-600' },
+  'interactive-blocks':  { tile: 'hover:border-violet-200',  icon: 'bg-violet-100 text-violet-600' },
+  'text-reading':        { tile: 'hover:border-teal-200',    icon: 'bg-teal-100 text-teal-600' },
+  workspace:             { tile: 'hover:border-indigo-200',  icon: 'bg-indigo-100 text-indigo-600' },
 }
 export const DEFAULT_COLORS = { tile: 'hover:border-violet-200', icon: 'bg-violet-100 text-violet-600' }
 
-const CATEGORIES = [
-  { value: 'vocabulary', label: 'Vocabulary' },
-  { value: 'grammar',    label: 'Grammar' },
-  { value: 'speaking',   label: 'Speaking' },
-  { value: 'listening',  label: 'Listening' },
-  { value: 'reading',    label: 'Reading' },
-  { value: 'writing',    label: 'Writing' },
-  { value: 'content',     label: 'Content' },
-  { value: 'simulations', label: 'Simulations' },
-]
+const CATEGORIES = SKILL_CATEGORIES.map(c => ({ value: c.id, label: c.label }))
 
 export interface CatalogMechanic {
   id: string

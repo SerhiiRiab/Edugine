@@ -24,8 +24,8 @@ export const swipeBattleDefinition: MechanicDefinition<
   id: 'swipe_battle',
   name: 'Swipe Battle',
   description: 'Swipe right or left to judge vocabulary pairs or standalone statements — mix both in one activity.',
-  skill_category: 'vocabulary',
-  skill_categories: ['vocabulary'],
+  skill_category: 'knowledge-check',
+  skill_categories: ['knowledge-check'],
 
   HostComponent: SwipeBattleHostComponent,
   PlayerComponent: SwipeBattlePlayerComponent,

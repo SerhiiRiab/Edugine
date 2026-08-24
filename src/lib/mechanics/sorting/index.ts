@@ -16,8 +16,8 @@ export const sortingDefinition: MechanicDefinition<SortingConfig, SortingCategor
   id: 'sorting',
   name: 'Sorting',
   description: 'Students drag words, sentences, or ideas into the correct category.',
-  skill_category: 'vocabulary',
-  skill_categories: ['vocabulary', 'grammar', 'reading'],
+  skill_category: 'interactive-blocks',
+  skill_categories: ['interactive-blocks'],
 
   HostComponent: SortingHostComponent,
   PlayerComponent: SortingPlayerComponent,

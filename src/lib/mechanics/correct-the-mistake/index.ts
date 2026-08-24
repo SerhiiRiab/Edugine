@@ -6,7 +6,7 @@ import { CorrectTheMistakeContentEditor } from './ContentEditor'
 
 // SQL: INSERT INTO mechanics (id, name, description, skill_category, skill_categories, supported_modes)
 // VALUES ('correct_the_mistake', 'Correct the Mistake', 'Find and fix the grammatical mistake in each sentence.',
-//         'grammar', ARRAY['grammar','writing'], ARRAY['individual','shared']);
+//         'knowledge-check', ARRAY['knowledge-check'], ARRAY['individual','shared']);
 
 function validateItem(data: unknown): data is CorrectTheMistakeItem {
   if (typeof data !== 'object' || data === null) return false
@@ -22,8 +22,8 @@ export const correctTheMistakeDefinition: MechanicDefinition<
   id: 'correct_the_mistake',
   name: 'Correct the Mistake',
   description: 'Find and fix the grammatical mistake in each sentence.',
-  skill_category: 'grammar',
-  skill_categories: ['grammar', 'writing'],
+  skill_category: 'knowledge-check',
+  skill_categories: ['knowledge-check'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: CorrectTheMistakeHostComponent as any,

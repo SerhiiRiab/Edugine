@@ -21,8 +21,8 @@ export const speakingChallengeDefinition: MechanicDefinition<SpeakingChallengeCo
   id: 'speaking_challenge',
   name: 'Speaking Challenge',
   description: 'Random words appear on screen — students improvise sentences while the clock ticks.',
-  skill_category: 'speaking',
-  skill_categories: ['speaking'],
+  skill_category: 'discussion-speaking',
+  skill_categories: ['discussion-speaking'],
 
   HostComponent: HostStub,
   PlayerComponent: PlayerStub,

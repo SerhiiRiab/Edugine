@@ -6,7 +6,7 @@ import { JigsawReadingContentEditor } from './ContentEditor'
 
 // SQL: INSERT INTO mechanics (id, name, description, supported_modes, skill_category, skill_categories)
 // VALUES ('jigsaw_reading', 'Jigsaw Reading', 'Each student reads a different passage privately, then shares with the group. Together they answer discussion questions.',
-//         ARRAY['shared'], 'reading', ARRAY['reading', 'speaking']);
+//         ARRAY['shared'], 'text-reading', ARRAY['text-reading']);
 
 function validateItem(data: unknown): data is JigsawReadingItem {
   if (typeof data !== 'object' || data === null) return false
@@ -20,8 +20,8 @@ export const jigsawReadingDefinition: MechanicDefinition<JigsawReadingConfig, Ji
   id: 'jigsaw_reading',
   name: 'Jigsaw Reading',
   description: 'Each student reads a different passage privately, then shares with the group. Together they answer discussion questions.',
-  skill_category: 'reading',
-  skill_categories: ['reading', 'speaking'],
+  skill_category: 'text-reading',
+  skill_categories: ['text-reading'],
 
   HostComponent: (() => null) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
   PlayerComponent: (() => null) as any, // eslint-disable-line @typescript-eslint/no-explicit-any

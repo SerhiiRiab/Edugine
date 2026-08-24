@@ -57,14 +57,12 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
 // ── Badge/dot colours keyed by skill_category — fully static for Tailwind ────
 
 const CATEGORY_TILE: Record<string, { badge: string; dot: string }> = {
-  vocabulary: { badge: 'border-violet-300 bg-violet-50',   dot: 'border-violet-500 bg-violet-500' },
-  grammar:    { badge: 'border-sky-300 bg-sky-50',         dot: 'border-sky-500 bg-sky-500' },
-  speaking:   { badge: 'border-emerald-300 bg-emerald-50', dot: 'border-emerald-500 bg-emerald-500' },
-  listening:  { badge: 'border-amber-300 bg-amber-50',     dot: 'border-amber-500 bg-amber-500' },
-  reading:    { badge: 'border-rose-300 bg-rose-50',       dot: 'border-rose-500 bg-rose-500' },
-  writing:    { badge: 'border-teal-300 bg-teal-50',       dot: 'border-teal-500 bg-teal-500' },
-  content:        { badge: 'border-orange-300 bg-orange-50',   dot: 'border-orange-500 bg-orange-500' },
-  simulations:    { badge: 'border-rose-300 bg-rose-50',       dot: 'border-rose-500 bg-rose-500' },
+  simulations:          { badge: 'border-rose-300 bg-rose-50',       dot: 'border-rose-500 bg-rose-500' },
+  'discussion-speaking': { badge: 'border-emerald-300 bg-emerald-50', dot: 'border-emerald-500 bg-emerald-500' },
+  'knowledge-check':     { badge: 'border-sky-300 bg-sky-50',         dot: 'border-sky-500 bg-sky-500' },
+  'interactive-blocks':  { badge: 'border-violet-300 bg-violet-50',   dot: 'border-violet-500 bg-violet-500' },
+  'text-reading':        { badge: 'border-teal-300 bg-teal-50',       dot: 'border-teal-500 bg-teal-500' },
+  workspace:            { badge: 'border-indigo-300 bg-indigo-50',   dot: 'border-indigo-500 bg-indigo-500' },
 }
 const DEFAULT_TILE = { badge: 'border-violet-300 bg-violet-50', dot: 'border-violet-500 bg-violet-500' }
 

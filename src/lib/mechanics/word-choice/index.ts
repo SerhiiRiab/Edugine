@@ -24,8 +24,8 @@ export const wordChoiceDefinition: MechanicDefinition<WordChoiceConfig, WordChoi
   id: 'word_choice',
   name: 'Word Choice',
   description: 'Choose the correct word to complete each sentence from a dropdown.',
-  skill_category: 'grammar',
-  skill_categories: ['grammar', 'vocabulary', 'reading'],
+  skill_category: 'knowledge-check',
+  skill_categories: ['knowledge-check'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: WordChoiceHostComponent as any,

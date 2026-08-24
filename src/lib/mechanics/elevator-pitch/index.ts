@@ -6,7 +6,7 @@ import { ElevatorPitchContentEditor } from './ContentEditor'
 
 // SQL: INSERT INTO mechanics (id, name, description, supported_modes, skill_category, skill_categories)
 // VALUES ('elevator_pitch', 'Elevator Pitch', 'Students take turns delivering a short pitch on a given topic. Timer keeps them on track.',
-//         ARRAY['shared'], 'speaking', ARRAY['speaking']);
+//         ARRAY['shared'], 'discussion-speaking', ARRAY['discussion-speaking']);
 
 function validateItem(data: unknown): data is ElevatorPitchItem {
   if (typeof data !== 'object' || data === null) return false
@@ -18,8 +18,8 @@ export const elevatorPitchDefinition: MechanicDefinition<ElevatorPitchConfig, El
   id: 'elevator_pitch',
   name: 'Elevator Pitch',
   description: 'Students take turns delivering a short pitch on a given topic. Timer keeps them on track.',
-  skill_category: 'speaking',
-  skill_categories: ['speaking'],
+  skill_category: 'discussion-speaking',
+  skill_categories: ['discussion-speaking'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: (() => null) as any,

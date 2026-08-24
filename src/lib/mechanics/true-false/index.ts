@@ -14,8 +14,8 @@ export const trueFalseDefinition: MechanicDefinition<TrueFalseConfig, TrueFalseI
   id: 'true_false',
   name: 'True or False',
   description: 'Decide if statements are true or false.',
-  skill_category: 'reading',
-  skill_categories: ['reading', 'listening', 'vocabulary'],
+  skill_category: 'knowledge-check',
+  skill_categories: ['knowledge-check'],
 
   HostComponent: TrueFalseHostComponent,
   PlayerComponent: TrueFalsePlayerComponent,

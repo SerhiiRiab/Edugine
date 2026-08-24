@@ -20,8 +20,8 @@ export const fillTheGapDefinition: MechanicDefinition<FillTheGapConfig, FillTheG
   id: 'fill_the_gap',
   name: 'Fill the Gap',
   description: 'Complete sentences by filling in the missing words.',
-  skill_category: 'grammar',
-  skill_categories: ['grammar', 'writing'],
+  skill_category: 'knowledge-check',
+  skill_categories: ['knowledge-check'],
 
   HostComponent: FillTheGapHostComponent,
   PlayerComponent: FillTheGapPlayerComponent,

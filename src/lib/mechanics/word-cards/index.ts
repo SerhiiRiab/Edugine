@@ -14,8 +14,8 @@ export const wordCardsDefinition: MechanicDefinition<WordCardsConfig, WordCardsI
   id: 'word_cards',
   name: 'Word Cards',
   description: 'Students flip through two-sided flashcards and self-check what they knew.',
-  skill_category: 'vocabulary',
-  skill_categories: ['vocabulary'],
+  skill_category: 'knowledge-check',
+  skill_categories: ['knowledge-check'],
 
   HostComponent: WordCardsHostComponent,
   PlayerComponent: WordCardsPlayerComponent,

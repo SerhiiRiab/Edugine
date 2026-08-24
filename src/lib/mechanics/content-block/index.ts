@@ -18,8 +18,8 @@ export const contentBlockDefinition: MechanicDefinition<ContentBlockConfig, Cont
   id: 'content_block',
   name: 'Content Block',
   description: 'Present text or video material to students.',
-  skill_category: 'content',
-  skill_categories: ['content'],
+  skill_category: 'text-reading',
+  skill_categories: ['text-reading'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: HostStub as any,

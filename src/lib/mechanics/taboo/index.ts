@@ -6,7 +6,7 @@ import { TabooContentEditor } from './ContentEditor'
 
 // SQL: INSERT INTO mechanics (id, name, description, supported_modes, skill_category, skill_categories)
 // VALUES ('taboo', 'Taboo', 'Describe the word without using the forbidden words. Teammates guess correctly to score points.',
-//         ARRAY['shared'], 'speaking', ARRAY['speaking', 'vocabulary']);
+//         ARRAY['shared'], 'discussion-speaking', ARRAY['discussion-speaking']);
 
 function validateItem(data: unknown): data is TabooItem {
   if (typeof data !== 'object' || data === null) return false
@@ -18,8 +18,8 @@ export const tabooDefinition: MechanicDefinition<TabooConfig, TabooItem, TabooSt
   id: 'taboo',
   name: 'Taboo',
   description: 'Describe the word without using the forbidden words. Teammates guess correctly to score points.',
-  skill_category: 'speaking',
-  skill_categories: ['speaking', 'vocabulary'],
+  skill_category: 'discussion-speaking',
+  skill_categories: ['discussion-speaking'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: (() => null) as any,

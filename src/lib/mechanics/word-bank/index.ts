@@ -20,8 +20,8 @@ export const wordBankDefinition: MechanicDefinition<WordBankConfig, WordBankItem
   id: 'word_bank',
   name: 'Word Bank',
   description: 'Fill in the blanks using words from a shared word bank.',
-  skill_category: 'grammar',
-  skill_categories: ['grammar', 'reading', 'writing'],
+  skill_category: 'interactive-blocks',
+  skill_categories: ['interactive-blocks'],
   HostComponent: WordBankHostComponent,
   PlayerComponent: WordBankPlayerComponent,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

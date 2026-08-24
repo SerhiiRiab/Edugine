@@ -14,8 +14,8 @@ export const roleplayQuestDefinition: MechanicDefinition<RoleplayQuestConfig, Ro
   id: 'roleplay_quest',
   name: 'Roleplay Quest',
   description: 'Students pick secret roles and complete hidden goals in a live roleplay scenario.',
-  skill_category: 'speaking',
-  skill_categories: ['speaking'],
+  skill_category: 'simulations',
+  skill_categories: ['simulations'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: RoleplayQuestHostPanel as any,

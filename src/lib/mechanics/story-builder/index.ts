@@ -21,8 +21,8 @@ export const storyBuilderDefinition: MechanicDefinition<
   id: 'story_builder',
   name: 'Group Story Builder',
   description: 'Collaborative turn-based story writing with a shared word bank.',
-  skill_category: 'writing',
-  skill_categories: ['writing'],
+  skill_category: 'simulations',
+  skill_categories: ['simulations'],
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   HostComponent: HostStub as any,

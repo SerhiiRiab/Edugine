@@ -6,7 +6,7 @@ import { PredictVerifyContentEditor } from './ContentEditor'
 
 // SQL: INSERT INTO mechanics (id, name, description, supported_modes, skill_category, skill_categories)
 // VALUES ('predict_verify', 'Predict & Verify', 'Students predict what an article is about from the headline, read the full text, then discuss whose prediction was closest.',
-//         ARRAY['shared'], 'reading', ARRAY['reading', 'speaking']);
+//         ARRAY['shared'], 'text-reading', ARRAY['text-reading']);
 
 function validateItem(data: unknown): data is PredictVerifyItem {
   if (typeof data !== 'object' || data === null) return false
@@ -20,8 +20,8 @@ export const predictVerifyDefinition: MechanicDefinition<PredictVerifyConfig, Pr
   id: 'predict_verify',
   name: 'Predict & Verify',
   description: 'Students predict what an article is about from the headline, read the full text, then discuss whose prediction was closest.',
-  skill_category: 'reading',
-  skill_categories: ['reading', 'speaking'],
+  skill_category: 'text-reading',
+  skill_categories: ['text-reading'],
 
   HostComponent: PredictVerifyHostComponent,
   PlayerComponent: PredictVerifyPlayerComponent,
