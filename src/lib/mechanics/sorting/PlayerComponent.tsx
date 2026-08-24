@@ -228,7 +228,12 @@ function SortingBoard({
           })}
         </div>
       </div>
-      <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
+      {/* No drop animation: dnd-kit's default measures the "final" rect by
+          looking for the source node's new DOM position, but that lookup
+          runs before React has re-parented it into the target category —
+          so it animates toward the OLD spot first, then snaps once the
+          real position is known. Cleaner to just end the drag instantly. */}
+      <DragOverlay dropAnimation={null}>
         {activeBlock ? <ChipGhost text={activeBlock.text} /> : null}
       </DragOverlay>
     </DndContext>
