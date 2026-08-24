@@ -4,9 +4,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, X } from 'lucide-react'
 import {
-  DndContext, useDraggable, useDroppable,
+  DndContext, DragOverlay, useDraggable, useDroppable,
   PointerSensor, useSensor, useSensors,
-  type DragEndEvent,
+  type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
@@ -35,6 +35,38 @@ function shuffleArray<T>(arr: T[]): T[] {
 // uniformly, so there's no dual-sensor race, and a plain tap below the
 // activation distance still fires a normal click instead of starting a drag.
 
+function chipClassName(state: {
+  isDragging?: boolean
+  correct?: boolean
+  selected?: boolean
+  disabled?: boolean
+}) {
+  const { isDragging, correct, selected, disabled } = state
+  return `px-3.5 py-2 rounded-2xl text-sm font-semibold border-2 shadow-sm transition-colors select-none touch-none ${
+    isDragging ? 'shadow-xl cursor-grabbing' : ''
+  } ${
+    correct === true ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
+    : correct === false ? 'bg-rose-900/40 border-rose-500 text-rose-300'
+    : selected ? 'bg-sky-600 border-sky-400 text-white ring-2 ring-sky-400/50 scale-105'
+    : disabled ? 'border-slate-700 text-slate-500 bg-slate-800 cursor-default'
+    : 'border-slate-600 bg-slate-700/60 text-slate-100 active:scale-95 cursor-grab hover:border-sky-500'
+  }`
+}
+
+// Ghost rendered inside DragOverlay — a plain visual clone (no dnd-kit hooks
+// of its own) that dnd-kit portals to the pointer position and, on drop,
+// animates smoothly to the landing spot. This is the standard dnd-kit fix
+// for dragging BETWEEN containers: without it, the real chip's transform
+// resets and it re-parents into the new container in the same instant,
+// which looks like a snap-back-then-jump instead of one smooth motion.
+function ChipGhost({ text }: { text: string }) {
+  return (
+    <div className={chipClassName({ isDragging: true })} style={{ cursor: 'grabbing' }}>
+      {text}
+    </div>
+  )
+}
+
 function Chip({
   block, selected, correct, disabled, onSelect,
 }: {
@@ -44,36 +76,21 @@ function Chip({
   disabled: boolean
   onSelect: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: block.id, disabled,
   })
-  const style: React.CSSProperties = {
-    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-    // dnd-kit owns this element's transform while dragging — framer-motion's
-    // `layout` animation writes to the same CSS property, and the two
-    // fighting over it every frame is what made dragging look like jittering
-    // instead of smooth movement. Keep this chip a plain button; the FLIP
-    // "flying" animation isn't needed once real drag physics do the moving.
-    zIndex: isDragging ? 50 : undefined,
-  }
   return (
     <button
       ref={setNodeRef}
-      style={style}
       type="button"
       {...listeners}
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       disabled={disabled}
-      className={`px-3.5 py-2 rounded-2xl text-sm font-semibold border-2 shadow-sm transition-colors select-none touch-none ${
-        isDragging ? 'shadow-xl opacity-90 cursor-grabbing' : ''
-      } ${
-        correct === true ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
-        : correct === false ? 'bg-rose-900/40 border-rose-500 text-rose-300'
-        : selected ? 'bg-sky-600 border-sky-400 text-white ring-2 ring-sky-400/50 scale-105'
-        : disabled ? 'border-slate-700 text-slate-500 bg-slate-800 cursor-default'
-        : 'border-slate-600 bg-slate-700/60 text-slate-100 active:scale-95 cursor-grab hover:border-sky-500'
-      }`}
+      // Dim in place while dragging — DragOverlay shows the moving copy,
+      // so this source element must NOT also carry a live transform.
+      style={{ opacity: isDragging ? 0.35 : undefined }}
+      className={chipClassName({ correct, selected, disabled })}
     >
       {block.text}
     </button>
@@ -140,10 +157,15 @@ function SortingBoard({
   const unplaced = blocks.filter(b => !placements[b.id])
   const colCount = Math.min(Math.max(categories.length, 1), 4)
   const gridColsClass = GRID_COLS[colCount] ?? 'grid-cols-2'
+  const activeBlock = activeId ? blocks.find(b => b.id === activeId) ?? null : null
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string)
+  }
 
   function handleDragEnd(event: DragEndEvent) {
     setActiveId(null)
@@ -156,7 +178,7 @@ function SortingBoard({
   return (
     <DndContext
       sensors={sensors}
-      onDragStart={(e) => setActiveId(e.active.id as string)}
+      onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
@@ -206,6 +228,9 @@ function SortingBoard({
           })}
         </div>
       </div>
+      <DragOverlay dropAnimation={{ duration: 200, easing: 'ease-out' }}>
+        {activeBlock ? <ChipGhost text={activeBlock.text} /> : null}
+      </DragOverlay>
     </DndContext>
   )
 }
