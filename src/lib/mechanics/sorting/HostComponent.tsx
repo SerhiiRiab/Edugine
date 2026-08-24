@@ -79,6 +79,13 @@ function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 // ── Board mirror (shared by individual + shared host panels) ─────────────────
 
+const BOARD_GRID_COLS: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-2 sm:grid-cols-4',
+}
+
 interface HostCategory { id: string; name: string }
 
 function BoardMirror({
@@ -90,9 +97,23 @@ function BoardMirror({
   revealed: boolean
 }) {
   const unplaced = blocks.filter(b => !placements[b.id])
+  const colCount = Math.min(Math.max(categories.length, 1), 4)
+  const gridColsClass = BOARD_GRID_COLS[colCount] ?? 'grid-cols-2'
   return (
     <div className="space-y-3">
-      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(categories.length, 3)}, minmax(0, 1fr))` }}>
+      {unplaced.length > 0 && (
+        <div className="rounded-xl bg-slate-900/60 border border-slate-700 px-3 py-2.5">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Unplaced ({unplaced.length})</p>
+          <div className="flex flex-wrap gap-1.5">
+            {unplaced.map(b => (
+              <span key={b.id} className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-600 bg-slate-700/50 text-slate-300">
+                {b.text}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      <div className={`grid gap-3 ${gridColsClass}`}>
         {categories.map(cat => {
           const inCategory = blocks.filter(b => placements[b.id] === cat.id)
           return (
@@ -104,7 +125,7 @@ function BoardMirror({
                   return (
                     <span
                       key={b.id}
-                      className={`px-2 py-1 rounded-lg text-xs font-semibold border ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${
                         revealed
                           ? correct
                             ? 'bg-emerald-900/40 border-emerald-500 text-emerald-300'
@@ -121,18 +142,6 @@ function BoardMirror({
           )
         })}
       </div>
-      {unplaced.length > 0 && (
-        <div className="rounded-xl bg-slate-900/60 border border-slate-700 px-3 py-2.5">
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-1.5">Unplaced</p>
-          <div className="flex flex-wrap gap-1.5">
-            {unplaced.map(b => (
-              <span key={b.id} className="px-2 py-1 rounded-lg text-xs font-semibold border border-slate-600 bg-slate-700/50 text-slate-300">
-                {b.text}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Plus, Trash2, Check, AlertCircle, Loader2,
-  ClipboardList, FolderKanban, Rocket, User, Users,
+  ClipboardList, FolderKanban, Rocket, User, Users, X,
 } from 'lucide-react'
 import {
   updateContentSet, createContentItem, deleteContentItem, updateContentItem,
@@ -20,6 +20,9 @@ export function SortingContentEditorStub(_props: ContentEditorProps<SortingCateg
 }
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+const MIN_CATEGORIES = 2
+const MAX_CATEGORIES = 4
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -40,19 +43,53 @@ interface RawItem {
 interface CategoryRow {
   id: string
   name: string
-  blocksText: string  // one block per line
+  blocks: string[]
 }
 
 function rawToRow(item: RawItem): CategoryRow {
   const d = item.data
   const name = (d.name as string) ?? ''
-  const blocks = (d.blocks as string[]) ?? []
-  return { id: item.id, name, blocksText: blocks.join('\n') }
+  const blocks = ((d.blocks as string[]) ?? []).filter(Boolean)
+  return { id: item.id, name, blocks }
 }
 
 function rowToData(row: CategoryRow): Record<string, unknown> {
-  const blocks = row.blocksText.split('\n').map(b => b.trim()).filter(Boolean)
-  return { name: row.name, blocks }
+  return { name: row.name, blocks: row.blocks.filter(Boolean) }
+}
+
+// ── BlockChipInput — type a block + Enter, or paste multiple lines at once ───
+
+function BlockChipInput({ onAdd }: { onAdd: (blocks: string[]) => void }) {
+  const [value, setValue] = useState('')
+
+  function commit() {
+    const lines = value.split('\n').map(s => s.trim()).filter(Boolean)
+    if (lines.length > 0) onAdd(lines)
+    setValue('')
+  }
+
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={e => setValue(e.target.value)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); commit() }
+      }}
+      onPaste={e => {
+        const text = e.clipboardData.getData('text')
+        if (!text.includes('\n')) return
+        e.preventDefault()
+        const lines = text.split('\n').map(s => s.trim()).filter(Boolean)
+        if (lines.length > 0) onAdd(lines)
+      }}
+      onBlur={commit}
+      placeholder="Type a block, press Enter (or paste multiple lines to add them all)"
+      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium
+        focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
+        transition-colors placeholder:text-slate-300"
+    />
+  )
 }
 
 interface Props {
@@ -103,19 +140,20 @@ export function SortingContentEditor({ set, initialItems }: Props) {
         updateContentItem(id, rowToData(latest)).then(markSaved).catch(() => setSaveStatus('error'))
         return prev
       })
-    }, 800)
+    }, 500)
     saveTimers.current.set(id, timer)
   }
 
-  async function handleAdd() {
+  async function handleAddCategory() {
+    if (rows.length >= MAX_CATEGORIES) return
     try {
       const data = { name: '', blocks: [] }
       const created = await createContentItem(set.id, data)
-      setRows(prev => [...prev, { id: created.id, name: '', blocksText: '' }])
+      setRows(prev => [...prev, { id: created.id, name: '', blocks: [] }])
     } catch { toast.error('Failed to add category') }
   }
 
-  async function handleDelete(id: string) {
+  async function handleDeleteCategory(id: string) {
     setRows(prev => prev.filter(r => r.id !== id))
     try {
       await deleteContentItem(id)
@@ -130,8 +168,13 @@ export function SortingContentEditor({ set, initialItems }: Props) {
     scheduleSave(id)
   }
 
-  function handleBlocksChange(id: string, blocksText: string) {
-    setRows(prev => prev.map(r => r.id === id ? { ...r, blocksText } : r))
+  function handleAddBlocks(id: string, newBlocks: string[]) {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, blocks: [...r.blocks, ...newBlocks] } : r))
+    scheduleSave(id)
+  }
+
+  function handleRemoveBlock(id: string, index: number) {
+    setRows(prev => prev.map(r => r.id === id ? { ...r, blocks: r.blocks.filter((_, i) => i !== index) } : r))
     scheduleSave(id)
   }
 
@@ -141,8 +184,9 @@ export function SortingContentEditor({ set, initialItems }: Props) {
     })
   }
 
-  const totalBlocks = rows.reduce((n, r) => n + r.blocksText.split('\n').map(b => b.trim()).filter(Boolean).length, 0)
-  const canPlay = rows.length >= 2 && totalBlocks >= 2
+  const totalBlocks = rows.reduce((n, r) => n + r.blocks.length, 0)
+  const allCategoriesHaveBlocks = rows.every(r => r.blocks.length > 0)
+  const canPlay = rows.length >= MIN_CATEGORIES && rows.length <= MAX_CATEGORIES && allCategoriesHaveBlocks && totalBlocks >= 2
 
   function SaveIndicator() {
     if (saveStatus === 'saving') return (
@@ -230,7 +274,7 @@ export function SortingContentEditor({ set, initialItems }: Props) {
             </button>
             <button
               disabled={!canPlay || startingSession}
-              title={canPlay ? 'Start a live session' : 'Add at least 2 categories with blocks'}
+              title={canPlay ? 'Start a live session' : 'Add 2-4 categories, each with at least one block'}
               onClick={handleStartSession}
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600
                 active:bg-emerald-700 active:scale-[0.98] disabled:opacity-40
@@ -247,15 +291,19 @@ export function SortingContentEditor({ set, initialItems }: Props) {
         <div className="flex items-center gap-2 text-violet-600">
           <FolderKanban className="w-4 h-4" />
           <span className="text-sm font-semibold">Sorting</span>
-          <span className="text-xs text-slate-400 font-normal">· 2-3 categories, drag blocks to sort</span>
+          <span className="text-xs text-slate-400 font-normal">· {MIN_CATEGORIES}-{MAX_CATEGORIES} categories, drag blocks to sort</span>
         </div>
 
         <button
-          onClick={handleAdd}
+          onClick={handleAddCategory}
+          disabled={rows.length >= MAX_CATEGORIES}
+          title={rows.length >= MAX_CATEGORIES ? `Maximum ${MAX_CATEGORIES} categories` : undefined}
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-600
-            hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+            hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed
+            text-white text-sm font-semibold transition-colors"
         >
           <Plus className="w-4 h-4" />Add category
+          {rows.length > 0 && <span className="text-violet-200 font-normal">({rows.length}/{MAX_CATEGORIES})</span>}
         </button>
 
         {rows.length === 0 ? (
@@ -272,7 +320,7 @@ export function SortingContentEditor({ set, initialItems }: Props) {
                   <div className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                     {i + 1}
                   </div>
-                  <div className="flex-1 space-y-2">
+                  <div className="flex-1 space-y-2.5">
                     <input
                       type="text"
                       value={row.name}
@@ -282,18 +330,38 @@ export function SortingContentEditor({ set, initialItems }: Props) {
                         focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
                         transition-colors placeholder:text-slate-300 placeholder:font-normal"
                     />
-                    <textarea
-                      value={row.blocksText}
-                      onChange={e => handleBlocksChange(row.id, e.target.value)}
-                      placeholder={'One block per line, e.g.\napple\nbanana\norange'}
-                      rows={4}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium
-                        focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
-                        resize-none transition-colors placeholder:text-slate-300"
-                    />
+
+                    {/* Blocks — shown as chips so the tutor can see exactly how many were added */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {row.blocks.map((block, bi) => (
+                        <span
+                          key={bi}
+                          className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-lg
+                            bg-violet-100 border border-violet-200 text-violet-700 text-xs font-semibold"
+                        >
+                          {block}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBlock(row.id, bi)}
+                            className="w-4 h-4 rounded-full flex items-center justify-center hover:bg-violet-200 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                      {row.blocks.length === 0 && (
+                        <p className="text-xs text-slate-300 py-1">No blocks yet</p>
+                      )}
+                    </div>
+
+                    <BlockChipInput onAdd={blocks => handleAddBlocks(row.id, blocks)} />
+
+                    <p className="text-xs text-slate-400">
+                      {row.blocks.length} block{row.blocks.length !== 1 ? 's' : ''}
+                    </p>
                   </div>
                   <button
-                    onClick={() => handleDelete(row.id)}
+                    onClick={() => handleDeleteCategory(row.id)}
                     className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-lg flex items-center
                       justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0"
                   >
