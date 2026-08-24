@@ -214,6 +214,14 @@ function avatarColor(index: number) {
   return AVATAR_COLORS[index % AVATAR_COLORS.length]
 }
 
+// Result-screen labels — most individual mechanics have a genuine right/wrong
+// answer, but Word Cards is pure self-assessment (there's no "correct"
+// answer, just whether the student said they already knew it).
+function resultLabels(mechanicId: string | null) {
+  if (mechanicId === 'word_cards') return { correct: 'Knew it', incorrect: "Didn't know", heading: 'known' }
+  return { correct: 'Correct', incorrect: 'Wrong', heading: 'correct' }
+}
+
 export function PlayerView({ session, lesson }: Props) {
   const isLesson = !!lesson && !!lesson.id
 
@@ -287,6 +295,11 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Completion state ─────────────────────────────────────────────────────────
   const [lastActivityResult, setLastActivityResult] = useState<SwipeBattleResult | null>(null)
+  // Which mechanic lastActivityResult belongs to — most individual mechanics
+  // have a genuine right/wrong answer ("Correct"/"Wrong" fits), but some
+  // (Word Cards) are pure self-assessment, where "Correct" is the wrong word
+  // for "the student said they knew it".
+  const [lastActivityMechanicId, setLastActivityMechanicId] = useState<string | null>(null)
   const [hostEnded, setHostEnded] = useState(false)
   const [lessonComplete, setLessonComplete] = useState(false)
   const [completionData, setCompletionData] = useState<ActivityProgress[] | null>(null)
@@ -728,6 +741,7 @@ export function PlayerView({ session, lesson }: Props) {
                 swipes: [],
               }
               setLastActivityResult(result)
+              setLastActivityMechanicId('speed_match')
               if (isLesson) {
                 setTotalScore(data.score)
                 setActivityScores([data.score])
@@ -1016,6 +1030,7 @@ export function PlayerView({ session, lesson }: Props) {
       rightLabel: result.rightLabel,
       leftLabel: result.leftLabel,
     })
+    setLastActivityMechanicId(lesson?.activities[currentActivityIndexRef.current]?.mechanic_id ?? null)
     if (isLesson) {
       setTotalScore(prev => prev + result.score)
       setActivityScores(prev => [...prev, result.score])
@@ -1982,13 +1997,13 @@ export function PlayerView({ session, lesson }: Props) {
                   <div className="text-2xl font-black text-emerald-400">
                     {lastActivityResult?.correct ?? 0}
                   </div>
-                  <div className="text-xs text-emerald-500 mt-0.5">Correct</div>
+                  <div className="text-xs text-emerald-500 mt-0.5">{resultLabels(lastActivityMechanicId).correct}</div>
                 </div>
                 <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20">
                   <div className="text-2xl font-black text-red-400">
                     {lastActivityResult?.incorrect ?? 0}
                   </div>
-                  <div className="text-xs text-red-400 mt-0.5">Wrong</div>
+                  <div className="text-xs text-red-400 mt-0.5">{resultLabels(lastActivityMechanicId).incorrect}</div>
                 </div>
                 <div className="bg-violet-500/10 rounded-xl p-3 border border-violet-500/20">
                   <div className="text-2xl font-black text-violet-400">
@@ -2090,7 +2105,7 @@ export function PlayerView({ session, lesson }: Props) {
                       : <Dumbbell className="w-12 h-12 inline text-slate-400" />}
                   </div>
                   <h2 className="text-2xl font-black">
-                    {lastActivityResult.correct}/{lastActivityResult.totalCards} correct!
+                    {lastActivityResult.correct}/{lastActivityResult.totalCards} {resultLabels(lastActivityMechanicId).heading}!
                   </h2>
                   <p className="text-slate-400">
                     You scored <span className="text-violet-400 font-bold">{lastActivityResult.score} points</span>
@@ -2100,11 +2115,11 @@ export function PlayerView({ session, lesson }: Props) {
                 <div className="grid grid-cols-3 gap-3 text-center">
                   <div className="bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
                     <div className="text-2xl font-black text-emerald-400">{lastActivityResult.correct}</div>
-                    <div className="text-xs text-emerald-500 mt-0.5">Correct</div>
+                    <div className="text-xs text-emerald-500 mt-0.5">{resultLabels(lastActivityMechanicId).correct}</div>
                   </div>
                   <div className="bg-red-500/10 rounded-xl p-3 border border-red-500/20">
                     <div className="text-2xl font-black text-red-400">{lastActivityResult.incorrect}</div>
-                    <div className="text-xs text-red-400 mt-0.5">Wrong</div>
+                    <div className="text-xs text-red-400 mt-0.5">{resultLabels(lastActivityMechanicId).incorrect}</div>
                   </div>
                   <div className="bg-violet-500/10 rounded-xl p-3 border border-violet-500/20">
                     <div className="text-2xl font-black text-violet-400">
