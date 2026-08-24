@@ -24,6 +24,9 @@ import type { StoryBuilderItem } from '@/lib/mechanics/story-builder/types'
 import type { SpeakingChallengeItem } from '@/lib/mechanics/speaking-challenge/types'
 import { parsePredictVerifyDescription, type PredictVerifyItem } from '@/lib/mechanics/predict-verify/types'
 import type { WordBankItem } from '@/lib/mechanics/word-bank/types'
+import type { WordCardsItem } from '@/lib/mechanics/word-cards/types'
+import type { SequenceItem } from '@/lib/mechanics/sequence/types'
+import type { SortingCategoryItem } from '@/lib/mechanics/sorting/types'
 
 type RendererFn = (props: RendererProps) => React.ReactElement
 
@@ -509,6 +512,47 @@ function WordBank({ items }: RendererProps) {
   )
 }
 
+function WordCards({ items }: RendererProps) {
+  const cards = items.map(i => i.data as unknown as WordCardsItem)
+  if (!cards.length) return <EmptyNote />
+  return (
+    <ul className="space-y-2">
+      {cards.map((c, i) => (
+        <li key={i} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-100 text-sm">
+          <span className="font-medium text-slate-800 flex-1 min-w-0">{c.front}</span>
+          <span className="text-slate-300 shrink-0">|</span>
+          <span className="text-slate-600 flex-1 min-w-0">{c.back}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+function Sequence({ items }: RendererProps) {
+  const steps = items.map(i => (i.data as unknown as SequenceItem).text)
+  if (!steps.length) return <EmptyNote />
+  return <NumberedList items={steps} />
+}
+
+function Sorting({ items }: RendererProps) {
+  const categories = items.map(i => i.data as unknown as SortingCategoryItem)
+  if (!categories.length) return <EmptyNote />
+  return (
+    <div className="grid sm:grid-cols-2 gap-3">
+      {categories.map((c, i) => (
+        <div key={i} className="p-3 rounded-lg border border-slate-100">
+          <p className="font-semibold text-slate-800 text-sm mb-1.5">{c.name}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {c.blocks.map((b, bi) => (
+              <span key={bi} className="px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs font-medium">{b}</span>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function LessonBoard() {
   return (
     <div className="flex items-center gap-2 text-sm text-slate-500 italic p-3 rounded-lg bg-slate-50 border border-slate-100">
@@ -541,5 +585,8 @@ export const RENDERERS: Partial<Record<MechanicId, RendererFn>> = {
   speaking_challenge: SpeakingChallenge,
   predict_verify: PredictVerify,
   word_bank: WordBank,
+  word_cards: WordCards,
+  sequence: Sequence,
+  sorting: Sorting,
   lesson_board: LessonBoard,
 }
