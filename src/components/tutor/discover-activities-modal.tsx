@@ -80,10 +80,9 @@ export function DiscoverActivitiesModal({ open, onClose, mechanics, favoriteIds,
 
   if (!open) return null
 
-  const gridMechanics = mechanics.filter(m => m.id !== 'lesson_board')
   const visible = category === 'all'
-    ? gridMechanics
-    : gridMechanics.filter(m =>
+    ? mechanics
+    : mechanics.filter(m =>
         m.skill_categories.length > 0
           ? m.skill_categories.includes(category)
           : m.skill_category === category

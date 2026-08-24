@@ -38,7 +38,7 @@ export const SKILL_CATEGORIES: SkillCategory[] = [
     colors: { bg: 'bg-violet-100', text: 'text-violet-700', border: 'border-violet-200' },
   },
   {
-    id: 'text-reading', label: 'Text & Reading', Icon: BookText, order: 5,
+    id: 'text-reading', label: 'Text & Video', Icon: BookText, order: 5,
     colors: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200' },
   },
   {
@@ -77,7 +77,7 @@ export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
   sorting:            ['interactive-blocks'],
   sequence:           ['interactive-blocks'],
   word_bank:          ['interactive-blocks'],
-  // Text & Reading
+  // Text & Video
   jigsaw_reading:     ['text-reading'],
   content_block:      ['text-reading'],
   predict_verify:     ['text-reading'],
