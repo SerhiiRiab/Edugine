@@ -91,8 +91,6 @@ function SortingBoard({
         <div className="rounded-2xl border-2 border-dashed border-slate-600 bg-slate-900/40 p-3 min-h-[76px]">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
             Unplaced {unplaced.length > 0 && `(${unplaced.length})`}
-            {/* TEMP DIAGNOSTIC — remove once the empty-board report is resolved */}
-            <span className="normal-case font-normal text-slate-600"> · debug: {categories.length} categories, {blocks.length} blocks</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {unplaced.map(b => (
