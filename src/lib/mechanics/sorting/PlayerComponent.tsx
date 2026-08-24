@@ -91,6 +91,8 @@ function SortingBoard({
         <div className="rounded-2xl border-2 border-dashed border-slate-600 bg-slate-900/40 p-3 min-h-[76px]">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 mb-2">
             Unplaced {unplaced.length > 0 && `(${unplaced.length})`}
+            {/* TEMP DIAGNOSTIC — remove once the empty-board report is resolved */}
+            <span className="normal-case font-normal text-slate-600"> · debug: {categories.length} categories, {blocks.length} blocks</span>
           </p>
           <div className="flex flex-wrap gap-2">
             {unplaced.map(b => (
@@ -187,10 +189,13 @@ export function SortingPlayerPanel({
     isCompletedRef.current = false
   }, [activityIndex])
 
-  // Stable per-activity shuffle — keyed only on activityIndex so unrelated
-  // re-renders (other participants' broadcasts, etc.) never reshuffle the tray.
+  // Stable per-activity shuffle — keyed on activityIndex + the actual set of
+  // block ids (not the `blocks` array reference, which is rebuilt fresh on
+  // every parent re-render) so unrelated re-renders never reshuffle the tray,
+  // but a genuinely different/late-arriving block set is still picked up.
+  const blockIdsKey = blocks.map(b => b.id).join(',')
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex])
+  const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex, blockIdsKey])
 
   function handleSelectBlock(blockId: string) {
     if (submitted) return
@@ -360,10 +365,13 @@ export function SortingSharedPlayerPanel({
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const revealed = sharedState.phase === 'finished'
   const placements = useMemo(() => sharedState.placements, [sharedState.placements])
-  // Stable per-activity shuffle — keyed only on activityIndex so state updates
-  // from other students (which re-render this component) never reshuffle the tray.
+  // Stable per-activity shuffle — keyed on activityIndex + the actual set of
+  // block ids (not the `blocks` array reference, rebuilt fresh every render)
+  // so state updates from other students never reshuffle the tray, but a
+  // genuinely different/late-arriving block set is still picked up.
+  const blockIdsKey = blocks.map(b => b.id).join(',')
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex])
+  const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex, blockIdsKey])
 
   useEffect(() => { setSelectedId(null) }, [sharedState.phase])
 
