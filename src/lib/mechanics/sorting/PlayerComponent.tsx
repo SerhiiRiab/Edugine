@@ -134,7 +134,7 @@ function SortingBoard({
   revealed: boolean
   disabled: boolean
   onSelectBlock: (blockId: string) => void
-  onPlaceInCategory: (categoryId: string | null) => void
+  onPlaceInCategory: (blockId: string, categoryId: string | null) => void
 }) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const unplaced = blocks.filter(b => !placements[b.id])
@@ -150,8 +150,7 @@ function SortingBoard({
     if (disabled) return
     const { active, over } = event
     if (!over) return
-    onPlaceInCategory(over.id === 'tray' ? null : (over.id as string))
-    void active
+    onPlaceInCategory(active.id as string, over.id === 'tray' ? null : (over.id as string))
   }
 
   return (
@@ -168,7 +167,7 @@ function SortingBoard({
           label={`Unplaced${unplaced.length > 0 ? ` (${unplaced.length})` : ''}`}
           clickable={!disabled && !!selectedId}
           isDragging={!!activeId}
-          onClick={() => selectedId && onPlaceInCategory(null)}
+          onClick={() => selectedId && onPlaceInCategory(selectedId, null)}
         >
           {unplaced.map(b => (
             <Chip
@@ -193,7 +192,7 @@ function SortingBoard({
                 key={cat.id} id={cat.id} label={cat.name}
                 clickable={!disabled && !!selectedId}
                 isDragging={!!activeId}
-                onClick={() => selectedId && onPlaceInCategory(cat.id)}
+                onClick={() => selectedId && onPlaceInCategory(selectedId, cat.id)}
               >
                 {inCategory.map(b => (
                   <Chip
@@ -278,10 +277,8 @@ export function SortingPlayerPanel({
     setSelectedId(prev => prev === blockId ? null : blockId)
   }
 
-  function handlePlaceInCategory(categoryId: string | null) {
+  function handlePlaceInCategory(blockId: string, categoryId: string | null) {
     if (submitted) return
-    const blockId = selectedId
-    if (!blockId) return
     setPlacements(prev => {
       if (categoryId === null) {
         const next = { ...prev }
@@ -462,10 +459,8 @@ export function SortingSharedPlayerPanel({
     setSelectedId(prev => prev === blockId ? null : blockId)
   }
 
-  function handlePlaceInCategory(categoryId: string | null) {
+  function handlePlaceInCategory(blockId: string, categoryId: string | null) {
     if (revealed) return
-    const blockId = selectedId
-    if (!blockId) return
     channelRef.current?.send({
       type: 'broadcast', event: 'sorting_place',
       payload: { blockId, categoryId, activityIndex },
