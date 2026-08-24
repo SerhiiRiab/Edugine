@@ -2,15 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Check, GripVertical, X } from 'lucide-react'
-import {
-  DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import { Check, X, ArrowUp, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
@@ -32,24 +24,23 @@ function shuffleArray<T>(arr: T[]): T[] {
   return a
 }
 
-// ── SortableBlockRow ──────────────────────────────────────────────────────────
+// ── SequenceRow — no drag: up/down buttons only. Reliable on touch, where
+// HTML5/pointer drag proved fragile enough to trigger a full Sorting rework.
 
-function SortableBlockRow({
-  item, index, disabled, correct,
+function SequenceRow({
+  item, index, total, disabled, correct, onMove,
 }: {
   item: RuntimeItem
   index: number
+  total: number
   disabled: boolean
   correct?: boolean
+  onMove: (dir: -1 | 1) => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id, disabled })
   return (
     <div
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all touch-none ${
-        isDragging ? 'shadow-lg z-50 opacity-80'
-        : correct === true ? 'bg-emerald-900/40 border-emerald-500'
+      className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all ${
+        correct === true ? 'bg-emerald-900/40 border-emerald-500'
         : correct === false ? 'bg-rose-900/40 border-rose-500'
         : 'bg-slate-800 border-slate-700'
       }`}
@@ -59,9 +50,24 @@ function SortableBlockRow({
       </span>
       <span className="flex-1 text-sm text-slate-100">{item.text}</span>
       {!disabled && (
-        <span {...attributes} {...listeners} className="text-slate-500 cursor-grab active:cursor-grabbing shrink-0">
-          <GripVertical className="w-4 h-4" />
-        </span>
+        <div className="flex flex-col gap-0.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-700 disabled:opacity-20 disabled:pointer-events-none transition-colors"
+          >
+            <ArrowUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onMove(1)}
+            disabled={index === total - 1}
+            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-700 disabled:opacity-20 disabled:pointer-events-none transition-colors"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
     </div>
   )
@@ -106,19 +112,14 @@ export function SequencePlayerPanel({
 
   useEffect(() => { setOrder(shuffleArray(items)); setSubmitted(false); setScore(0) }, [activityIndex, items])
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 8 } }),
-  )
-
-  function handleDragEnd(event: DragEndEvent) {
+  function handleMove(index: number, dir: -1 | 1) {
     if (submitted) return
-    const { active, over } = event
-    if (!over || active.id === over.id) return
+    const target = index + dir
+    if (target < 0 || target >= order.length) return
     setOrder(prev => {
-      const oldIdx = prev.findIndex(i => i.id === active.id)
-      const newIdx = prev.findIndex(i => i.id === over.id)
-      return arrayMove(prev, oldIdx, newIdx)
+      const next = [...prev]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
     })
   }
 
@@ -198,7 +199,7 @@ export function SequencePlayerPanel({
           </div>
         )}
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm text-slate-400">Drag into the correct order</span>
+          <span className="text-sm text-slate-400">Use the arrows to put them in order</span>
           <span className="text-lg font-black text-sky-400">{score} pts</span>
         </div>
       </div>
@@ -210,18 +211,15 @@ export function SequencePlayerPanel({
             initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
             transition={{ duration: 0.2 }} className="space-y-3"
           >
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext items={order.map(i => i.id)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2">
-                  {order.map((item, i) => (
-                    <SortableBlockRow
-                      key={item.id} item={item} index={i} disabled={submitted}
-                      correct={submitted ? item.id === items[i]?.id : undefined}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
-            </DndContext>
+            <div className="space-y-2">
+              {order.map((item, i) => (
+                <SequenceRow
+                  key={item.id} item={item} index={i} total={order.length} disabled={submitted}
+                  correct={submitted ? item.id === items[i]?.id : undefined}
+                  onMove={dir => handleMove(i, dir)}
+                />
+              ))}
+            </div>
 
             {!submitted && (
               <button
@@ -269,37 +267,31 @@ export function SequenceSharedPlayerPanel({
   const byId = new Map(items.map(i => [i.id, i]))
   const orderedItems = sharedState.order.map(id => byId.get(id)).filter((i): i is RuntimeItem => !!i)
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 8 } }),
-  )
-
-  function handleDragEnd(event: DragEndEvent) {
+  function handleMove(index: number, dir: -1 | 1) {
     if (revealed) return
-    const { active, over } = event
-    if (!over || active.id === over.id) return
-    const newIndex = sharedState.order.indexOf(over.id as string)
-    if (newIndex === -1) return
+    const target = index + dir
+    if (target < 0 || target >= orderedItems.length) return
     channelRef.current?.send({
       type: 'broadcast', event: 'sequence_move',
-      payload: { itemId: active.id, newIndex, activityIndex },
+      payload: { itemId: orderedItems[index].id, newIndex: target, activityIndex },
     })
   }
 
   return (
     <div className="flex-1 flex flex-col px-4 py-4 gap-4 overflow-y-auto">
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={orderedItems.map(i => i.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {orderedItems.map((item, i) => (
-              <SortableBlockRow
-                key={item.id} item={item} index={i} disabled={revealed}
-                correct={revealed ? items[i]?.id === item.id : undefined}
-              />
-            ))}
-          </div>
-        </SortableContext>
-      </DndContext>
+      <p className="text-sm text-slate-400 text-center">
+        {revealed ? 'Order checked by teacher' : 'Use the arrows to put them in order'}
+      </p>
+
+      <div className="space-y-2">
+        {orderedItems.map((item, i) => (
+          <SequenceRow
+            key={item.id} item={item} index={i} total={orderedItems.length} disabled={revealed}
+            correct={revealed ? items[i]?.id === item.id : undefined}
+            onMove={dir => handleMove(i, dir)}
+          />
+        ))}
+      </div>
 
       {revealed && (
         <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3 text-center">
