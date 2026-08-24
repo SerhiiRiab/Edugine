@@ -57,14 +57,25 @@ function rowToData(row: CategoryRow): Record<string, unknown> {
   return { name: row.name, blocks: row.blocks.filter(Boolean) }
 }
 
-// ── BlockChipInput — type a block + Enter, or paste multiple lines at once ───
+// ── BlockChipInput — type a block + Enter, or paste/type a list at once ──────
+// Accepts blocks separated by newlines AND/OR commas, so "apple, banana,
+// orange" on one line works exactly like three separate lines — matching
+// how tutors already paste lists into this app's other bulk-import fields.
+
+function parseBlocks(text: string): string[] {
+  return text
+    .split('\n')
+    .flatMap(line => line.split(','))
+    .map(s => s.trim())
+    .filter(Boolean)
+}
 
 function BlockChipInput({ onAdd }: { onAdd: (blocks: string[]) => void }) {
   const [value, setValue] = useState('')
 
   function commit() {
-    const lines = value.split('\n').map(s => s.trim()).filter(Boolean)
-    if (lines.length > 0) onAdd(lines)
+    const blocks = parseBlocks(value)
+    if (blocks.length > 0) onAdd(blocks)
     setValue('')
   }
 
@@ -78,13 +89,12 @@ function BlockChipInput({ onAdd }: { onAdd: (blocks: string[]) => void }) {
       }}
       onPaste={e => {
         const text = e.clipboardData.getData('text')
-        if (!text.includes('\n')) return
         e.preventDefault()
-        const lines = text.split('\n').map(s => s.trim()).filter(Boolean)
-        if (lines.length > 0) onAdd(lines)
+        const blocks = parseBlocks(text)
+        if (blocks.length > 0) onAdd(blocks)
       }}
       onBlur={commit}
-      placeholder="Type a block, press Enter (or paste multiple lines to add them all)"
+      placeholder="Type a block and press Enter — or paste/type a comma- or line-separated list"
       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium
         focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
         transition-colors placeholder:text-slate-300"
@@ -178,8 +188,23 @@ export function SortingContentEditor({ set, initialItems }: Props) {
     scheduleSave(id)
   }
 
+  // Debounced block/name edits may still be pending when the tutor hits
+  // "Start Session" — flush them to the DB first so the session (and the
+  // very next page load that reads content_items) never sees stale/empty data.
+  async function flushPendingSaves() {
+    const pending = Array.from(saveTimers.current.entries())
+    if (pending.length === 0) return
+    pending.forEach(([, timer]) => clearTimeout(timer))
+    saveTimers.current.clear()
+    await Promise.all(pending.map(([id]) => {
+      const latest = rows.find(r => r.id === id)
+      return latest ? updateContentItem(id, rowToData(latest)).catch(() => {}) : Promise.resolve()
+    }))
+  }
+
   function handleStartSession() {
     startSessionTransition(async () => {
+      await flushPendingSaves()
       try { await createSession(set.id, undefined, sharedMode ? 'shared' : 'individual') } catch { /* redirect expected */ }
     })
   }

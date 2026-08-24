@@ -99,7 +99,10 @@ function SortingBoard({
                 onClick={() => onSelectBlock(b.id)}
               />
             ))}
-            {unplaced.length === 0 && (
+            {unplaced.length === 0 && blocks.length === 0 && (
+              <p className="text-xs text-amber-500 py-1">This activity has no blocks yet — ask your tutor to add some</p>
+            )}
+            {unplaced.length === 0 && blocks.length > 0 && (
               <p className="text-xs text-slate-500 py-1">Every block has been placed</p>
             )}
           </div>
