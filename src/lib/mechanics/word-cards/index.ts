@@ -30,8 +30,8 @@ export const wordCardsDefinition: MechanicDefinition<WordCardsConfig, WordCardsI
       { key: 'front', label: 'Front', required: true },
       { key: 'back',  label: 'Back',  required: true },
     ],
-    placeholder: 'apple, яблуко\ndog, пес\ncat, кіт',
-    description: 'Paste cards — one per line (front, back)',
+    placeholder: 'photosynthesis, the process plants use to turn light into energy\nmitosis, cell division that produces two identical cells',
+    description: 'Paste cards — one per line (front, back). Back can be a translation, a definition, or an answer.',
     defaultSeparator: 'comma',
     parseLine: (line, sep) => {
       const idx = line.indexOf(sep)
