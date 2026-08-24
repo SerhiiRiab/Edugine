@@ -68,15 +68,22 @@ function ChipGhost({ text }: { text: string }) {
 }
 
 function Chip({
-  block, selected, correct, disabled, onSelect,
+  block, selected, correct, disabled, isActiveDrag, onSelect,
 }: {
   block: SortingBlock
   selected: boolean
   correct?: boolean
   disabled: boolean
+  // Driven by the BOARD's own activeId state, not useDraggable's own
+  // isDragging — dnd-kit's internal "active" state can clear a render
+  // before the placement update (triggered from the same onDragEnd) has
+  // actually re-parented this chip, which un-hides it in its old spot for
+  // one frame before it jumps to the new one. Tying visibility to the same
+  // state that gates the placement update keeps both changes in one commit.
+  isActiveDrag: boolean
   onSelect: () => void
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef } = useDraggable({
     id: block.id, disabled,
   })
   return (
@@ -87,9 +94,9 @@ function Chip({
       {...attributes}
       onClick={(e) => { e.stopPropagation(); onSelect() }}
       disabled={disabled}
-      // Dim in place while dragging — DragOverlay shows the moving copy,
-      // so this source element must NOT also carry a live transform.
-      style={{ opacity: isDragging ? 0.35 : undefined }}
+      // Hidden (not just dimmed) in place while dragging — DragOverlay shows
+      // the moving copy — but keeps its layout space so nothing else shifts.
+      style={isActiveDrag ? { visibility: 'hidden' } : undefined}
       className={chipClassName({ correct, selected, disabled })}
     >
       {block.text}
@@ -194,6 +201,7 @@ function SortingBoard({
           {unplaced.map(b => (
             <Chip
               key={b.id} block={b} selected={selectedId === b.id} disabled={disabled}
+              isActiveDrag={activeId === b.id}
               onSelect={() => onSelectBlock(b.id)}
             />
           ))}
@@ -220,6 +228,7 @@ function SortingBoard({
                   <Chip
                     key={b.id} block={b} selected={false} disabled={disabled}
                     correct={revealed ? b.categoryId === cat.id : undefined}
+                    isActiveDrag={activeId === b.id}
                     onSelect={() => onSelectBlock(b.id)}
                   />
                 ))}
