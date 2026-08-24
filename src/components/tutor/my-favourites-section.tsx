@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { ArrowRight, Gamepad2, Plus, Star } from 'lucide-react'
+import { ArrowRight, Compass, Gamepad2, Star } from 'lucide-react'
 import { addFavoriteMechanic, removeFavoriteMechanic } from '@/lib/actions/favorites'
 import {
   DiscoverActivitiesModal,
@@ -55,10 +55,10 @@ export function MyFavouritesSection({ mechanics, initialFavoriteIds }: Props) {
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="flex items-center gap-1 text-sm text-violet-600 font-semibold hover:text-violet-700 transition-colors"
+            className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
           >
-            <Plus className="w-4 h-4" />
-            Discover more
+            <Compass className="w-4 h-4" />
+            Discover Activities
           </button>
         )}
       </div>
