@@ -175,16 +175,11 @@ function SortingBoard({
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    if (disabled) { setActiveId(null); return }
+    setActiveId(null)
+    if (disabled) return
     const { active, over } = event
-    if (!over) { setActiveId(null); return }
+    if (!over) return
     onPlaceInCategory(active.id as string, over.id === 'tray' ? null : (over.id as string))
-    // Un-hide the source chip one frame AFTER the placement update above,
-    // instead of in the same tick — guarantees the placements state (and
-    // therefore this chip's new parent zone) has already been committed
-    // and painted before it becomes visible again, so there's no frame
-    // where it's briefly visible back in its old spot.
-    requestAnimationFrame(() => setActiveId(null))
   }
 
   return (
@@ -480,7 +475,18 @@ export function SortingSharedPlayerPanel({
 }: SortingSharedPlayerPanelProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const revealed = sharedState.phase === 'finished'
-  const placements = useMemo(() => sharedState.placements, [sharedState.placements])
+  // Optimistic local copy of placements: a drag/tap-drop needs a full
+  // broadcast round-trip through the host (send -> host applies + persists
+  // -> host rebroadcasts) before sharedState.placements actually updates,
+  // which can take a couple hundred ms — long enough that the just-dropped
+  // block visibly falls back to Unplaced and only "really" lands once the
+  // echo arrives. Apply the placement here immediately on drop, and let the
+  // authoritative broadcast reconcile (overwrite) it once it lands, so a
+  // normal drop feels instant and only a genuine conflict (two students
+  // placing the same block at once) ever visibly corrects itself.
+  const [optimisticPlacements, setOptimisticPlacements] = useState(sharedState.placements)
+  useEffect(() => { setOptimisticPlacements(sharedState.placements) }, [sharedState.placements])
+  const placements = optimisticPlacements
   // Stable per-activity shuffle — keyed on activityIndex + the actual set of
   // block ids (not the `blocks` array reference, rebuilt fresh every render)
   // so state updates from other students never reshuffle the tray.
@@ -493,6 +499,11 @@ export function SortingSharedPlayerPanel({
   function handleSelectBlock(blockId: string) {
     if (revealed) return
     if (placements[blockId]) {
+      setOptimisticPlacements(prev => {
+        const next = { ...prev }
+        delete next[blockId]
+        return next
+      })
       channelRef.current?.send({
         type: 'broadcast', event: 'sorting_place',
         payload: { blockId, categoryId: null, activityIndex },
@@ -505,6 +516,14 @@ export function SortingSharedPlayerPanel({
 
   function handlePlaceInCategory(blockId: string, categoryId: string | null) {
     if (revealed) return
+    setOptimisticPlacements(prev => {
+      if (categoryId === null) {
+        const next = { ...prev }
+        delete next[blockId]
+        return next
+      }
+      return { ...prev, [blockId]: categoryId }
+    })
     channelRef.current?.send({
       type: 'broadcast', event: 'sorting_place',
       payload: { blockId, categoryId, activityIndex },

@@ -304,14 +304,29 @@ export function SequenceSharedPlayerPanel({
   items, channelRef, sharedState, activityIndex,
 }: SequenceSharedPlayerPanelProps) {
   const revealed = sharedState.phase === 'finished'
+  // Optimistic local copy of the order: a move needs a full broadcast
+  // round-trip through the host (send -> host applies + persists -> host
+  // rebroadcasts) before sharedState.order actually updates, which can take
+  // a couple hundred ms — long enough that a dragged/arrow-moved row visibly
+  // falls back to its old position and only "really" moves once the echo
+  // arrives. Apply the move here immediately, and let the authoritative
+  // broadcast reconcile it once it lands.
+  const [optimisticOrder, setOptimisticOrder] = useState(sharedState.order)
+  useEffect(() => { setOptimisticOrder(sharedState.order) }, [sharedState.order])
+
   const byId = new Map(items.map(i => [i.id, i]))
-  const orderedItems = sharedState.order.map(id => byId.get(id)).filter((i): i is RuntimeItem => !!i)
+  const orderedItems = optimisticOrder.map(id => byId.get(id)).filter((i): i is RuntimeItem => !!i)
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   )
 
-  function sendMove(itemId: string, newIndex: number) {
+  function applyMove(itemId: string, newIndex: number) {
+    setOptimisticOrder(prev => {
+      const oldIndex = prev.indexOf(itemId)
+      if (oldIndex === -1) return prev
+      return arrayMove(prev, oldIndex, newIndex)
+    })
     channelRef.current?.send({
       type: 'broadcast', event: 'sequence_move',
       payload: { itemId, newIndex, activityIndex },
@@ -322,16 +337,16 @@ export function SequenceSharedPlayerPanel({
     if (revealed) return
     const target = index + dir
     if (target < 0 || target >= orderedItems.length) return
-    sendMove(orderedItems[index].id, target)
+    applyMove(orderedItems[index].id, target)
   }
 
   function handleDragEnd(event: DragEndEvent) {
     if (revealed) return
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const newIndex = sharedState.order.indexOf(over.id as string)
+    const newIndex = optimisticOrder.indexOf(over.id as string)
     if (newIndex === -1) return
-    sendMove(active.id as string, newIndex)
+    applyMove(active.id as string, newIndex)
   }
 
   return (
