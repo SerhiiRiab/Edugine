@@ -28,6 +28,9 @@ export type MechanicId =
   | 'jigsaw_reading'
   | 'predict_verify'
   | 'lesson_board'
+  | 'sorting'
+  | 'sequence'
+  | 'word_cards'
 
 // ── Participation points ─────────────────────────────────────────────────────
 // Flat points awarded to every participant when the host advances past an
@@ -64,6 +67,8 @@ export const GROUP_SCORED_SHARED_MECHANICS: ReadonlySet<MechanicId> = new Set([
   'word_bank',
   'word_choice',
   'correct_the_mistake',
+  'sorting',
+  'sequence',
 ])
 
 // ── Shared prop interfaces ───────────────────────────────────────────────────

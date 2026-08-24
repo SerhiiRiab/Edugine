@@ -48,6 +48,9 @@ import {
   ArrowUpRight,
   Puzzle,
   Presentation,
+  FolderKanban,
+  ListOrdered,
+  Layers,
 } from 'lucide-react'
 import {
   DndContext,
@@ -240,6 +243,21 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Lesson Board',
     Icon: Presentation,
     classes: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+  },
+  sorting: {
+    label: 'Sorting',
+    Icon: FolderKanban,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  sequence: {
+    label: 'Sequence',
+    Icon: ListOrdered,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  word_cards: {
+    label: 'Word Cards',
+    Icon: Layers,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
 }
 

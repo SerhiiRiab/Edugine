@@ -22,6 +22,9 @@ import { elevatorPitchDefinition } from './elevator-pitch'
 import { jigsawReadingDefinition } from './jigsaw-reading'
 import { predictVerifyDefinition } from './predict-verify'
 import { lessonBoardDefinition } from './lesson-board'
+import { sortingDefinition } from './sorting'
+import { sequenceDefinition } from './sequence'
+import { wordCardsDefinition } from './word-cards'
 
 // Central registry — add new mechanics here as they are implemented.
 export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
@@ -48,6 +51,9 @@ export const MECHANICS: Record<MechanicId, MechanicDefinition> = {
   jigsaw_reading:     jigsawReadingDefinition     as MechanicDefinition,
   predict_verify:     predictVerifyDefinition     as MechanicDefinition,
   lesson_board:       lessonBoardDefinition       as MechanicDefinition,
+  sorting:            sortingDefinition           as MechanicDefinition,
+  sequence:           sequenceDefinition          as MechanicDefinition,
+  word_cards:         wordCardsDefinition         as MechanicDefinition,
 }
 
 export function getMechanic(id: MechanicId): MechanicDefinition {

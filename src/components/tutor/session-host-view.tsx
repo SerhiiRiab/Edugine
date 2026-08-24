@@ -93,6 +93,11 @@ import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/
 import { SpeakingChallengeHostPanel } from '@/lib/mechanics/speaking-challenge/HostComponent'
 import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
 import { pickNextWord as pickSpeakingWord } from '@/lib/mechanics/speaking-challenge/types'
+import type { SortingBlock, SortingSharedState } from '@/lib/mechanics/sorting/types'
+import { SortingIndividualHostPanel, SortingSharedHostPanel } from '@/lib/mechanics/sorting/HostComponent'
+import type { SequenceSharedState } from '@/lib/mechanics/sequence/types'
+import { SequenceIndividualHostPanel, SequenceSharedHostPanel, type SequenceRuntimeItem } from '@/lib/mechanics/sequence/HostComponent'
+import { WordCardsHostPanel } from '@/lib/mechanics/word-cards/HostComponent'
 import { ErrorBoundary } from '@/components/error-boundary'
 
 // ── Floating Lesson Board ──────────────────────────────────────────────────────
@@ -212,6 +217,9 @@ interface CardItem {
   // Word Bank
   text?: string
   wordBank?: string[]
+  // Sorting
+  name?: string
+  blocks?: string[]
   // Correct the Mistake
   incorrect?: string
   correct?: string
@@ -309,6 +317,10 @@ interface ParticipantGameState {
   answers?: Record<number, boolean | number | (number | null)[]>  // true_false/multiple_choice/word_choice individual: choice(s) per questionIndex
   wbFills?: (string | null)[]   // word_bank individual: submitted fills per blank
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
+  sortingCorrectCount?: number  // sorting individual: blocks placed in the correct category
+  sortingTotal?: number
+  sequenceCorrectCount?: number // sequence individual: blocks in the correct position
+  sequenceTotal?: number
   ctmAnswerIndex?: number       // correct_the_mistake individual: sentence index the fields below apply to
   ctmAnswerText?: string        // correct_the_mistake individual: live/checked text for that sentence
   ctmChecked?: boolean          // correct_the_mistake individual: has the student checked this sentence yet
@@ -351,6 +363,9 @@ const MECHANIC_NAMES: Record<string, string> = {
   jigsaw_reading:     'Jigsaw Reading',
   predict_verify:     'Predict & Verify',
   lesson_board:       'Lesson Board',
+  sorting:            'Sorting',
+  sequence:           'Sequence',
+  word_cards:         'Word Cards',
 }
 
 const AVATAR_COLORS = [
@@ -429,6 +444,10 @@ export function SessionHostView({ session, lesson }: Props) {
 
   // Word Bank shared state (word_bank in shared mode)
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
+  // Sorting shared state (sorting in shared mode)
+  const [sortingSharedState, setSortingSharedState] = useState<SortingSharedState | null>(null)
+  // Sequence shared state (sequence in shared mode)
+  const [sequenceSharedState, setSequenceSharedState] = useState<SequenceSharedState | null>(null)
   // Word Choice shared state (word_choice in shared mode)
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
   // Correct the Mistake shared state (correct_the_mistake in shared mode)
@@ -492,6 +511,8 @@ export function SessionHostView({ session, lesson }: Props) {
   const talkTimeStateRef = useRef<TalkTimeState | null>(null)
   const voteStateRef = useRef<VoteState | null>(null)
   const wordBankSharedStateRef = useRef<WordBankSharedState | null>(null)
+  const sortingSharedStateRef = useRef<SortingSharedState | null>(null)
+  const sequenceSharedStateRef = useRef<SequenceSharedState | null>(null)
   const wordChoiceSharedStateRef = useRef<WordChoiceSharedState | null>(null)
   const ctmSharedStateRef = useRef<CorrectTheMistakeSharedState | null>(null)
   const ctmIndividualStateRef = useRef<CorrectTheMistakeIndividualState | null>(null)
@@ -515,6 +536,8 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { talkTimeStateRef.current = talkTimeState }, [talkTimeState])
   useEffect(() => { voteStateRef.current = voteState }, [voteState])
   useEffect(() => { wordBankSharedStateRef.current = wordBankSharedState }, [wordBankSharedState])
+  useEffect(() => { sortingSharedStateRef.current = sortingSharedState }, [sortingSharedState])
+  useEffect(() => { sequenceSharedStateRef.current = sequenceSharedState }, [sequenceSharedState])
   useEffect(() => { wordChoiceSharedStateRef.current = wordChoiceSharedState }, [wordChoiceSharedState])
   useEffect(() => { ctmSharedStateRef.current = ctmSharedState }, [ctmSharedState])
   useEffect(() => { ctmIndividualStateRef.current = ctmIndividualState }, [ctmIndividualState])
@@ -696,6 +719,32 @@ export function SessionHostView({ session, lesson }: Props) {
             .single()
           if (stateRow?.state && 'fills' in (stateRow.state as Record<string, unknown>)) {
             setWordBankSharedState(stateRow.state as unknown as WordBankSharedState)
+          }
+        }
+
+        // Restore sorting shared state from DB on tab restore / reconnect
+        if (currentMechanic === 'sorting' && currentActivityMode === 'shared' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'placements' in (stateRow.state as Record<string, unknown>)) {
+            setSortingSharedState(stateRow.state as unknown as SortingSharedState)
+          }
+        }
+
+        // Restore sequence shared state from DB on tab restore / reconnect
+        if (currentMechanic === 'sequence' && currentActivityMode === 'shared' && session.status === 'active') {
+          const { data: stateRow } = await supabase
+            .from('shared_activity_state')
+            .select('state')
+            .eq('session_id', session.id)
+            .eq('activity_index', actIdx)
+            .single()
+          if (stateRow?.state && 'order' in (stateRow.state as Record<string, unknown>)) {
+            setSequenceSharedState(stateRow.state as unknown as SequenceSharedState)
           }
         }
 
@@ -1026,6 +1075,8 @@ export function SessionHostView({ session, lesson }: Props) {
           choice?: boolean | number
           selections?: (number | null)[]
           wbFills?: (string | null)[]; wbResults?: boolean[]
+          sortingCorrectCount?: number; sortingTotal?: number
+          sequenceCorrectCount?: number; sequenceTotal?: number
         }
         if (!p.participantId) return
         setParticipants(prev => prev.map(x => {
@@ -1040,6 +1091,8 @@ export function SessionHostView({ session, lesson }: Props) {
             ...(p.selections !== undefined && { answers: { ...x.answers, [p.questionIndex]: p.selections } }),
             ...(p.wbFills !== undefined && { wbFills: p.wbFills }),
             ...(p.wbResults !== undefined && { wbResults: p.wbResults }),
+            ...(p.sortingCorrectCount !== undefined && { sortingCorrectCount: p.sortingCorrectCount, sortingTotal: p.sortingTotal }),
+            ...(p.sequenceCorrectCount !== undefined && { sequenceCorrectCount: p.sequenceCorrectCount, sequenceTotal: p.sequenceTotal }),
           }
         }))
       })
@@ -1104,6 +1157,51 @@ export function SessionHostView({ session, lesson }: Props) {
             .then(undefined, () => {})
           channelRef.current?.send({
             type: 'broadcast', event: 'word_bank_state_update', payload: { state: newState },
+          })
+          return newState
+        })
+      })
+      .on('broadcast', { event: 'sorting_place' }, ({ payload }) => {
+        const p = payload as { blockId: string; categoryId: string | null; activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setSortingSharedState(prev => {
+          if (!prev) return prev
+          const newPlacements = { ...prev.placements }
+          if (p.categoryId === null) { delete newPlacements[p.blockId] } else { newPlacements[p.blockId] = p.categoryId }
+          const newState: SortingSharedState = { ...prev, placements: newPlacements }
+          sortingSharedStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({
+            type: 'broadcast', event: 'sorting_state_update', payload: { state: newState },
+          })
+          return newState
+        })
+      })
+      .on('broadcast', { event: 'sequence_move' }, ({ payload }) => {
+        const p = payload as { itemId: string; newIndex: number; activityIndex?: number }
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setSequenceSharedState(prev => {
+          if (!prev) return prev
+          const oldIndex = prev.order.indexOf(p.itemId)
+          if (oldIndex === -1) return prev
+          const newOrder = [...prev.order]
+          newOrder.splice(oldIndex, 1)
+          newOrder.splice(p.newIndex, 0, p.itemId)
+          const newState: SequenceSharedState = { ...prev, order: newOrder }
+          sequenceSharedStateRef.current = newState
+          const supabase = createClient()
+          supabase.from('shared_activity_state')
+            .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+            .eq('session_id', session.id)
+            .eq('activity_index', currentActivityIndexRef.current)
+            .then(undefined, () => {})
+          channelRef.current?.send({
+            type: 'broadcast', event: 'sequence_state_update', payload: { state: newState },
           })
           return newState
         })
@@ -1589,6 +1687,8 @@ export function SessionHostView({ session, lesson }: Props) {
         let newContentBlockState: ContentBlockState | undefined
         let newVoteState: VoteState | undefined
         let newWordBankSharedState: WordBankSharedState | undefined
+        let newSortingSharedState: SortingSharedState | undefined
+        let newSequenceSharedState: SequenceSharedState | undefined
         let newWordChoiceSharedState: WordChoiceSharedState | undefined
         let newCtmSharedState: CorrectTheMistakeSharedState | undefined
         let newCtmIndividualState: CorrectTheMistakeIndividualState | undefined
@@ -1636,7 +1736,7 @@ export function SessionHostView({ session, lesson }: Props) {
           setStoryState(null)
           setTalkTimeState(null)
           setContentBlockState(null)
-          setWordBankSharedState(null)
+          setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
         } else if (firstActivity?.mechanic_id === 'word_bank' && firstActivity?.mode === 'shared') {
           newWordBankSharedState = { itemIndex: 0, fills: {}, revealed: false, phase: 'playing' }
           const supabase = createClient()
@@ -1647,6 +1747,26 @@ export function SessionHostView({ session, lesson }: Props) {
           })
           setWordBankSharedState(newWordBankSharedState)
           setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setWordChoiceSharedState(null)
+        } else if (firstActivity?.mechanic_id === 'sorting' && firstActivity?.mode === 'shared') {
+          newSortingSharedState = { placements: {}, phase: 'playing' }
+          const supabase = createClient()
+          await supabase.from('shared_activity_state').upsert({
+            session_id: session.id, activity_index: currentActivityIndex,
+            state: newSortingSharedState as unknown as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          setSortingSharedState(newSortingSharedState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSequenceSharedState(null)
+        } else if (firstActivity?.mechanic_id === 'sequence' && firstActivity?.mode === 'shared') {
+          newSequenceSharedState = { order: currentActivityItems.map(i => i.id).sort(() => Math.random() - 0.5), phase: 'playing' }
+          const supabase = createClient()
+          await supabase.from('shared_activity_state').upsert({
+            session_id: session.id, activity_index: currentActivityIndex,
+            state: newSequenceSharedState as unknown as Record<string, unknown>,
+            updated_at: new Date().toISOString(),
+          })
+          setSequenceSharedState(newSequenceSharedState)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSortingSharedState(null)
         } else if (firstActivity?.mechanic_id === 'word_choice' && firstActivity?.mode === 'shared') {
           newWordChoiceSharedState = { fills: {}, revealed: false, phase: 'playing' }
           const supabase = createClient()
@@ -1656,7 +1776,7 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setWordChoiceSharedState(newWordChoiceSharedState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null)
         } else if (firstActivity?.mechanic_id === 'correct_the_mistake' && firstActivity?.mode === 'shared') {
           newCtmSharedState = { fixes: {}, revealed: false, phase: 'playing' }
           const supabase = createClient()
@@ -1667,7 +1787,7 @@ export function SessionHostView({ session, lesson }: Props) {
           })
           setCtmSharedState(newCtmSharedState)
           setCtmIndividualState(null)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'correct_the_mistake' && firstActivity?.mode !== 'shared') {
           newCtmIndividualState = { currentIndex: 0, phase: 'playing' }
           const supabase = createClient()
@@ -1677,68 +1797,68 @@ export function SessionHostView({ session, lesson }: Props) {
             updated_at: new Date().toISOString(),
           })
           setCtmIndividualState(newCtmIndividualState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'debate_roulette') {
           newDebateRouletteState = await initDebateRouletteState(session.id, currentActivityIndex)
           setDebateRouletteState(newDebateRouletteState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'hidden_role') {
           newHiddenRoleState = await initHiddenRoleState(session.id, currentActivityIndex)
           setHiddenRoleState(newHiddenRoleState)
           hiddenRoleStateRef.current = newHiddenRoleState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null); setMissionBriefingState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null); setMissionBriefingState(null)
         } else if (firstActivity?.mechanic_id === 'mission_briefing') {
           newMissionBriefingState = await initMissionBriefingState(session.id, currentActivityIndex)
           setMissionBriefingState(newMissionBriefingState)
           missionBriefingStateRef.current = newMissionBriefingState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setRoleplayQuestState(null); setDramaEventState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setRoleplayQuestState(null); setDramaEventState(null)
         } else if (firstActivity?.mechanic_id === 'drama_event') {
           newDramaEventState = await initDramaEventState(session.id, currentActivityIndex)
           setDramaEventState(newDramaEventState)
           dramaEventStateRef.current = newDramaEventState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null); setTabooState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null); setTabooState(null)
         } else if (firstActivity?.mechanic_id === 'taboo') {
           newTabooState = await initTabooState(session.id, currentActivityIndex)
           setTabooState(newTabooState)
           tabooStateRef.current = newTabooState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setRoleplayQuestState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setRoleplayQuestState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
         } else if (firstActivity?.mechanic_id === 'speed_debate') {
           newSpeedDebateState = await initSpeedDebateState(session.id, currentActivityIndex)
           setSpeedDebateState(newSpeedDebateState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'roleplay_quest') {
           newRoleplayQuestState = await initRoleplayQuestState(session.id, currentActivityIndex)
           setRoleplayQuestState(newRoleplayQuestState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null)
         } else if (firstActivity?.mechanic_id === 'speaking_challenge') {
           newSpeakingChallengeState = await initSpeakingChallengeState(session.id, currentActivityIndex)
           setSpeakingChallengeState(newSpeakingChallengeState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setElevatorPitchState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setElevatorPitchState(null)
         } else if (firstActivity?.mechanic_id === 'elevator_pitch') {
           newElevatorPitchState = await initElevatorPitchState(session.id, currentActivityIndex)
           setElevatorPitchState(newElevatorPitchState)
           elevatorPitchStateRef.current = newElevatorPitchState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setJigsawReadingState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setJigsawReadingState(null)
         } else if (firstActivity?.mechanic_id === 'jigsaw_reading') {
           newJigsawReadingState = await initJigsawReadingState(session.id, currentActivityIndex)
           setJigsawReadingState(newJigsawReadingState)
           jigsawReadingStateRef.current = newJigsawReadingState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
         } else if (firstActivity?.mechanic_id === 'predict_verify') {
           newPredictVerifyState = await initPredictVerifyState(session.id, currentActivityIndex)
           setPredictVerifyState(newPredictVerifyState)
           predictVerifyStateRef.current = newPredictVerifyState
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setLessonBoardState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setLessonBoardState(null)
         } else if (firstActivity?.mechanic_id === 'lesson_board') {
           newLessonBoardState = await initLessonBoardState(session.id, currentActivityIndex)
           setLessonBoardState(newLessonBoardState)
-          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
+          setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
         } else {
           setStoryState(null)
           setTalkTimeState(null)
           setContentBlockState(null)
           setVoteState(null)
-          setWordBankSharedState(null)
+          setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
           setWordChoiceSharedState(null)
           setCtmSharedState(null)
           setDebateRouletteState(null)
@@ -1770,6 +1890,8 @@ export function SessionHostView({ session, lesson }: Props) {
             contentBlockState: newContentBlockState,
             voteState: newVoteState,
             wordBankSharedState: newWordBankSharedState,
+            sortingSharedState: newSortingSharedState,
+            sequenceSharedState: newSequenceSharedState,
             wordChoiceSharedState: newWordChoiceSharedState,
             ctmSharedState: newCtmSharedState,
             ctmIndividualState: newCtmIndividualState,
@@ -1845,6 +1967,14 @@ export function SessionHostView({ session, lesson }: Props) {
       })
       return correct
     }
+    if (activity.mechanic_id === 'sorting' && sortingSharedState) {
+      const blocks = activity.items.flatMap(i => (i.blocks ?? []).map((_, idx) => ({ id: `${i.id}-${idx}`, categoryId: i.id })))
+      return blocks.filter(b => sortingSharedState.placements[b.id] === b.categoryId).length
+    }
+    if (activity.mechanic_id === 'sequence' && sequenceSharedState) {
+      const correctOrder = activity.items.map(i => i.id)
+      return sequenceSharedState.order.filter((id, i) => id === correctOrder[i]).length
+    }
     return undefined
   }
 
@@ -1898,6 +2028,8 @@ export function SessionHostView({ session, lesson }: Props) {
       let newContentBlockState: ContentBlockState | undefined
       let newVoteState: VoteState | undefined
       let newWordBankSharedState: WordBankSharedState | undefined
+      let newSortingSharedState: SortingSharedState | undefined
+      let newSequenceSharedState: SequenceSharedState | undefined
       let newWordChoiceSharedState: WordChoiceSharedState | undefined
       let newCtmSharedState: CorrectTheMistakeSharedState | undefined
       let newCtmIndividualState: CorrectTheMistakeIndividualState | undefined
@@ -1920,21 +2052,21 @@ export function SessionHostView({ session, lesson }: Props) {
         setTalkTimeState(null)
         setContentBlockState(null)
         setVoteState(null)
-        setWordBankSharedState(null)
+        setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
       } else if (nextActivity?.mechanic_id === 'talk_time') {
         newTalkTimeState = await initTalkTimeState(session.id, nextIndex)
         setTalkTimeState(newTalkTimeState)
         setStoryState(null)
         setContentBlockState(null)
         setVoteState(null)
-        setWordBankSharedState(null)
+        setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
       } else if (nextActivity?.mechanic_id === 'content_block') {
         newContentBlockState = await initContentBlockState(session.id, nextIndex)
         setContentBlockState(newContentBlockState)
         setStoryState(null)
         setTalkTimeState(null)
         setVoteState(null)
-        setWordBankSharedState(null)
+        setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
       } else if (
         nextActivity?.mode === 'vote' &&
         (nextActivity.mechanic_id === 'true_false' || nextActivity.mechanic_id === 'multiple_choice')
@@ -1948,7 +2080,7 @@ export function SessionHostView({ session, lesson }: Props) {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
-        setWordBankSharedState(null)
+        setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
       } else if (nextActivity?.mechanic_id === 'word_bank' && nextActivity?.mode === 'shared') {
         newWordBankSharedState = { itemIndex: 0, fills: {}, revealed: false, phase: 'playing' }
         const supabase = createClient()
@@ -1959,6 +2091,26 @@ export function SessionHostView({ session, lesson }: Props) {
         })
         setWordBankSharedState(newWordBankSharedState)
         setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setWordChoiceSharedState(null)
+      } else if (nextActivity?.mechanic_id === 'sorting' && nextActivity?.mode === 'shared') {
+        newSortingSharedState = { placements: {}, phase: 'playing' }
+        const supabase = createClient()
+        await supabase.from('shared_activity_state').upsert({
+          session_id: session.id, activity_index: nextIndex,
+          state: newSortingSharedState as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        })
+        setSortingSharedState(newSortingSharedState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSequenceSharedState(null)
+      } else if (nextActivity?.mechanic_id === 'sequence' && nextActivity?.mode === 'shared') {
+        newSequenceSharedState = { order: nextActivityItems.map(i => i.id).sort(() => Math.random() - 0.5), phase: 'playing' }
+        const supabase = createClient()
+        await supabase.from('shared_activity_state').upsert({
+          session_id: session.id, activity_index: nextIndex,
+          state: newSequenceSharedState as unknown as Record<string, unknown>,
+          updated_at: new Date().toISOString(),
+        })
+        setSequenceSharedState(newSequenceSharedState)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSortingSharedState(null)
       } else if (nextActivity?.mechanic_id === 'word_choice' && nextActivity?.mode === 'shared') {
         newWordChoiceSharedState = { fills: {}, revealed: false, phase: 'playing' }
         const supabase = createClient()
@@ -1968,7 +2120,7 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setWordChoiceSharedState(newWordChoiceSharedState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'correct_the_mistake' && nextActivity?.mode === 'shared') {
         newCtmSharedState = { fixes: {}, revealed: false, phase: 'playing' }
         const supabase = createClient()
@@ -1979,7 +2131,7 @@ export function SessionHostView({ session, lesson }: Props) {
         })
         setCtmSharedState(newCtmSharedState)
         setCtmIndividualState(null)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'correct_the_mistake' && nextActivity?.mode !== 'shared') {
         newCtmIndividualState = { currentIndex: 0, phase: 'playing' }
         const supabase = createClient()
@@ -1989,68 +2141,68 @@ export function SessionHostView({ session, lesson }: Props) {
           updated_at: new Date().toISOString(),
         })
         setCtmIndividualState(newCtmIndividualState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setDebateRouletteState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'debate_roulette') {
         newDebateRouletteState = await initDebateRouletteState(session.id, nextIndex)
         setDebateRouletteState(newDebateRouletteState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null)
       } else if (nextActivity?.mechanic_id === 'hidden_role') {
         newHiddenRoleState = await initHiddenRoleState(session.id, nextIndex)
         setHiddenRoleState(newHiddenRoleState)
         hiddenRoleStateRef.current = newHiddenRoleState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null); setMissionBriefingState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setRoleplayQuestState(null); setMissionBriefingState(null)
       } else if (nextActivity?.mechanic_id === 'mission_briefing') {
         newMissionBriefingState = await initMissionBriefingState(session.id, nextIndex)
         setMissionBriefingState(newMissionBriefingState)
         missionBriefingStateRef.current = newMissionBriefingState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setRoleplayQuestState(null); setDramaEventState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setRoleplayQuestState(null); setDramaEventState(null)
       } else if (nextActivity?.mechanic_id === 'drama_event') {
         newDramaEventState = await initDramaEventState(session.id, nextIndex)
         setDramaEventState(newDramaEventState)
         dramaEventStateRef.current = newDramaEventState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null); setTabooState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setRoleplayQuestState(null); setTabooState(null)
       } else if (nextActivity?.mechanic_id === 'taboo') {
         newTabooState = await initTabooState(session.id, nextIndex)
         setTabooState(newTabooState)
         tabooStateRef.current = newTabooState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setRoleplayQuestState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setRoleplayQuestState(null); setSpeedDebateState(null); setSpeakingChallengeState(null)
       } else if (nextActivity?.mechanic_id === 'speed_debate') {
         newSpeedDebateState = await initSpeedDebateState(session.id, nextIndex)
         setSpeedDebateState(newSpeedDebateState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
       } else if (nextActivity?.mechanic_id === 'roleplay_quest') {
         newRoleplayQuestState = await initRoleplayQuestState(session.id, nextIndex)
         setRoleplayQuestState(newRoleplayQuestState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setSpeakingChallengeState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null)
       } else if (nextActivity?.mechanic_id === 'speaking_challenge') {
         newSpeakingChallengeState = await initSpeakingChallengeState(session.id, nextIndex)
         setSpeakingChallengeState(newSpeakingChallengeState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null)
       } else if (nextActivity?.mechanic_id === 'elevator_pitch') {
         newElevatorPitchState = await initElevatorPitchState(session.id, nextIndex)
         setElevatorPitchState(newElevatorPitchState)
         elevatorPitchStateRef.current = newElevatorPitchState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setJigsawReadingState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setJigsawReadingState(null)
       } else if (nextActivity?.mechanic_id === 'jigsaw_reading') {
         newJigsawReadingState = await initJigsawReadingState(session.id, nextIndex)
         setJigsawReadingState(newJigsawReadingState)
         jigsawReadingStateRef.current = newJigsawReadingState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
       } else if (nextActivity?.mechanic_id === 'predict_verify') {
         newPredictVerifyState = await initPredictVerifyState(session.id, nextIndex)
         setPredictVerifyState(newPredictVerifyState)
         predictVerifyStateRef.current = newPredictVerifyState
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setLessonBoardState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setLessonBoardState(null)
       } else if (nextActivity?.mechanic_id === 'lesson_board') {
         newLessonBoardState = await initLessonBoardState(session.id, nextIndex)
         setLessonBoardState(newLessonBoardState)
-        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
+        setStoryState(null); setTalkTimeState(null); setContentBlockState(null); setVoteState(null); setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null); setWordChoiceSharedState(null); setCtmSharedState(null); setDebateRouletteState(null); setHiddenRoleState(null); setMissionBriefingState(null); setDramaEventState(null); setTabooState(null); setElevatorPitchState(null); setJigsawReadingState(null); setSpeedDebateState(null); setRoleplayQuestState(null); setSpeakingChallengeState(null); setPredictVerifyState(null)
       } else {
         setStoryState(null)
         setTalkTimeState(null)
         setContentBlockState(null)
         setVoteState(null)
-        setWordBankSharedState(null)
+        setWordBankSharedState(null); setSortingSharedState(null); setSequenceSharedState(null)
         setWordChoiceSharedState(null)
         setCtmSharedState(null)
         setDebateRouletteState(null)
@@ -2078,6 +2230,8 @@ export function SessionHostView({ session, lesson }: Props) {
           contentBlockState: newContentBlockState,
           voteState: newVoteState,
           wordBankSharedState: newWordBankSharedState,
+          sortingSharedState: newSortingSharedState,
+          sequenceSharedState: newSequenceSharedState,
           wordChoiceSharedState: newWordChoiceSharedState,
           ctmSharedState: newCtmSharedState,
           ctmIndividualState: newCtmIndividualState,
@@ -2385,6 +2539,34 @@ export function SessionHostView({ session, lesson }: Props) {
     setWordBankSharedState(newState)
     channelRef.current?.send({
       type: 'broadcast', event: 'word_bank_state_update', payload: { state: newState },
+    })
+  }
+
+  async function handleSortingCheck() {
+    if (!sortingSharedState) return
+    const newState: SortingSharedState = { ...sortingSharedState, phase: 'finished' }
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setSortingSharedState(newState)
+    channelRef.current?.send({
+      type: 'broadcast', event: 'sorting_state_update', payload: { state: newState },
+    })
+  }
+
+  async function handleSequenceCheck() {
+    if (!sequenceSharedState) return
+    const newState: SequenceSharedState = { ...sequenceSharedState, phase: 'finished' }
+    const supabase = createClient()
+    await supabase.from('shared_activity_state')
+      .update({ state: newState as unknown as Record<string, unknown>, updated_at: new Date().toISOString() })
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+    setSequenceSharedState(newState)
+    channelRef.current?.send({
+      type: 'broadcast', event: 'sequence_state_update', payload: { state: newState },
     })
   }
 
@@ -4596,6 +4778,83 @@ export function SessionHostView({ session, lesson }: Props) {
               />
             )}
 
+            {/* ── SORTING — individual mode ────────────────────────────── */}
+            {currentMechanicId === 'sorting' && currentActivityMode !== 'shared' && (
+              <SortingIndividualHostPanel
+                categories={currentActivityItems.map(i => ({ id: i.id, name: i.name ?? '' }))}
+                blocks={currentActivityItems.flatMap(i => (i.blocks ?? []).map((text, idx): SortingBlock => ({ id: `${i.id}-${idx}`, text, categoryId: i.id })))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── SORTING — shared mode ─────────────────────────────────── */}
+            {currentMechanicId === 'sorting' && currentActivityMode === 'shared' && sortingSharedState && (
+              <SortingSharedHostPanel
+                state={sortingSharedState}
+                categories={currentActivityItems.map(i => ({ id: i.id, name: i.name ?? '' }))}
+                blocks={currentActivityItems.flatMap(i => (i.blocks ?? []).map((text, idx): SortingBlock => ({ id: `${i.id}-${idx}`, text, categoryId: i.id })))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onCheck={handleSortingCheck}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── SEQUENCE — individual mode ───────────────────────────── */}
+            {currentMechanicId === 'sequence' && currentActivityMode !== 'shared' && (
+              <SequenceIndividualHostPanel
+                items={currentActivityItems.map((i): SequenceRuntimeItem => ({ id: i.id, text: i.text ?? '' }))}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── SEQUENCE — shared mode ────────────────────────────────── */}
+            {currentMechanicId === 'sequence' && currentActivityMode === 'shared' && sequenceSharedState && (
+              <SequenceSharedHostPanel
+                state={sequenceSharedState}
+                items={currentActivityItems.map((i): SequenceRuntimeItem => ({ id: i.id, text: i.text ?? '' }))}
+                correctOrder={currentActivityItems.map(i => i.id)}
+                participants={participants}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onCheck={handleSequenceCheck}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
+            {/* ── WORD CARDS — individual mode ─────────────────────────── */}
+            {currentMechanicId === 'word_cards' && (
+              <WordCardsHostPanel
+                participants={participants}
+                totalItems={currentActivityItems.length}
+                isLastActivity={isLastActivity}
+                isAdvancing={isAdvancing}
+                isLesson={isLesson}
+                onNextActivity={isLesson ? (isLastActivity ? handleEndLesson : handleNextActivity) : handleEndGame}
+                onEndLesson={isLesson ? handleEndLesson : handleEndGame}
+                onEndGame={handleEndGame}
+              />
+            )}
+
             {/* ── WORD CHOICE — individual mode ────────────────────────── */}
             {currentMechanicId === 'word_choice' && currentActivityMode !== 'shared' && (
               <WordChoiceIndividualHostPanel
@@ -4966,7 +5225,7 @@ export function SessionHostView({ session, lesson }: Props) {
             )}
 
             {/* ── SWIPE BATTLE HOST PANEL ──────────────────────────────── */}
-            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify', 'lesson_board'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
+            {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify', 'lesson_board', 'sorting', 'sequence', 'word_cards'].includes(currentMechanicId ?? '') && currentActivityMode !== 'vote' && (
               <SwipeBattleHostPanel
                 participants={participants}
                 currentActivityItems={currentActivityItems}

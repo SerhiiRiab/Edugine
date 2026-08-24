@@ -8,6 +8,7 @@ import {
   Target, Zap, PenLine, Mic, Mic2, Clapperboard, CheckSquare,
   ListChecks, PencilRuler, Library, MessageCircle, Theater, ToggleLeft,
   Sparkles, Ban, ArrowUpRight, Puzzle, Search,
+  FolderKanban, ListOrdered, Layers,
 } from 'lucide-react'
 import {
   Select,
@@ -40,6 +41,9 @@ export const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }
   elevator_pitch:     ArrowUpRight,
   jigsaw_reading:     Puzzle,
   predict_verify:     Search,
+  sorting:            FolderKanban,
+  sequence:           ListOrdered,
+  word_cards:         Layers,
 }
 
 export const CATEGORY_COLORS: Record<string, { tile: string; icon: string }> = {

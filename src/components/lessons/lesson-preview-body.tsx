@@ -29,6 +29,9 @@ import {
   Puzzle,
   Search,
   Presentation,
+  FolderKanban,
+  ListOrdered,
+  Layers,
 } from 'lucide-react'
 
 const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{ className?: string }> }> = {
@@ -55,6 +58,9 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
   jigsaw_reading:     { label: 'Jigsaw Reading',      Icon: Puzzle },
   predict_verify:     { label: 'Predict & Verify',    Icon: Search },
   lesson_board:       { label: 'Lesson Board',        Icon: Presentation },
+  sorting:            { label: 'Sorting',             Icon: FolderKanban },
+  sequence:           { label: 'Sequence',            Icon: ListOrdered },
+  word_cards:         { label: 'Word Cards',          Icon: Layers },
 }
 
 const LEVEL_COLORS: Record<string, string> = {

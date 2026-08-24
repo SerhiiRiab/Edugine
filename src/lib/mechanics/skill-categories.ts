@@ -80,6 +80,9 @@ export const MECHANIC_TO_CATEGORIES: Record<string, SkillCategoryId[]> = {
   jigsaw_reading:        ['reading', 'speaking'],
   predict_verify:        ['reading', 'speaking'],
   lesson_board:          ['content'],
+  sorting:               ['vocabulary', 'grammar', 'reading'],
+  sequence:              ['grammar', 'writing', 'reading'],
+  word_cards:            ['vocabulary'],
 }
 
 // Derived single-category map (first/primary) — kept for badge display and legacy compat.

@@ -3,7 +3,7 @@
 // the per-activity Settings panel in the content editor.
 
 // Mechanics that only support individual mode
-export const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap'])
+export const INDIVIDUAL_ONLY = new Set(['swipe_battle', 'speed_match', 'fill_the_gap', 'word_cards'])
 // Mechanics that only support shared mode
 export const SHARED_ONLY = new Set([
   'story_builder', 'talk_time', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'debate_roulette', 'hidden_role',

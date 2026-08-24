@@ -30,6 +30,9 @@ import { JigsawReadingDemo } from '@/components/teaching-lab/jigsaw-reading-demo
 import { StoryBuilderDemo } from '@/components/teaching-lab/story-builder-demo'
 import { ElevatorPitchDemo } from '@/components/teaching-lab/elevator-pitch-demo'
 import { SpeakingChallengeDemo } from '@/components/teaching-lab/speaking-challenge-demo'
+import { SortingDemo } from '@/components/teaching-lab/sorting-demo'
+import { SequenceDemo } from '@/components/teaching-lab/sequence-demo'
+import { WordCardsDemo } from '@/components/teaching-lab/word-cards-demo'
 
 const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'swipe-battle': SwipeBattleDemo,
@@ -52,6 +55,9 @@ const DEMO_COMPONENTS: Partial<Record<string, React.ComponentType>> = {
   'story-builder': StoryBuilderDemo,
   'elevator-pitch': ElevatorPitchDemo,
   'speaking-challenge': SpeakingChallengeDemo,
+  'sorting': SortingDemo,
+  'sequence': SequenceDemo,
+  'word-cards': WordCardsDemo,
 }
 
 type Props = { params: Promise<{ slug: string }> }

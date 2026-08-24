@@ -8,6 +8,7 @@ import {
   Clapperboard, CheckSquare, ListChecks, ChevronDown, ChevronUp,
   PencilRuler, Library, ToggleLeft, Gamepad2,
   Sparkles, Ban, ArrowUpRight, Puzzle,
+  FolderKanban, ListOrdered, Layers,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { createContentSet } from '@/lib/actions/content-sets'
@@ -48,6 +49,9 @@ const MECHANIC_ICONS: Record<string, ComponentType<{ className?: string }>> = {
   elevator_pitch:  ArrowUpRight,
   jigsaw_reading:  Puzzle,
   predict_verify:  Search,
+  sorting:         FolderKanban,
+  sequence:        ListOrdered,
+  word_cards:      Layers,
 }
 
 // ── Badge/dot colours keyed by skill_category — fully static for Tailwind ────

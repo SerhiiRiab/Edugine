@@ -6,6 +6,7 @@ import { useState } from 'react'
 import {
   MoreHorizontal, Edit2, Copy, Trash2, BookOpen, Clock, Target, Zap, PenLine, Mic, Mic2, MessageCircle, Theater,
   Clapperboard, CheckSquare, ListChecks, PencilRuler, Library, ToggleLeft, Gamepad2, Sparkles, Ban, ArrowUpRight, Puzzle, Search, Presentation,
+  FolderKanban, ListOrdered, Layers,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -143,6 +144,21 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Lesson Board',
     Icon: Presentation,
     classes: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
+  sorting: {
+    label: 'Sorting',
+    Icon: FolderKanban,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  sequence: {
+    label: 'Sequence',
+    Icon: ListOrdered,
+    classes: 'bg-sky-100 text-sky-700 border-sky-200',
+  },
+  word_cards: {
+    label: 'Word Cards',
+    Icon: Layers,
+    classes: 'bg-violet-100 text-violet-700 border-violet-200',
   },
 }
 

@@ -55,6 +55,11 @@ import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
 import { RoleplayQuestPlayerPanel } from '@/lib/mechanics/roleplay-quest/PlayerComponent'
 import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
 import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
+import type { SortingSharedState } from '@/lib/mechanics/sorting/types'
+import { SortingPlayerPanel, SortingSharedPlayerPanel } from '@/lib/mechanics/sorting/PlayerComponent'
+import type { SequenceSharedState } from '@/lib/mechanics/sequence/types'
+import { SequencePlayerPanel, SequenceSharedPlayerPanel } from '@/lib/mechanics/sequence/PlayerComponent'
+import { WordCardsPlayerPanel } from '@/lib/mechanics/word-cards/PlayerComponent'
 import { ErrorBoundary } from '@/components/error-boundary'
 
 // ── Floating Lesson Board ──────────────────────────────────────────────────────
@@ -136,6 +141,9 @@ interface CardItem {
   // Word Bank
   text?: string
   wordBank?: string[]
+  // Sorting
+  name?: string
+  blocks?: string[]
   // Correct the Mistake
   incorrect?: string
   correct?: string
@@ -241,6 +249,8 @@ export function PlayerView({ session, lesson }: Props) {
 
   // ── Word Bank shared mode ─────────────────────────────────────────────────────
   const [wordBankSharedState, setWordBankSharedState] = useState<WordBankSharedState | null>(null)
+  const [sortingSharedState, setSortingSharedState] = useState<SortingSharedState | null>(null)
+  const [sequenceSharedState, setSequenceSharedState] = useState<SequenceSharedState | null>(null)
   const [wordChoiceSharedState, setWordChoiceSharedState] = useState<WordChoiceSharedState | null>(null)
   const [ctmSharedState, setCtmSharedState] = useState<CorrectTheMistakeSharedState | null>(null)
   const [ctmIndividualState, setCtmIndividualState] = useState<CorrectTheMistakeIndividualState | null>(null)
@@ -383,6 +393,42 @@ export function PlayerView({ session, lesson }: Props) {
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, wordBankSharedState])
+
+  // ── Sorting shared: fetch from DB on reconnect ───────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'sorting' || currentActivity?.mode !== 'shared' || sortingSharedState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'placements' in (data.state as Record<string, unknown>)) {
+          setSortingSharedState(data.state as unknown as SortingSharedState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, sortingSharedState])
+
+  // ── Sequence shared: fetch from DB on reconnect ──────────────────────────────
+  useEffect(() => {
+    if (phase !== 'playing' || currentMechanicId !== 'sequence' || currentActivity?.mode !== 'shared' || sequenceSharedState) return
+    const supabase = createClient()
+    supabase
+      .from('shared_activity_state')
+      .select('state')
+      .eq('session_id', session.id)
+      .eq('activity_index', currentActivityIndex)
+      .single()
+      .then(({ data }) => {
+        if (data?.state && 'order' in (data.state as Record<string, unknown>)) {
+          setSequenceSharedState(data.state as unknown as SequenceSharedState)
+        }
+      })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentActivityIndex, currentMechanicId, currentActivity?.mode, sequenceSharedState])
 
   // ── Word Choice shared: fetch from DB on reconnect ───────────────────────────
   useEffect(() => {
@@ -767,7 +813,7 @@ export function PlayerView({ session, lesson }: Props) {
         setOnlineParticipantIds(prev => new Set([...prev].filter(id => !leftIds.has(id))))
       })
       .on('broadcast', { event: 'game_started' }, ({ payload }) => {
-        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
+        const p = payload as { activityIndex?: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; sortingSharedState?: SortingSharedState; sequenceSharedState?: SequenceSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
         if (p.activityIndex !== undefined) {
           setCurrentActivityIndex(p.activityIndex)
           currentActivityIndexRef.current = p.activityIndex
@@ -777,6 +823,8 @@ export function PlayerView({ session, lesson }: Props) {
         setContentBlockState(p.contentBlockState ?? null)
         setVoteState(p.voteState ?? null)
         setWordBankSharedState(p.wordBankSharedState ?? null)
+        setSortingSharedState(p.sortingSharedState ?? null)
+        setSequenceSharedState(p.sequenceSharedState ?? null)
         setWordChoiceSharedState(p.wordChoiceSharedState ?? null)
         setCtmSharedState(p.ctmSharedState ?? null)
         setCtmIndividualState(p.ctmIndividualState ?? null)
@@ -816,7 +864,7 @@ export function PlayerView({ session, lesson }: Props) {
         setTypingUser(p.isTyping ? { participantId: p.participantId, name: p.name } : null)
       })
       .on('broadcast', { event: 'activity_advance' }, ({ payload }) => {
-        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
+        const p = payload as { nextIndex: number; storyState?: StoryBuilderState; talkTimeState?: TalkTimeState; contentBlockState?: ContentBlockState; voteState?: VoteState; wordBankSharedState?: WordBankSharedState; sortingSharedState?: SortingSharedState; sequenceSharedState?: SequenceSharedState; wordChoiceSharedState?: WordChoiceSharedState; ctmSharedState?: CorrectTheMistakeSharedState; ctmIndividualState?: CorrectTheMistakeIndividualState; debateRouletteState?: DebateRouletteState; hiddenRoleState?: HiddenRoleState; missionBriefingState?: MissionBriefingState; dramaEventState?: DramaEventState; speedDebateState?: SpeedDebateState; roleplayQuestState?: RoleplayQuestState; speakingChallengeState?: SpeakingChallengeState; tabooState?: TabooState; elevatorPitchState?: ElevatorPitchState; jigsawReadingState?: JigsawReadingState; predictVerifyState?: PredictVerifyState; instructions?: string | null; rightLabel?: string | null; leftLabel?: string | null }
         setCurrentActivityIndex(p.nextIndex)
         currentActivityIndexRef.current = p.nextIndex
         setStoryState(p.storyState ?? null)
@@ -824,6 +872,8 @@ export function PlayerView({ session, lesson }: Props) {
         setContentBlockState(p.contentBlockState ?? null)
         setVoteState(p.voteState ?? null)
         setWordBankSharedState(p.wordBankSharedState ?? null)
+        setSortingSharedState(p.sortingSharedState ?? null)
+        setSequenceSharedState(p.sequenceSharedState ?? null)
         setWordChoiceSharedState(p.wordChoiceSharedState ?? null)
         setCtmSharedState(p.ctmSharedState ?? null)
         setCtmIndividualState(p.ctmIndividualState ?? null)
@@ -846,6 +896,14 @@ export function PlayerView({ session, lesson }: Props) {
       .on('broadcast', { event: 'word_bank_state_update' }, ({ payload }) => {
         const p = payload as { state: WordBankSharedState }
         if (p.state) setWordBankSharedState(p.state)
+      })
+      .on('broadcast', { event: 'sorting_state_update' }, ({ payload }) => {
+        const p = payload as { state: SortingSharedState }
+        if (p.state) setSortingSharedState(p.state)
+      })
+      .on('broadcast', { event: 'sequence_state_update' }, ({ payload }) => {
+        const p = payload as { state: SequenceSharedState }
+        if (p.state) setSequenceSharedState(p.state)
       })
       .on('broadcast', { event: 'word_choice_state_update' }, ({ payload }) => {
         const p = payload as { state: WordChoiceSharedState }
@@ -1516,6 +1574,99 @@ export function PlayerView({ session, lesson }: Props) {
               )
           )}
 
+          {/* Sorting — individual mode */}
+          {currentMechanicId === 'sorting' && currentActivity?.mode !== 'shared' && participantId && (
+            <SortingPlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              categories={currentItems.map(i => ({ id: i.id, name: i.name ?? '' }))}
+              blocks={currentItems.flatMap(i => (i.blocks ?? []).map((text, idx) => ({ id: `${i.id}-${idx}`, text, categoryId: i.id })))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
+          {/* Sorting — shared mode */}
+          {currentMechanicId === 'sorting' && currentActivity?.mode === 'shared' && participantId && (
+            sortingSharedState
+              ? (
+                <SortingSharedPlayerPanel
+                  sessionId={session.id}
+                  activityIndex={currentActivityIndex}
+                  participantId={participantId}
+                  categories={currentItems.map(i => ({ id: i.id, name: i.name ?? '' }))}
+                  blocks={currentItems.flatMap(i => (i.blocks ?? []).map((text, idx) => ({ id: `${i.id}-${idx}`, text, categoryId: i.id })))}
+                  channelRef={channelRef}
+                  sharedState={sortingSharedState}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading shared board...</p>
+                </div>
+              )
+          )}
+
+          {/* Sequence — individual mode */}
+          {currentMechanicId === 'sequence' && currentActivity?.mode !== 'shared' && participantId && (
+            <SequencePlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems.map(i => ({ id: i.id, text: i.text ?? '' }))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
+          {/* Sequence — shared mode */}
+          {currentMechanicId === 'sequence' && currentActivity?.mode === 'shared' && participantId && (
+            sequenceSharedState
+              ? (
+                <SequenceSharedPlayerPanel
+                  sessionId={session.id}
+                  activityIndex={currentActivityIndex}
+                  participantId={participantId}
+                  items={currentItems.map(i => ({ id: i.id, text: i.text ?? '' }))}
+                  channelRef={channelRef}
+                  sharedState={sequenceSharedState}
+                />
+              )
+              : (
+                <div className="flex-1 flex items-center justify-center p-6">
+                  <p className="text-slate-400 animate-pulse">Loading shared board...</p>
+                </div>
+              )
+          )}
+
+          {/* Word Cards — individual mode */}
+          {currentMechanicId === 'word_cards' && participantId && (
+            <WordCardsPlayerPanel
+              sessionId={session.id}
+              activityIndex={currentActivityIndex}
+              participantId={participantId}
+              nickname={nickname}
+              items={currentItems.map(i => ({ id: i.id, front: i.front ?? i.word ?? '', back: i.back ?? i.translation ?? '' }))}
+              channelRef={channelRef}
+              isLesson={isLesson}
+              hostEnded={hostEnded}
+              accumulatedScore={totalScore}
+              totalActivities={isLesson ? lesson.activities.length : 1}
+              onComplete={handlePanelComplete}
+            />
+          )}
+
           {/* Speed Debate */}
           {currentMechanicId === 'speed_debate' && participantId && (
             speedDebateState
@@ -1797,7 +1948,7 @@ export function PlayerView({ session, lesson }: Props) {
           )}
 
           {/* Swipe Battle — default for swipe_battle and any unrecognised mechanic */}
-          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify', 'lesson_board'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
+          {!['story_builder', 'speed_match', 'talk_time', 'content_block', 'true_false', 'multiple_choice', 'fill_the_gap', 'word_bank', 'word_choice', 'correct_the_mistake', 'debate_roulette', 'hidden_role', 'mission_briefing', 'drama_event', 'taboo', 'elevator_pitch', 'jigsaw_reading', 'speed_debate', 'roleplay_quest', 'speaking_challenge', 'predict_verify', 'lesson_board', 'sorting', 'sequence', 'word_cards'].includes(currentMechanicId) && currentActivity?.mode !== 'vote' && participantId && (
             <SwipeBattlePlayerPanel
               sessionId={session.id}
               activityIndex={currentActivityIndex}
