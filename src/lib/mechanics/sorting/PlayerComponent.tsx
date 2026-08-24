@@ -175,11 +175,16 @@ function SortingBoard({
   }
 
   function handleDragEnd(event: DragEndEvent) {
-    setActiveId(null)
-    if (disabled) return
+    if (disabled) { setActiveId(null); return }
     const { active, over } = event
-    if (!over) return
+    if (!over) { setActiveId(null); return }
     onPlaceInCategory(active.id as string, over.id === 'tray' ? null : (over.id as string))
+    // Un-hide the source chip one frame AFTER the placement update above,
+    // instead of in the same tick — guarantees the placements state (and
+    // therefore this chip's new parent zone) has already been committed
+    // and painted before it becomes visible again, so there's no frame
+    // where it's briefly visible back in its old spot.
+    requestAnimationFrame(() => setActiveId(null))
   }
 
   return (
