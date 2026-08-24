@@ -57,17 +57,12 @@ function rowToData(row: CategoryRow): Record<string, unknown> {
   return { name: row.name, blocks: row.blocks.filter(Boolean) }
 }
 
-// ── BlockChipInput — type a block + Enter, or paste/type a list at once ──────
-// Accepts blocks separated by newlines AND/OR commas, so "apple, banana,
-// orange" on one line works exactly like three separate lines — matching
-// how tutors already paste lists into this app's other bulk-import fields.
+// ── BlockChipInput — type a block + Enter, or paste multiple lines at once ───
+// Split ONLY on newlines — a block can be a full sentence that legitimately
+// contains commas, so commas must never be treated as a separator here.
 
 function parseBlocks(text: string): string[] {
-  return text
-    .split('\n')
-    .flatMap(line => line.split(','))
-    .map(s => s.trim())
-    .filter(Boolean)
+  return text.split('\n').map(s => s.trim()).filter(Boolean)
 }
 
 function BlockChipInput({ onAdd }: { onAdd: (blocks: string[]) => void }) {
@@ -89,12 +84,16 @@ function BlockChipInput({ onAdd }: { onAdd: (blocks: string[]) => void }) {
       }}
       onPaste={e => {
         const text = e.clipboardData.getData('text')
+        // Single-line paste: let it land in the field so the tutor can still
+        // review/edit before committing with Enter. Only intercept multi-line
+        // pastes, where auto-splitting into separate blocks is unambiguous.
+        if (!text.includes('\n')) return
         e.preventDefault()
         const blocks = parseBlocks(text)
         if (blocks.length > 0) onAdd(blocks)
       }}
       onBlur={commit}
-      placeholder="Type a block and press Enter — or paste/type a comma- or line-separated list"
+      placeholder="Type a block, press Enter (or paste multiple lines to add them all)"
       className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium
         focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
         transition-colors placeholder:text-slate-300"
