@@ -13,7 +13,6 @@ import {
   AlertCircle,
   Loader2,
   X,
-  ChevronRight,
   ChevronLeft,
   Pencil,
   Target,
@@ -314,14 +313,11 @@ interface AddModalProps {
 }
 
 function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClose }: AddModalProps) {
-  const [step, setStep] = useState<1 | 2>(1)
   const [search, setSearch] = useState('')
   const [displayedSets, setDisplayedSets] = useState<ContentSetOption[]>(initialSets)
   const [searching, setSearching] = useState(false)
   const [selectedSet, setSelectedSet] = useState<ContentSetOption | null>(null)
   const [adding, setAdding] = useState(false)
-  const mechanic = selectedSet ? MECHANIC_META[selectedSet.mechanic_id] : null
-  const MechanicIcon = mechanic?.Icon ?? Gamepad2
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
   const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
 
@@ -352,8 +348,6 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
     indOnly ? 'individual' :
     selectedSet?.mechanic_id === 'word_bank' ? 'shared' : 'individual'
 
-  const STEP_LABELS = ['Content Set', 'Mechanic']
-
   async function handleAdd() {
     if (!selectedSet) return
     setAdding(true)
@@ -381,25 +375,7 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-          <div>
-            <h2 className="font-bold text-slate-800">Add Activity</h2>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              {STEP_LABELS.map((label, i) => (
-                <span
-                  key={i}
-                  className={`text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${
-                    step === i + 1
-                      ? 'bg-violet-600 text-white'
-                      : step > i + 1
-                      ? 'bg-violet-100 text-violet-600'
-                      : 'bg-slate-100 text-slate-400'
-                  }`}
-                >
-                  {label}
-                </span>
-              ))}
-            </div>
-          </div>
+          <h2 className="font-bold text-slate-800">Add Activity</h2>
           <button
             onClick={onClose}
             className="flex items-center justify-center w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
@@ -410,105 +386,76 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-
-          {/* Step 1 — Content Set */}
-          {step === 1 && (
-            <div className="space-y-3">
-              {/* Search input */}
-              <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                <Search className="w-4 h-4 text-slate-400 shrink-0" />
-                <input
-                  autoFocus
-                  type="text"
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Search activities…"
-                  className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-                />
-                {search && (
-                  <button onClick={() => setSearch('')} className="text-slate-300 hover:text-slate-500">
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {searching ? (
-                <div className="py-8 flex items-center justify-center gap-2 text-slate-400 text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Searching…
-                </div>
-              ) : displayedSets.length === 0 && !search.trim() ? (
-                <div className="py-12 text-center">
-                  <div className="text-5xl mb-3">📭</div>
-                  <p className="text-slate-600 font-semibold text-sm">No activities yet</p>
-                  <p className="text-slate-400 text-xs mt-1 mb-4">Create an activity first to add it here</p>
-                </div>
-              ) : displayedSets.length === 0 ? (
-                <p className="text-center text-slate-400 text-sm py-8">No activities match &ldquo;{search}&rdquo;</p>
-              ) : (() => {
-                return (
-                  <div className="space-y-1.5">
-                    {displayedSets.map((cs) => {
-                      const meta = MECHANIC_META[cs.mechanic_id]
-                      const Icon = meta?.Icon ?? Gamepad2
-                      const isSelected = selectedSet?.id === cs.id
-                      const isBlocked = cs.mechanic_id === 'lesson_board' && hasLessonBoard
-                      return (
-                        <button
-                          key={cs.id}
-                          type="button"
-                          disabled={isBlocked}
-                          title={isBlocked ? 'You already have a Lesson Board in this lesson.' : undefined}
-                          onClick={() => { if (!isBlocked) setSelectedSet(cs) }}
-                          className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
-                            isBlocked ? 'border-slate-100 opacity-50 cursor-not-allowed'
-                              : isSelected ? 'border-violet-400 bg-violet-50' : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
-                            <Icon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                              {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
-                              {isBlocked && <span className="text-amber-600"> · already in this lesson</span>}
-                            </p>
-                          </div>
-                          {isSelected && <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )
-              })()}
+          <div className="space-y-3">
+            {/* Search input */}
+            <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search activities…"
+                className="flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
+              />
+              {search && (
+                <button onClick={() => setSearch('')} className="text-slate-300 hover:text-slate-500">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
-          )}
 
-          {/* Step 2 — Mechanic */}
-          {step === 2 && selectedSet && (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">Mechanic for this activity:</p>
-              <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-violet-300 bg-violet-50">
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-violet-100">
-                  <MechanicIcon className="w-5 h-5 text-violet-700" />
-                </div>
-                <div className="flex-1">
-                  <p className="font-bold text-violet-800 text-sm">{mechanic?.label ?? selectedSet.mechanic_id}</p>
-                  <p className="text-xs text-violet-500 mt-0.5">
-                    From &ldquo;{selectedSet.title}&rdquo; · {selectedSet.item_count} cards
-                  </p>
-                </div>
-                <div className="w-4 h-4 rounded-full border-2 border-violet-500 flex items-center justify-center shrink-0">
-                  <div className="w-2 h-2 rounded-full bg-violet-500" />
-                </div>
+            {searching ? (
+              <div className="py-8 flex items-center justify-center gap-2 text-slate-400 text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Searching…
               </div>
-              <p className="text-xs text-slate-400">
-                Mechanic is determined by the activity. More coming soon.
-              </p>
-            </div>
-          )}
-
+            ) : displayedSets.length === 0 && !search.trim() ? (
+              <div className="py-12 text-center">
+                <div className="text-5xl mb-3">📭</div>
+                <p className="text-slate-600 font-semibold text-sm">No activities yet</p>
+                <p className="text-slate-400 text-xs mt-1 mb-4">Create an activity first to add it here</p>
+              </div>
+            ) : displayedSets.length === 0 ? (
+              <p className="text-center text-slate-400 text-sm py-8">No activities match &ldquo;{search}&rdquo;</p>
+            ) : (() => {
+              return (
+                <div className="space-y-1.5">
+                  {displayedSets.map((cs) => {
+                    const meta = MECHANIC_META[cs.mechanic_id]
+                    const Icon = meta?.Icon ?? Gamepad2
+                    const isSelected = selectedSet?.id === cs.id
+                    const isBlocked = cs.mechanic_id === 'lesson_board' && hasLessonBoard
+                    return (
+                      <button
+                        key={cs.id}
+                        type="button"
+                        disabled={isBlocked}
+                        title={isBlocked ? 'You already have a Lesson Board in this lesson.' : undefined}
+                        onClick={() => { if (!isBlocked) setSelectedSet(cs) }}
+                        className={`w-full text-left flex items-center gap-3 p-3.5 rounded-xl border-2 transition-all ${
+                          isBlocked ? 'border-slate-100 opacity-50 cursor-not-allowed'
+                            : isSelected ? 'border-violet-400 bg-violet-50' : 'border-slate-100 hover:border-violet-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${meta ? meta.classes.split(' ')[0] : 'bg-slate-100'}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-slate-800 text-sm truncate">{cs.title}</p>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            {meta?.label ?? cs.mechanic_id} · {cs.item_count} {cs.item_count === 1 ? 'card' : 'cards'}
+                            {isBlocked && <span className="text-amber-600"> · already in this lesson</span>}
+                          </p>
+                        </div>
+                        {isSelected && <div className="w-5 h-5 rounded-full bg-violet-500 flex items-center justify-center shrink-0"><Check className="w-3 h-3 text-white" /></div>}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </div>
         </div>
 
         {/* Footer */}
@@ -516,47 +463,32 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => step === 1 ? onClose() : setStep((s) => (s - 1) as 1 | 2)}
+              onClick={onClose}
               className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
-              {step === 1 ? 'Cancel' : 'Back'}
+              Cancel
             </button>
-            {step === 1 && (
-              <Link
-                href={`/tutor/content-sets/new?lessonId=${lessonId}`}
-                onClick={onClose}
-                className="flex items-center gap-1.5 text-sm text-violet-600 font-semibold hover:text-violet-700 transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                Create new activity
-              </Link>
-            )}
+            <Link
+              href={`/tutor/content-sets/new?lessonId=${lessonId}`}
+              onClick={onClose}
+              className="flex items-center gap-1.5 text-sm text-violet-600 font-semibold hover:text-violet-700 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Create new activity
+            </Link>
           </div>
 
-          {step < 2 ? (
-            <button
-              type="button"
-              disabled={step === 1 && !selectedSet}
-              onClick={() => setStep((s) => (s + 1) as 1 | 2)}
-              className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40
-                disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-            >
-              Next
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={adding || !selectedSet}
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40
-                disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
-            >
-              {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Add to lesson
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleAdd}
+            disabled={adding || !selectedSet}
+            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40
+              disabled:cursor-not-allowed text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
+          >
+            {adding ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            Add to lesson
+          </button>
         </div>
       </div>
     </div>
