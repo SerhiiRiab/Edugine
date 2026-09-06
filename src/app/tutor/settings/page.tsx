@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { Crown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileForm } from './profile-form'
+import { ContactForm } from './contact-form'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -99,6 +100,9 @@ export default async function SettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Contact us */}
+      <ContactForm />
 
     </div>
   )
