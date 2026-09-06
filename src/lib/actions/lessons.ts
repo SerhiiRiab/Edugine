@@ -235,19 +235,77 @@ export async function duplicateLesson(id: string, shareToken?: string): Promise<
   }>
 
   if (acts.length > 0) {
-    await supabase.from('lesson_activities').insert(
-      acts.map((a) => ({
+    // Each activity's content_set/content_items get their own fresh copy,
+    // owned by the new tutor — reusing the source content_set_id would mean
+    // the "duplicate" is just a second lesson pointing at the original
+    // owner's content, so editing content in one lesson silently edits the
+    // other. Read via the admin client: we've already authorized access to
+    // `original` above (owner check, public/unlisted visibility, or a
+    // validated share_token), but that authorization doesn't help the
+    // regular RLS-scoped client read a private original owner's
+    // content_sets/content_items directly by id.
+    const admin = createAdminClient()
+    const contentSetIds = [...new Set(acts.map((a) => a.content_set_id))]
+    const { data: srcSets, error: srcErr } = await admin
+      .from('content_sets')
+      .select('id, mechanic_id, title, description, language, content_items(position, data)')
+      .in('id', contentSetIds)
+
+    if (srcErr) throw new Error('Failed to read source activities')
+
+    const srcById = new Map((srcSets ?? []).map((s) => [s.id, s]))
+
+    const newActivities: Array<{
+      lesson_id: string
+      content_set_id: string
+      mechanic_id: string
+      position: number
+      mode: string
+      config: Record<string, unknown>
+    }> = []
+
+    for (const a of acts) {
+      const src = srcById.get(a.content_set_id)
+      if (!src) continue // source content set vanished — skip rather than fail the whole copy
+
+      const { data: newSet, error: setErr } = await supabase
+        .from('content_sets')
+        .insert({
+          owner_id: user.id,
+          mechanic_id: src.mechanic_id,
+          title: src.title,
+          description: src.description,
+          language: (src as { language?: string }).language ?? 'en',
+        })
+        .select('id')
+        .single()
+
+      if (setErr || !newSet) throw new Error('Failed to duplicate activity')
+
+      const items = (src.content_items ?? []) as Array<{ position: number; data: unknown }>
+      if (items.length > 0) {
+        await supabase.from('content_items').insert(
+          items.map((item) => ({ set_id: newSet.id, position: item.position, data: item.data })),
+        )
+      }
+
+      newActivities.push({
         lesson_id: newLesson.id,
-        content_set_id: a.content_set_id,
+        content_set_id: newSet.id,
         mechanic_id: a.mechanic_id,
         position: a.position,
         mode: a.mode,
         config: a.config,
-      })),
-    )
+      })
+    }
+
+    if (newActivities.length > 0) {
+      await supabase.from('lesson_activities').insert(newActivities)
+    }
   }
 
   revalidatePath('/tutor/lessons')
+  revalidatePath('/tutor/content-sets')
   return { lessonId: newLesson.id }
 }
 
