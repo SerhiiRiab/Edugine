@@ -81,8 +81,7 @@ import {
 import { createLessonSession } from '@/lib/actions/sessions'
 import { searchContentSets } from '@/lib/actions/content-sets'
 import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
-import { DEFAULT_RIGHT_LABEL, DEFAULT_LEFT_LABEL } from '@/lib/mechanics/swipe-battle/types'
-import { INDIVIDUAL_ONLY, SHARED_ONLY, VOTE_CAPABLE, TIMER_SUPPORTED } from '@/lib/mechanics/activity-mode-capabilities'
+import { INDIVIDUAL_ONLY, SHARED_ONLY, TIMER_SUPPORTED } from '@/lib/mechanics/activity-mode-capabilities'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -315,22 +314,16 @@ interface AddModalProps {
 }
 
 function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClose }: AddModalProps) {
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [step, setStep] = useState<1 | 2>(1)
   const [search, setSearch] = useState('')
   const [displayedSets, setDisplayedSets] = useState<ContentSetOption[]>(initialSets)
   const [searching, setSearching] = useState(false)
   const [selectedSet, setSelectedSet] = useState<ContentSetOption | null>(null)
-  const [mode, setMode] = useState<'individual' | 'shared' | 'vote'>('individual')
-  const [timerSeconds, setTimerSeconds] = useState('')
-  const [instructions, setInstructions] = useState('')
-  const [rightLabel, setRightLabel] = useState('')
-  const [leftLabel, setLeftLabel] = useState('')
   const [adding, setAdding] = useState(false)
   const mechanic = selectedSet ? MECHANIC_META[selectedSet.mechanic_id] : null
   const MechanicIcon = mechanic?.Icon ?? Gamepad2
   const indOnly = selectedSet ? INDIVIDUAL_ONLY.has(selectedSet.mechanic_id) : true
   const sharedOnly = selectedSet ? SHARED_ONLY.has(selectedSet.mechanic_id) : false
-  const voteCap = selectedSet ? VOTE_CAPABLE.has(selectedSet.mechanic_id) : false
 
   // Debounced server search
   useEffect(() => {
@@ -351,37 +344,25 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
     return () => clearTimeout(timer)
   }, [search, initialSets])
 
-  // Default word_bank to 'shared'; reset to 'individual' for everything else
-  useEffect(() => {
-    setMode(selectedSet?.mechanic_id === 'word_bank' ? 'shared' : 'individual')
-  }, [selectedSet?.mechanic_id])
-
-  // Auto-select mode when mechanic restricts it; guard against stale 'vote' for non-voteCap mechanics
-  const effectiveMode: 'individual' | 'shared' | 'vote' =
+  // Mode isn't asked here — mechanics that support only one mode get it
+  // automatically, word_bank defaults to shared, everything else defaults to
+  // individual. It can be changed later from the activity's Settings panel.
+  const effectiveMode: 'individual' | 'shared' =
     sharedOnly ? 'shared' :
     indOnly ? 'individual' :
-    (mode === 'vote' && !voteCap) ? 'individual' :
-    mode
+    selectedSet?.mechanic_id === 'word_bank' ? 'shared' : 'individual'
 
-  const STEP_LABELS = ['Content Set', 'Mechanic', 'Mode', 'Config']
+  const STEP_LABELS = ['Content Set', 'Mechanic']
 
   async function handleAdd() {
     if (!selectedSet) return
     setAdding(true)
     try {
-      const secs = timerSeconds ? parseInt(timerSeconds, 10) : null
-      const cfg: Record<string, unknown> = {}
-      if (secs && !isNaN(secs)) cfg.timerSeconds = secs
-      if (instructions.trim()) cfg.instructions = instructions.trim()
-      if (selectedSet.mechanic_id === 'swipe_battle') {
-        if (rightLabel.trim()) cfg.rightLabel = rightLabel.trim()
-        if (leftLabel.trim()) cfg.leftLabel = leftLabel.trim()
-      }
       await onAdd({
         content_set_id: selectedSet.id,
         mechanic_id: selectedSet.mechanic_id,
         mode: effectiveMode,
-        config: cfg,
+        config: {},
         content_set_title: selectedSet.title,
         content_set_item_count: selectedSet.item_count,
       })
@@ -528,239 +509,6 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
             </div>
           )}
 
-          {/* Step 3 — Mode */}
-          {step === 3 && (
-            <div className="space-y-3">
-              <p className="text-sm text-slate-500">How will students play this activity?</p>
-
-              {/* Individual */}
-              {!sharedOnly && (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setMode('individual')}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                    effectiveMode === 'individual'
-                      ? 'border-emerald-400 bg-emerald-50'
-                      : 'border-slate-100 hover:border-slate-200'
-                  }`}
-                >
-                  <User className="w-6 h-6 text-slate-500 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm">Individual</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Each student plays at their own pace</p>
-                  </div>
-                  {effectiveMode === 'individual' && (
-                    <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Vote (T/F and MC only) */}
-              {voteCap && (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setMode('vote')}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                    effectiveMode === 'vote'
-                      ? 'border-amber-400 bg-amber-50'
-                      : 'border-slate-100 hover:border-slate-200'
-                  }`}
-                >
-                  <BarChart2 className="w-6 h-6 text-slate-500 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm">Vote</p>
-                    <p className="text-xs text-slate-400 mt-0.5">Everyone votes on each question — tutor reveals results</p>
-                  </div>
-                  {effectiveMode === 'vote' && (
-                    <div className="w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center shrink-0">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Shared (story_builder, talk_time) */}
-              {!indOnly && !voteCap && (
-                <div
-                  role="button"
-                  tabIndex={sharedOnly ? -1 : 0}
-                  onClick={() => !indOnly && setMode('shared')}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
-                    effectiveMode === 'shared'
-                      ? 'border-blue-400 bg-blue-50'
-                      : 'border-slate-100 hover:border-slate-200 cursor-pointer'
-                  }`}
-                >
-                  <Users className="w-6 h-6 text-slate-500 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm">Shared</p>
-                    <p className="text-xs text-slate-400 mt-0.5">All students see the same board in real-time</p>
-                  </div>
-                  {effectiveMode === 'shared' && (
-                    <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                      <Check className="w-3 h-3 text-white" />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Shared-only mechanics auto-show shared */}
-              {sharedOnly && (
-                <div className="flex items-center gap-4 p-4 rounded-xl border-2 border-blue-400 bg-blue-50">
-                  <Users className="w-6 h-6 text-blue-500 shrink-0" />
-                  <div className="flex-1">
-                    <p className="font-bold text-slate-800 text-sm">Shared</p>
-                    <p className="text-xs text-slate-400 mt-0.5">All students see the same board in real-time</p>
-                  </div>
-                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-white" />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 4 — Config */}
-          {step === 4 && selectedSet && (
-            <div className="space-y-5">
-              <p className="text-sm text-slate-500">Optional configuration:</p>
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 block">
-                  Instructions for students{' '}
-                  <span className="text-slate-400 font-normal text-xs">optional</span>
-                </label>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder={
-                    selectedSet.mechanic_id === 'talk_time' ? 'Speak about the prompt when it\'s your turn' :
-                    selectedSet.mechanic_id === 'story_builder' ? 'Build a story together using the words in the word bank' :
-                    selectedSet.mechanic_id === 'speed_match' ? 'Match each item on the left with its pair on the right' :
-                    selectedSet.mechanic_id === 'true_false' ? 'Read each statement and decide if it\'s true or false' :
-                    selectedSet.mechanic_id === 'multiple_choice' ? 'Read the question and choose the correct answer' :
-                    'Swipe right if correct, left if wrong'
-                  }
-                  maxLength={200}
-                  rows={2}
-                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                    focus-visible:border-violet-400 resize-none transition-colors
-                    placeholder:text-slate-300"
-                />
-                <p className="text-xs text-slate-400">Shown above the activity for all students</p>
-              </div>
-
-              {selectedSet.mechanic_id === 'swipe_battle' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-semibold text-slate-700 block">
-                    Swipe meaning{' '}
-                    <span className="text-slate-400 font-normal text-xs">optional — for standalone statement cards</span>
-                  </label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-emerald-600 font-medium">Swipe right means</label>
-                      <input
-                        type="text"
-                        value={rightLabel}
-                        onChange={(e) => setRightLabel(e.target.value)}
-                        placeholder={DEFAULT_RIGHT_LABEL}
-                        maxLength={40}
-                        className="w-full mt-1 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                          focus-visible:border-violet-400 transition-colors placeholder:text-slate-300"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-red-500 font-medium">Swipe left means</label>
-                      <input
-                        type="text"
-                        value={leftLabel}
-                        onChange={(e) => setLeftLabel(e.target.value)}
-                        placeholder={DEFAULT_LEFT_LABEL}
-                        maxLength={40}
-                        className="w-full mt-1 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                          focus-visible:border-violet-400 transition-colors placeholder:text-slate-300"
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-400">Shown to students so they know what they&apos;re judging</p>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-slate-700 block">
-                  Time limit{' '}
-                  <span className="text-slate-400 font-normal text-xs">optional</span>
-                </label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="10"
-                    max="3600"
-                    value={timerSeconds}
-                    onChange={(e) => setTimerSeconds(e.target.value)}
-                    placeholder="e.g. 120"
-                    className="w-32 rounded-lg border border-input bg-transparent px-3 py-2 text-sm
-                      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400
-                      focus-visible:border-violet-400 transition-colors"
-                  />
-                  <span className="text-sm text-slate-400">seconds</span>
-                </div>
-                <p className="text-xs text-slate-400">Leave empty for no time limit</p>
-              </div>
-
-              {/* Summary */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 space-y-2.5">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Summary</p>
-                <div className="space-y-1.5 text-sm">
-                  <div className="flex items-center justify-between gap-4">
-                    <span className="text-slate-500 shrink-0">Activity</span>
-                    <span className="font-semibold text-slate-800 truncate">{selectedSet.title}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Mechanic</span>
-                    <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
-                      <MechanicIcon className="w-3.5 h-3.5" />{mechanic?.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-500">Mode</span>
-                    <span className="inline-flex items-center gap-1 font-semibold text-slate-800">
-                      {effectiveMode === 'individual' ? <><User className="w-3.5 h-3.5" />Individual</>
-                        : effectiveMode === 'vote' ? <><BarChart2 className="w-3.5 h-3.5" />Vote</>
-                        : <><Users className="w-3.5 h-3.5" />Shared</>}
-                    </span>
-                  </div>
-                  {timerSeconds && !isNaN(parseInt(timerSeconds)) && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-500">Timer</span>
-                      <span className="font-semibold text-slate-800">{timerSeconds}s</span>
-                    </div>
-                  )}
-                  {instructions.trim() && (
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-slate-500 shrink-0">Instructions</span>
-                      <span className="font-semibold text-slate-800 text-right text-xs leading-relaxed">{instructions.trim()}</span>
-                    </div>
-                  )}
-                  {selectedSet.mechanic_id === 'swipe_battle' && (rightLabel.trim() || leftLabel.trim()) && (
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="text-slate-500 shrink-0">Swipe meaning</span>
-                      <span className="font-semibold text-slate-800 text-right text-xs leading-relaxed">
-                        → {rightLabel.trim() || DEFAULT_RIGHT_LABEL} · ← {leftLabel.trim() || DEFAULT_LEFT_LABEL}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -768,7 +516,7 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => step === 1 ? onClose() : setStep((s) => (s - 1) as 1 | 2 | 3 | 4)}
+              onClick={() => step === 1 ? onClose() : setStep((s) => (s - 1) as 1 | 2)}
               className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 font-medium transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -786,11 +534,11 @@ function AddActivityModal({ lessonId, initialSets, hasLessonBoard, onAdd, onClos
             )}
           </div>
 
-          {step < 4 ? (
+          {step < 2 ? (
             <button
               type="button"
               disabled={step === 1 && !selectedSet}
-              onClick={() => setStep((s) => (s + 1) as 1 | 2 | 3 | 4)}
+              onClick={() => setStep((s) => (s + 1) as 1 | 2)}
               className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-40
                 disabled:cursor-not-allowed text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
             >
