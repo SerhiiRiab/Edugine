@@ -129,10 +129,15 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, showWelcome, a
   )
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="bg-slate-50">
 
       {/* ── Desktop sidebar ───────────────────────────────────────────────────── */}
-      <aside className="hidden md:flex w-60 shrink-0 bg-violet-950 text-white flex-col">
+      {/* Fixed (not a flex sibling of main) so its height always spans the
+          viewport regardless of how tall the page content is — a page
+          shorter than the viewport (e.g. Settings) no longer forces the
+          whole layout to stretch to fill it. Pages taller than the viewport
+          scroll the document normally; this sidebar just stays pinned. */}
+      <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 w-60 bg-violet-950 text-white flex-col overflow-y-auto">
         <SidebarContent tourEnabled />
       </aside>
 
@@ -154,11 +159,15 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, showWelcome, a
         <SidebarContent tourEnabled={false} />
       </aside>
 
-      {/* ── Main ──────────────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      {/* ── Main column ───────────────────────────────────────────────────────── */}
+      <div className="md:pl-60 min-w-0">
 
-        {/* Mobile top bar */}
-        <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-violet-950 text-white shrink-0">
+        {/* Mobile top bar — sticky (rather than the old shrink-0-above-a-
+            clipped-scroll-region) so it still stays visible while the page
+            scrolls now that scrolling happens on the document itself. Fixed
+            h-14 so in-page sticky headers (top-14 md:top-0) can stick right
+            below it instead of overlapping. */}
+        <div className="md:hidden sticky top-0 z-20 h-14 flex items-center gap-3 px-4 bg-violet-950 text-white">
           <button
             onClick={() => setMobileOpen(true)}
             className="w-8 h-8 flex items-center justify-center text-violet-300 hover:text-white rounded-lg"
@@ -168,7 +177,7 @@ export function TutorShell({ email, fullName, plan, proExpiresAt, showWelcome, a
           <img src="/edugine-lockup-dark.svg" alt="Edugine" className="h-6" />
         </div>
 
-        <main className="flex-1 overflow-auto">
+        <main>
           {children}
         </main>
       </div>

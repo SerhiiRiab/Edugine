@@ -59,7 +59,7 @@ export default async function ProgramDetailPage({
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Top bar */}
-      <div className="bg-white border-b border-slate-200 px-6 py-3 sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200 px-6 py-3 sticky top-14 md:top-0 z-10">
         <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
           <Link
             href="/tutor/programs"
