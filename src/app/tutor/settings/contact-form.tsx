@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { sendContactMessage, type ContactResult } from '@/lib/actions/contact'
+import { SUBJECT_LABELS } from '@/lib/contact-shared'
 import {
   Select,
   SelectContent,
@@ -12,12 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
-const SUBJECTS = [
-  { value: 'general', label: 'General' },
-  { value: 'bug_report', label: 'Bug Report' },
-  { value: 'feature_request', label: 'Feature Request' },
-  { value: 'other', label: 'Other' },
-]
+const SUBJECTS = Object.entries(SUBJECT_LABELS).map(([value, label]) => ({ value, label }))
 
 const MESSAGE_MAX = 2000
 

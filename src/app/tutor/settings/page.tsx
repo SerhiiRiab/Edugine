@@ -3,6 +3,8 @@ import { Crown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { ProfileForm } from './profile-form'
 import { ContactForm } from './contact-form'
+import { RecentMessages } from './recent-messages'
+import { getRecentContactMessages } from '@/lib/actions/contact'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -20,6 +22,7 @@ export default async function SettingsPage() {
 
   const plan = (profile?.plan as 'free' | 'pro') ?? 'free'
   const proExpiresAt = profile?.pro_expires_at ?? null
+  const recentMessages = await getRecentContactMessages()
 
   return (
     <div className="p-8 max-w-2xl space-y-6">
@@ -103,6 +106,8 @@ export default async function SettingsPage() {
 
       {/* Contact us */}
       <ContactForm />
+
+      <RecentMessages messages={recentMessages} />
 
     </div>
   )
