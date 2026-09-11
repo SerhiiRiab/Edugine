@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { PublicLessonActions } from './lesson-preview-actions'
 import { MechanicPreview, type PreviewContentItem } from './mechanic-preview'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
+import { POSITIONING } from '@/lib/copy/positioning'
 import {
   GraduationCap,
   LayoutList,
@@ -32,6 +33,10 @@ import {
   FolderKanban,
   ListOrdered,
   Layers,
+  MessageSquare,
+  Eye,
+  Compass,
+  ArrowRight,
 } from 'lucide-react'
 
 const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{ className?: string }> }> = {
@@ -102,13 +107,18 @@ export function normalizeActivities(rawActivities: unknown): RawActivity[] {
 
 export function TopBar({ user }: { user: { id: string } | null }) {
   return (
-    <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-4">
-        <Link href="/" className="flex items-center gap-2 shrink-0">
-          <GraduationCap className="w-5 h-5 text-violet-600" />
-          <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
+    <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between gap-3">
+      <div className="flex items-center gap-4 min-w-0">
+        <Link href="/" className="flex items-center gap-2 shrink-0 min-w-0">
+          <GraduationCap className="w-5 h-5 text-violet-600 shrink-0" />
+          <span className="flex flex-col leading-tight min-w-0">
+            <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
+            <span className="block text-[10px] font-medium text-slate-400 tracking-wide truncate">
+              {POSITIONING.tagline}
+            </span>
+          </span>
         </Link>
-        <Link href="/public-lessons" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+        <Link href="/public-lessons" className="hidden sm:inline text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors shrink-0">
           Browse lessons
         </Link>
       </div>
@@ -128,6 +138,99 @@ export function TopBar({ user }: { user: { id: string } | null }) {
         </Link>
       )}
     </header>
+  )
+}
+
+// Compact positioning intro — sits above the lesson card so a visitor who
+// lands here from search understands what Edugine is before reading the
+// lesson itself. Kept short on purpose: the lesson stays the focal point.
+function LessonHero() {
+  return (
+    <div className="mb-4 px-1">
+      <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight leading-tight">
+        {POSITIONING.heroTitle}
+      </h1>
+      <p className="text-violet-700 font-semibold text-sm sm:text-base mt-1">
+        {POSITIONING.heroSubtitle}
+      </p>
+      <p className="text-slate-500 text-sm leading-relaxed mt-2 max-w-2xl">
+        {POSITIONING.productExplanation}
+      </p>
+    </div>
+  )
+}
+
+const HOW_IT_WORKS_ITEMS = [
+  {
+    Icon: MessageSquare,
+    title: 'Students participate',
+    body: 'Students interact directly with the lesson — responding, speaking, solving tasks, making decisions and joining activities.',
+  },
+  {
+    Icon: Eye,
+    title: 'You see what is happening',
+    body: 'See student responses, answers, mistakes and activity in real time where supported.',
+  },
+  {
+    Icon: Compass,
+    title: 'You guide the experience',
+    body: 'Guide the lesson, manage activities and timing, and respond to what students are doing where supported.',
+  },
+  {
+    Icon: Sparkles,
+    title: 'Everyone participates',
+    body: 'Students actively contribute and interact instead of simply consuming lesson content.',
+  },
+  {
+    Icon: Users,
+    title: 'One shared experience',
+    body: 'Students join the same live lesson environment and participate together through a session.',
+  },
+] as const
+
+// "How this lesson works" — a compact explainer, not a feature list. Placed
+// after the lesson title/description card and before the lesson's own
+// activities, per the approved SEO positioning brief.
+function HowThisLessonWorks() {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 mb-4">
+      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">How this lesson works</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3.5">
+        {HOW_IT_WORKS_ITEMS.map(({ Icon, title, body }) => (
+          <div key={title} className="flex items-start gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center shrink-0 mt-0.5">
+              <Icon className="w-3.5 h-3.5 text-violet-600" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-slate-700 leading-snug">{title}</p>
+              <p className="text-xs text-slate-400 leading-relaxed mt-0.5">{body}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Closing positioning section. Kept low-emphasis on purpose — the page's one
+// primary conversion action is the CTA above this, not these links.
+function WhyEdugine() {
+  return (
+    <div className="mt-10 pt-8 border-t border-slate-200/70 text-center">
+      <p className="text-xs font-semibold text-violet-600 uppercase tracking-wide mb-1.5">Why Edugine?</p>
+      <h2 className="text-lg font-extrabold text-slate-800">{POSITIONING.heroTitle}</h2>
+      <p className="text-slate-500 text-sm leading-relaxed mt-2 max-w-xl mx-auto">
+        {POSITIONING.productExplanation}
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-4 text-sm">
+        <Link href="/public-lessons" className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-700 font-semibold transition-colors">
+          Explore all lessons <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+        <Link href="/signup" className="inline-flex items-center gap-1 text-violet-600 hover:text-violet-700 font-semibold transition-colors">
+          Start free <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+    </div>
   )
 }
 
@@ -174,6 +277,8 @@ export function LessonPreviewBody({
 
       <main className="flex-1 flex flex-col items-center pt-12 px-4 pb-16">
         <div className="w-full max-w-2xl">
+
+          <LessonHero />
 
           {/* Lesson header card */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 mb-4">
@@ -226,6 +331,8 @@ export function LessonPreviewBody({
               {activities.length} {activities.length === 1 ? 'Activity' : 'Activities'}
             </div>
           </div>
+
+          <HowThisLessonWorks />
 
           {/* Activities — full content, per mechanic */}
           <div className="space-y-4">
@@ -300,6 +407,8 @@ export function LessonPreviewBody({
               </div>
             )}
           </div>
+
+          <WhyEdugine />
         </div>
       </main>
     </div>
