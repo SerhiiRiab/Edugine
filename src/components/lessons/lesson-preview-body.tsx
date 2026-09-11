@@ -181,11 +181,6 @@ const HOW_IT_WORKS_ITEMS = [
     title: 'Everyone participates',
     body: 'Students actively contribute and interact instead of simply consuming lesson content.',
   },
-  {
-    Icon: Users,
-    title: 'One shared experience',
-    body: 'Students join the same live lesson environment and participate together through a session.',
-  },
 ] as const
 
 // "How this lesson works" — a compact explainer, not a feature list. Placed
