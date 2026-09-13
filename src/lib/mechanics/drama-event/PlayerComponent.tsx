@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { DramaEventState } from './types'
-import { EVENT_CONFIG, computeTimeLeft } from './types'
+import { EVENT_CONFIG, computeTimeLeft, availableEventTypes } from './types'
 import { EventWheel, EventCard } from './HostComponent'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { Dices, History } from 'lucide-react'
@@ -158,13 +158,20 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
                 <p className="text-orange-200/80 text-sm">Discussion ended — spin for the next event!</p>
               </div>
             )}
-            <button onClick={requestSpin}
-              className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl
-                text-white font-bold text-base transition-colors shadow-md active:scale-[0.98]
-                ${state.timerExpired ? 'bg-orange-500 hover:bg-orange-400' : 'bg-sky-600 hover:bg-sky-500'}`}>
-              <span className="text-lg">🎡</span>
-              {state.timerExpired ? 'Spin again!' : 'Spin the wheel!'}
-            </button>
+            {availableEventTypes(state).length === 0 ? (
+              <div className="rounded-2xl bg-amber-500/15 border border-amber-500/40 px-4 py-3 text-center">
+                <p className="text-amber-300 font-semibold text-sm">No event cards available right now</p>
+                <p className="text-amber-200/70 text-xs">Ask your tutor to add some.</p>
+              </div>
+            ) : (
+              <button onClick={requestSpin}
+                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl
+                  text-white font-bold text-base transition-colors shadow-md active:scale-[0.98]
+                  ${state.timerExpired ? 'bg-orange-500 hover:bg-orange-400' : 'bg-sky-600 hover:bg-sky-500'}`}>
+                <span className="text-lg">🎡</span>
+                {state.timerExpired ? 'Spin again!' : 'Spin the wheel!'}
+              </button>
+            )}
           </>
         )}
 

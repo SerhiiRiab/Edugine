@@ -61,7 +61,7 @@ import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/
 import { MissionBriefingHostPanel } from '@/lib/mechanics/mission-briefing/HostComponent'
 import { MissionBriefingPlayerPanel } from '@/lib/mechanics/mission-briefing/PlayerComponent'
 import type { DramaEventState, EventType } from '@/lib/mechanics/drama-event/types'
-import { EVENT_TYPES, BUILT_IN_EVENTS } from '@/lib/mechanics/drama-event/types'
+import { EVENT_TYPES, eventPool, availableEventTypes } from '@/lib/mechanics/drama-event/types'
 import { DramaEventHostPanel } from '@/lib/mechanics/drama-event/HostComponent'
 import { DramaEventPlayerPanel } from '@/lib/mechanics/drama-event/PlayerComponent'
 import type { TabooState } from '@/lib/mechanics/taboo/types'
@@ -3020,11 +3020,14 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDESpin() {
     const cur = dramaEventStateRef.current
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
-    const targetIndex = Math.floor(Math.random() * 8)
-    const eventType = EVENT_TYPES[targetIndex]
-    const builtInPool = cur.builtInDisabled?.[eventType] ? [] : BUILT_IN_EVENTS[eventType]
-    const customPool = cur.customCards.filter(c => c.eventType === eventType).map(c => c.text)
-    const pool = [...builtInPool, ...customPool]
+    const available = availableEventTypes(cur)
+    if (available.length === 0) {
+      toast.error('No event cards available — enable built-in cards or add custom ones first')
+      return
+    }
+    const eventType = available[Math.floor(Math.random() * available.length)]
+    const targetIndex = EVENT_TYPES.indexOf(eventType)
+    const pool = eventPool(cur, eventType)
     const eventText = pool[Math.floor(Math.random() * pool.length)]
     const spinning: DramaEventState = {
       ...cur,
@@ -3054,10 +3057,12 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleDESpinWithType(eventType: EventType) {
     const cur = dramaEventStateRef.current
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
+    const pool = eventPool(cur, eventType)
+    if (pool.length === 0) {
+      toast.error('No cards available for this event type')
+      return
+    }
     const targetIndex = EVENT_TYPES.indexOf(eventType)
-    const builtInPool = cur.builtInDisabled?.[eventType] ? [] : BUILT_IN_EVENTS[eventType]
-    const customPool = cur.customCards.filter(c => c.eventType === eventType).map(c => c.text)
-    const pool = [...builtInPool, ...customPool]
     const eventText = pool[Math.floor(Math.random() * pool.length)]
     const done: DramaEventState = {
       ...cur,

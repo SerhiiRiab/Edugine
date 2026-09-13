@@ -6,7 +6,7 @@ import { motion } from 'framer-motion'
 import { Play, Pause, RotateCcw, Plus, StopCircle, Dices, Timer, ChevronDown, ChevronUp, History } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { DramaEventState, EventType } from './types'
-import { EVENT_TYPES, EVENT_CONFIG, computeTimeLeft } from './types'
+import { EVENT_TYPES, EVENT_CONFIG, computeTimeLeft, eventPool, availableEventTypes } from './types'
 
 export function DramaEventHostComponent(_props: MechanicHostProps<DramaEventState>) {
   return null
@@ -250,6 +250,7 @@ export function DramaEventHostPanel({
   const [showHistory, setShowHistory] = useState(false)
   const [showManual, setShowManual] = useState(false)
   const [debriefNote, setDebriefNote] = useState(state.debriefNote ?? '')
+  const hasAnyCards = availableEventTypes(state).length > 0
 
   function wrap(fn: () => Promise<void>) {
     return async () => {
@@ -425,9 +426,16 @@ export function DramaEventHostPanel({
               </div>
             )}
 
+            {!hasAnyCards && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-center space-y-0.5">
+                <p className="text-amber-700 font-bold text-sm">No event cards available</p>
+                <p className="text-amber-600 text-xs">Re-enable built-in cards or add custom ones in the content editor.</p>
+              </div>
+            )}
+
             <button
               onClick={wrap(onSpin)}
-              disabled={isBusy}
+              disabled={isBusy || !hasAnyCards}
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl
                 font-bold text-sm transition-colors shadow-sm disabled:opacity-40 text-white ${
                 state.timerExpired
@@ -459,17 +467,20 @@ export function DramaEventHostPanel({
               <div className="grid grid-cols-4 gap-2 pt-1">
                 {EVENT_TYPES.map(type => {
                   const cfg = EVENT_CONFIG[type]
+                  const noCards = eventPool(state, type).length === 0
                   return (
                     <button
                       key={type}
                       type="button"
-                      disabled={isBusy}
+                      disabled={isBusy || noCards}
+                      title={noCards ? 'No cards available for this event type' : undefined}
                       onClick={async () => {
                         setShowManual(false)
                         await wrap(() => onSpinWithType(type))()
                       }}
                       className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl border border-slate-200
-                        hover:border-sky-300 hover:bg-sky-50 disabled:opacity-40 transition-colors text-center"
+                        hover:border-sky-300 hover:bg-sky-50 disabled:opacity-40 disabled:hover:border-slate-200
+                        disabled:hover:bg-transparent transition-colors text-center"
                     >
                       <span className="text-xl">{cfg.emoji}</span>
                       <span className="text-[10px] font-semibold text-slate-600 leading-tight">{cfg.label}</span>

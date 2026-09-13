@@ -133,6 +133,23 @@ export interface DramaEventState {
   debriefNote: string
 }
 
+// All available card texts for one event type — built-in pool (unless the
+// tutor disabled it) plus any custom cards for that type. An empty result
+// means the wheel must never be allowed to land on this type: there'd be
+// nothing to show, and the host's "Next Event" button silently no-ops when
+// currentEventText is empty (see handleDENextEvent in session-host-view.tsx).
+export function eventPool(state: Pick<DramaEventState, 'customCards' | 'builtInDisabled'>, type: EventType): string[] {
+  const builtIn = state.builtInDisabled?.[type] ? [] : BUILT_IN_EVENTS[type]
+  const custom = state.customCards.filter(c => c.eventType === type).map(c => c.text)
+  return [...builtIn, ...custom]
+}
+
+// Event types with at least one selectable card — what the random spin and
+// the manual-selection grid must both restrict themselves to.
+export function availableEventTypes(state: Pick<DramaEventState, 'customCards' | 'builtInDisabled'>): EventType[] {
+  return EVENT_TYPES.filter(t => eventPool(state, t).length > 0)
+}
+
 export function computeTimeLeft(state: DramaEventState): number {
   if (!state.timerRunning || !state.timerStartedAt || state.timerDuration === 0) {
     return state.timeLeftAtStart
