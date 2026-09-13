@@ -671,7 +671,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
         toast.error(result.error ?? 'Failed to create Lesson Board')
         return
       }
-      router.push(`/tutor/content-sets/${result.contentSetId}/edit`)
+      router.push(`/tutor/content-sets/${result.contentSetId}/edit?returnToLesson=${lesson.id}`)
     })
   }
 
