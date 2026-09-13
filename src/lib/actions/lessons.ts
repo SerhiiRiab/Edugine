@@ -1,7 +1,7 @@
 'use server'
 
 import { randomUUID } from 'crypto'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -49,8 +49,8 @@ export async function createLesson(
   if (description.length > 500) return { error: 'Description must be 500 characters or less' }
 
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  const user = await getAuthedUser(supabase)
+  if (!user) return { error: 'Your session could not be verified — please try again.' }
 
   const { data: lesson, error } = await supabase
     .from('lessons')
