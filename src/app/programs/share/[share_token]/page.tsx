@@ -2,9 +2,11 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import {
-  GraduationCap, LayoutList, ExternalLink, BookOpen, FolderOpen,
+  GraduationCap, LayoutList, ExternalLink, BookOpen, FolderOpen, Eye,
 } from 'lucide-react'
+import { PublicProgramActions } from '@/components/tutor/program-preview-actions'
 
 type Props = { params: Promise<{ share_token: string }> }
 
@@ -17,30 +19,38 @@ const LEVEL_COLORS: Record<string, string> = {
   C2: 'bg-purple-100 text-purple-700 border-purple-200',
 }
 
-async function fetchProgram(share_token: string) {
-  const supabase = await createClient()
-  const { data } = await supabase
+// Admin client — a share_token match is itself the authorization here,
+// same reasoning as /lessons/share/[share_token]/page.tsx: every program
+// gets a share_token by default, so a table-level RLS policy keyed on
+// "token is not null" would be readable-by-anyone for every program, not
+// just ones someone actually has the link to (see 070_program_visibility.sql).
+async function fetchProgramByToken(share_token: string) {
+  const admin = createAdminClient()
+  const { data } = await admin
     .from('programs')
-    .select('id, title, description')
+    .select('id, title, description, tutor_id, visibility')
     .eq('share_token', share_token)
-    .single()
+    .maybeSingle()
   return data
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { share_token } = await params
-  const program = await fetchProgram(share_token)
+  const program = await fetchProgramByToken(share_token)
 
   if (!program) return { title: 'Program not found — Edugine', robots: { index: false, follow: false } }
 
   const title = `${program.title} — Edugine`
   const description = program.description ?? 'A learning program on Edugine — interactive lessons for online tutors.'
+  const indexable = program.visibility === 'public'
 
   return {
     title,
     description,
-    // Unlisted share links are for whoever holds the link, not search results.
-    robots: { index: false, follow: false },
+    // Only a program the tutor explicitly marked Public is meant for search
+    // results — Unlisted (and the default Private-but-you-have-the-link)
+    // stay out of it.
+    robots: { index: indexable, follow: indexable },
     openGraph: {
       type: 'website',
       title,
@@ -58,17 +68,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ProgramSharePage({ params }: Props) {
   const { share_token } = await params
+
   const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const { data: program } = await supabase
-    .from('programs')
-    .select('id, title, description, tutor_id')
-    .eq('share_token', share_token)
-    .single()
+  const [{ data: { user } }, program] = await Promise.all([
+    supabase.auth.getUser(),
+    fetchProgramByToken(share_token),
+  ])
 
   if (!program) notFound()
+
+  const admin = createAdminClient()
 
   type LessonRowData = {
     lesson_id: string
@@ -91,16 +100,7 @@ export default async function ProgramSharePage({ params }: Props) {
           <GraduationCap className="w-4 h-4 text-amber-600" />
         </div>
         <div className="flex-1 min-w-0">
-          {isPublic ? (
-            <Link
-              href={`/lessons/${lesson.slug}`}
-              className="text-sm font-semibold text-slate-800 hover:text-violet-700 truncate block transition-colors"
-            >
-              {lesson.title}
-            </Link>
-          ) : (
-            <p className="text-sm font-semibold text-slate-800 truncate">{lesson.title}</p>
-          )}
+          <p className="text-sm font-semibold text-slate-800 truncate">{lesson.title}</p>
           <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
             <LayoutList className="w-3 h-3" />
             {lesson.activity_count} {lesson.activity_count === 1 ? 'activity' : 'activities'}
@@ -111,13 +111,22 @@ export default async function ProgramSharePage({ params }: Props) {
             {lesson.level}
           </span>
         )}
+        {isPublic && (
+          <Link
+            href={`/lessons/${lesson.slug}`}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200
+              text-xs font-semibold text-slate-600 hover:border-violet-300 hover:text-violet-700 hover:bg-violet-50
+              transition-colors shrink-0"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            Preview
+          </Link>
+        )}
       </li>
     )
   }
 
-  const openInEdugineHref = user
-    ? (user.id === program.tutor_id ? `/tutor/programs/${program.id}` : '/tutor/dashboard')
-    : `/login?redirect=/programs/share/${share_token}`
+  const isOwner = user?.id === program.tutor_id
 
   type RawPL = {
     lesson_id: string
@@ -134,12 +143,12 @@ export default async function ProgramSharePage({ params }: Props) {
   }
 
   const [{ data: rawModules }, { data: rawPL }] = await Promise.all([
-    supabase
+    admin
       .from('program_modules')
       .select('id, title')
       .eq('program_id', program.id)
       .order('position'),
-    supabase
+    admin
       .from('program_lessons')
       .select('lesson_id, module_id, order_index, lessons(id, title, visibility, slug, level, lesson_activities(id))')
       .eq('program_id', program.id)
@@ -170,17 +179,25 @@ export default async function ProgramSharePage({ params }: Props) {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-violet-50/30 flex flex-col">
       {/* Top bar */}
       <header className="bg-white border-b border-slate-100 px-6 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <GraduationCap className="w-5 h-5 text-violet-600" />
           <span className="font-extrabold text-slate-800 text-lg tracking-tight">Edugine</span>
-        </div>
-        <Link
-          href={openInEdugineHref}
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-        >
-          Open in Edugine
-          <ExternalLink className="w-3.5 h-3.5" />
         </Link>
+        {user ? (
+          <Link
+            href="/tutor/dashboard"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            Dashboard →
+          </Link>
+        ) : (
+          <Link
+            href={`/signup?redirect=/programs/share/${share_token}`}
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            Sign up free
+          </Link>
+        )}
       </header>
 
       {/* Main content */}
@@ -251,14 +268,25 @@ export default async function ProgramSharePage({ params }: Props) {
 
           {/* CTA */}
           <div className="mt-6 text-center">
-            <p className="text-slate-400 text-sm mb-3">Want to use this program with your students?</p>
-            <Link
-              href={`/signup?redirect=/programs/share/${share_token}`}
-              className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
-            >
-              Get started with Edugine — it&apos;s free
-              <ExternalLink className="w-3.5 h-3.5" />
-            </Link>
+            {user ? (
+              <>
+                <p className="text-slate-400 text-sm mb-3">
+                  {isOwner ? 'Manage this program' : 'Use this program with your students'}
+                </p>
+                <PublicProgramActions programId={program.id} isOwner={isOwner} shareToken={share_token} />
+              </>
+            ) : (
+              <>
+                <p className="text-slate-400 text-sm mb-3">Want to use this program with your students?</p>
+                <Link
+                  href={`/signup?redirect=/programs/share/${share_token}`}
+                  className="inline-flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-6 py-3 rounded-xl text-sm transition-colors"
+                >
+                  Sign up free
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </main>

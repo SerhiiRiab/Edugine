@@ -18,7 +18,7 @@ export default async function ProgramDetailPage({
   // Fetch program
   const { data: program } = await supabase
     .from('programs')
-    .select('id, title, description, share_token')
+    .select('id, title, description')
     .eq('id', id)
     .eq('tutor_id', user!.id)
     .single()
@@ -78,7 +78,7 @@ export default async function ProgramDetailPage({
             <ArrowLeft className="w-4 h-4" />My Programs
           </Link>
           <div className="flex items-center gap-2">
-            {program.share_token && <ProgramShareButton shareToken={program.share_token} />}
+            <ProgramShareButton programId={id} />
             <DeleteProgramButton programId={id} />
           </div>
         </div>
