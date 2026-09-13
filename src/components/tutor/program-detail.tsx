@@ -650,7 +650,7 @@ export function ProgramDetail({ program, modules: initialModules, programLessons
           </button>
         </div>
         {visibility === 'public' && (
-          <p className="text-xs text-sky-600 font-medium">Listed on the Public Programs catalog for anyone to find.</p>
+          <p className="text-xs text-sky-600 font-medium">Listed on the Programs tab of Public Lessons for anyone to find.</p>
         )}
       </div>
 

@@ -36,7 +36,7 @@ export async function updateProgram(id: string, patch: { title?: string; descrip
   if (error) throw new Error(error.message)
   revalidatePath(`/tutor/programs/${id}`)
   revalidatePath('/tutor/programs')
-  if (patch.visibility) revalidatePath('/programs')
+  if (patch.visibility) revalidatePath('/public-lessons')
 }
 
 export async function deleteProgram(id: string) {

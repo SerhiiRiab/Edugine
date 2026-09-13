@@ -30,12 +30,6 @@ export default async function Home() {
             Public Lessons
           </Link>
           <Link
-            href="/programs"
-            className="px-4 py-2 text-white/80 font-medium hover:text-white transition-colors text-sm"
-          >
-            Programs
-          </Link>
-          <Link
             href="/blog"
             className="px-4 py-2 text-white/80 font-medium hover:text-white transition-colors text-sm"
           >
