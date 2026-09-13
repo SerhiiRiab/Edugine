@@ -3,7 +3,7 @@ import Link from 'next/link'
 import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import {
-  GraduationCap, LayoutList, ExternalLink, BookOpen,
+  GraduationCap, LayoutList, ExternalLink, BookOpen, FolderOpen,
 } from 'lucide-react'
 
 type Props = { params: Promise<{ share_token: string }> }
@@ -70,12 +70,58 @@ export default async function ProgramSharePage({ params }: Props) {
 
   if (!program) notFound()
 
+  type LessonRowData = {
+    lesson_id: string
+    title: string
+    visibility: string
+    slug: string | null
+    level: string | null
+    activity_count: number
+  }
+
+  function renderLessonRow(lesson: LessonRowData, index: number) {
+    const isPublic = lesson.visibility === 'public' && lesson.slug
+    const levelColor = lesson.level ? (LEVEL_COLORS[lesson.level] ?? '') : ''
+    return (
+      <li key={lesson.lesson_id} className="flex items-center gap-3 px-5 py-3.5">
+        <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
+          {index + 1}
+        </span>
+        <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+          <GraduationCap className="w-4 h-4 text-amber-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          {isPublic ? (
+            <Link
+              href={`/lessons/${lesson.slug}`}
+              className="text-sm font-semibold text-slate-800 hover:text-violet-700 truncate block transition-colors"
+            >
+              {lesson.title}
+            </Link>
+          ) : (
+            <p className="text-sm font-semibold text-slate-800 truncate">{lesson.title}</p>
+          )}
+          <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+            <LayoutList className="w-3 h-3" />
+            {lesson.activity_count} {lesson.activity_count === 1 ? 'activity' : 'activities'}
+          </p>
+        </div>
+        {lesson.level && (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${levelColor}`}>
+            {lesson.level}
+          </span>
+        )}
+      </li>
+    )
+  }
+
   const openInEdugineHref = user
     ? (user.id === program.tutor_id ? `/tutor/programs/${program.id}` : '/tutor/dashboard')
     : `/login?redirect=/programs/share/${share_token}`
 
   type RawPL = {
     lesson_id: string
+    module_id: string | null
     order_index: number
     lessons: {
       id: string
@@ -87,22 +133,38 @@ export default async function ProgramSharePage({ params }: Props) {
     } | null
   }
 
-  const { data: rawPL } = await supabase
-    .from('program_lessons')
-    .select('lesson_id, order_index, lessons(id, title, visibility, slug, level, lesson_activities(id))')
-    .eq('program_id', program.id)
-    .order('order_index')
+  const [{ data: rawModules }, { data: rawPL }] = await Promise.all([
+    supabase
+      .from('program_modules')
+      .select('id, title')
+      .eq('program_id', program.id)
+      .order('position'),
+    supabase
+      .from('program_lessons')
+      .select('lesson_id, module_id, order_index, lessons(id, title, visibility, slug, level, lesson_activities(id))')
+      .eq('program_id', program.id)
+      .order('order_index'),
+  ])
+
+  const modules = (rawModules ?? []) as { id: string; title: string }[]
 
   const lessons = ((rawPL ?? []) as unknown as RawPL[])
     .filter(pl => pl.lessons !== null)
     .map(pl => ({
       lesson_id: pl.lesson_id,
+      module_id: pl.module_id,
       title: pl.lessons!.title,
       visibility: pl.lessons!.visibility,
       slug: pl.lessons!.slug,
       level: pl.lessons!.level,
       activity_count: (pl.lessons!.lesson_activities ?? []).length,
     }))
+
+  const ungrouped = lessons.filter(l => l.module_id === null)
+  const lessonsByModule = new Map<string, typeof lessons>(modules.map(m => [m.id, []]))
+  for (const l of lessons) {
+    if (l.module_id && lessonsByModule.has(l.module_id)) lessonsByModule.get(l.module_id)!.push(l)
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-violet-50/30 flex flex-col">
@@ -151,44 +213,39 @@ export default async function ProgramSharePage({ params }: Props) {
 
             {lessons.length === 0 ? (
               <div className="py-10 text-center text-slate-400 text-sm">No lessons in this program yet.</div>
-            ) : (
+            ) : modules.length === 0 ? (
+              // No modules — the flat list every program used to be.
               <ul className="divide-y divide-slate-50">
-                {lessons.map((lesson, index) => {
-                  const isPublic = lesson.visibility === 'public' && lesson.slug
-                  const levelColor = lesson.level ? (LEVEL_COLORS[lesson.level] ?? '') : ''
+                {lessons.map((lesson, index) => renderLessonRow(lesson, index))}
+              </ul>
+            ) : (
+              <div className="divide-y divide-slate-50">
+                {modules.map(m => {
+                  const modLessons = lessonsByModule.get(m.id) ?? []
+                  if (modLessons.length === 0) return null
                   return (
-                    <li key={lesson.lesson_id} className="flex items-center gap-3 px-5 py-3.5">
-                      <span className="w-6 h-6 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-xs font-bold shrink-0">
-                        {index + 1}
-                      </span>
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                        <GraduationCap className="w-4 h-4 text-amber-600" />
+                    <div key={m.id}>
+                      <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50/70">
+                        <FolderOpen className="w-3.5 h-3.5 text-violet-500 shrink-0" />
+                        <span className="text-xs font-bold text-slate-600 uppercase tracking-wide truncate">{m.title}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        {isPublic ? (
-                          <Link
-                            href={`/lessons/${lesson.slug}`}
-                            className="text-sm font-semibold text-slate-800 hover:text-violet-700 truncate block transition-colors"
-                          >
-                            {lesson.title}
-                          </Link>
-                        ) : (
-                          <p className="text-sm font-semibold text-slate-800 truncate">{lesson.title}</p>
-                        )}
-                        <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                          <LayoutList className="w-3 h-3" />
-                          {lesson.activity_count} {lesson.activity_count === 1 ? 'activity' : 'activities'}
-                        </p>
-                      </div>
-                      {lesson.level && (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border shrink-0 ${levelColor}`}>
-                          {lesson.level}
-                        </span>
-                      )}
-                    </li>
+                      <ul className="divide-y divide-slate-50">
+                        {modLessons.map((lesson, index) => renderLessonRow(lesson, index))}
+                      </ul>
+                    </div>
                   )
                 })}
-              </ul>
+                {ungrouped.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 px-5 py-2.5 bg-slate-50/70">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Unassigned</span>
+                    </div>
+                    <ul className="divide-y divide-slate-50">
+                      {ungrouped.map((lesson, index) => renderLessonRow(lesson, index))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

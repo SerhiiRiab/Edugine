@@ -27,17 +27,27 @@ export default async function ProgramDetailPage({
   // instead of a bare 404, since they're still logged in.
   if (!program) redirect('/tutor/programs')
 
-  // Fetch lessons in this program (ordered)
-  const { data: rawProgramLessons } = await supabase
-    .from('program_lessons')
-    .select('lesson_id, order_index, lessons(id, title, lesson_activities(id))')
-    .eq('program_id', id)
-    .order('order_index')
+  // Fetch modules + lessons in this program (ordered)
+  const [{ data: rawModules }, { data: rawProgramLessons }] = await Promise.all([
+    supabase
+      .from('program_modules')
+      .select('id, title')
+      .eq('program_id', id)
+      .order('position'),
+    supabase
+      .from('program_lessons')
+      .select('lesson_id, module_id, order_index, lessons(id, title, lesson_activities(id))')
+      .eq('program_id', id)
+      .order('order_index'),
+  ])
+
+  const modules = (rawModules ?? []) as { id: string; title: string }[]
 
   const programLessons = (rawProgramLessons ?? []).map(pl => {
     const lesson = pl.lessons as unknown as { id: string; title: string; lesson_activities: { id: string }[] } | null
     return {
       lesson_id: pl.lesson_id,
+      module_id: pl.module_id as string | null,
       title: lesson?.title ?? '',
       activity_count: (lesson?.lesson_activities ?? []).length,
     }
@@ -76,6 +86,7 @@ export default async function ProgramDetailPage({
 
       <ProgramDetail
         program={program}
+        modules={modules}
         programLessons={programLessons}
         allLessons={allLessons}
       />
