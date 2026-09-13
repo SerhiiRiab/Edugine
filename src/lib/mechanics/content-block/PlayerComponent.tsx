@@ -5,21 +5,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, FileText, Video, MessageSquare, Table2, BookOpen } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ContentBlockState } from './types'
-
-function extractYouTubeId(url: string): string | null {
-  try {
-    const u = new URL(url)
-    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0]
-    if (u.hostname.includes('youtube.com')) {
-      const v = u.searchParams.get('v')
-      if (v) return v
-      const parts = u.pathname.split('/')
-      const embedIdx = parts.indexOf('embed')
-      if (embedIdx !== -1) return parts[embedIdx + 1]
-    }
-  } catch { /* not a valid URL */ }
-  return null
-}
+import { extractYouTubeId } from './youtube'
 
 export interface ContentBlockPlayerPanelProps {
   participantId: string

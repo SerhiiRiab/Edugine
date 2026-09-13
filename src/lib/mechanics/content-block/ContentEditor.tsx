@@ -21,6 +21,7 @@ import type {
 import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from './types'
 import type { AiFill } from '@/lib/ai/fill-editor-props'
 import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
+import { extractYouTubeId } from './youtube'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -42,21 +43,6 @@ interface Props {
   set: ContentSet
   initialItems: RawItem[]
   aiFill?: AiFill
-}
-
-function extractYouTubeId(url: string): string | null {
-  try {
-    const u = new URL(url)
-    if (u.hostname === 'youtu.be') return u.pathname.slice(1).split('?')[0]
-    if (u.hostname.includes('youtube.com')) {
-      const v = u.searchParams.get('v')
-      if (v) return v
-      const parts = u.pathname.split('/')
-      const embedIdx = parts.indexOf('embed')
-      if (embedIdx !== -1) return parts[embedIdx + 1]
-    }
-  } catch { /* not a valid URL */ }
-  return null
 }
 
 function YouTubePreview({ url }: { url: string }) {

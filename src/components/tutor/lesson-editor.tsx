@@ -50,6 +50,7 @@ import {
   FolderKanban,
   ListOrdered,
   Layers,
+  Clapperboard,
 } from 'lucide-react'
 import {
   DndContext,
@@ -256,6 +257,11 @@ const MECHANIC_META: Record<string, { label: string; Icon: React.ComponentType<{
     label: 'Word Cards',
     Icon: Layers,
     classes: 'bg-violet-100 text-violet-700 border-violet-200',
+  },
+  content_block: {
+    label: 'Content Block',
+    Icon: Clapperboard,
+    classes: 'bg-slate-100 text-slate-600 border-slate-200',
   },
 }
 
