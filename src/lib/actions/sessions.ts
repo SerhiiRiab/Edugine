@@ -1206,12 +1206,12 @@ export async function initDramaEventState(
 
   const { data: contentSet } = await supabase
     .from('content_sets')
-    .select('description, content_items(id, position, data)')
+    .select('description, content_items(id, position, data, created_at)')
     .eq('id', contentSetId)
     .single()
 
   const scenario = contentSet?.description ?? ''
-  const allItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number }>
+  const allItems = (contentSet?.content_items ?? []) as Array<{ data: Record<string, unknown>; position: number; created_at: string }>
   const customCards = allItems
     .sort((a, b) => a.position - b.position)
     .filter(item => DRAMA_EVENT_TYPES.includes(item.data.eventType as DramaEventType))
@@ -1222,7 +1222,13 @@ export async function initDramaEventState(
     ? ((wordlistItem.data.text as string) ?? '').split('\n').map(s => s.trim()).filter(Boolean)
     : []
 
-  const settingsItem = allItems.find(item => item.data.eventType === 'settings')
+  // A race in the content editor's toggle handler could leave more than one
+  // "settings" row behind instead of cleanly replacing it (each rapid click
+  // reads a stale ref before the previous save resolves) — trust whichever
+  // is actually newest rather than array order, which isn't guaranteed to
+  // reflect creation order.
+  const settingsItems = allItems.filter(item => item.data.eventType === 'settings')
+  const settingsItem = settingsItems.sort((a, b) => b.created_at.localeCompare(a.created_at))[0]
   const disabledArr: string[] = Array.isArray(settingsItem?.data.builtInDisabled)
     ? (settingsItem!.data.builtInDisabled as string[])
     : []

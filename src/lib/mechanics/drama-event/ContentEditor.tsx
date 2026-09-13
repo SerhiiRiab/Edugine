@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback, useTransition } from 'react'
+import { useState, useRef, useCallback, useTransition, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -23,7 +23,7 @@ export function DramaEventContentEditorStub(_props: ContentEditorProps<DramaEven
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
 interface ContentSet { id: string; title: string; description: string | null; mechanic_id: string; language: string }
-interface RawItem { id: string; position: number; data: Record<string, unknown> }
+interface RawItem { id: string; position: number; data: Record<string, unknown>; created_at?: string }
 interface CardRow { id: string; eventType: EventType; text: string }
 
 function rawToRow(item: RawItem): CardRow | null {
@@ -69,13 +69,22 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
   const wordlistRaw = initialItems.find(it => it.data.eventType === 'wordlist')
   const [wordlistItemId, setWordlistItemId] = useState<string | null>(wordlistRaw?.id ?? null)
   const [wordlistText, setWordlistText] = useState((wordlistRaw?.data.text as string) ?? '')
-  const settingsRaw = initialItems.find(it => it.data.eventType === 'settings')
+  // A past race in handleToggleBuiltIn could leave more than one "settings"
+  // row behind instead of cleanly replacing it — trust whichever is newest
+  // rather than array order (not guaranteed to reflect creation order), and
+  // clean up the leftover duplicates below so this self-heals.
+  const settingsCandidates = initialItems
+    .filter(it => it.data.eventType === 'settings')
+    .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+  const settingsRaw = settingsCandidates[0]
+  const staleSettingsIds = settingsCandidates.slice(1).map(it => it.id)
   const initialDisabled = new Set<EventType>(
     (Array.isArray(settingsRaw?.data.builtInDisabled) ? settingsRaw!.data.builtInDisabled as string[] : [])
       .filter(t => EVENT_TYPES.includes(t as EventType)) as EventType[]
   )
   const [builtInDisabled, setBuiltInDisabled] = useState<Set<EventType>>(initialDisabled)
   const settingsItemIdRef = useRef<string | null>(settingsRaw?.id ?? null)
+  const settingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [bulkImporting, setBulkImporting] = useState(false)
   const [startingSession, startSessionTransition] = useTransition()
 
@@ -84,6 +93,13 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
   const wordlistTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wordlistItemIdRef = useRef<string | null>(wordlistRaw?.id ?? null)
   const markSaved = useCallback(() => { setSaveStatus('saved'); setSavedAt(new Date()) }, [])
+
+  // Self-heal: remove any leftover duplicate "settings" rows from the past
+  // race, now that we've settled on the newest one as the source of truth.
+  useEffect(() => {
+    staleSettingsIds.forEach(id => { deleteContentItem(id).catch(() => {}) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   function handleScenarioChange(val: string) {
     setScenario(val)
@@ -174,7 +190,7 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
     catch { toast.error('Failed to delete'); router.refresh() }
   }
 
-  async function handleToggleBuiltIn(type: EventType) {
+  function handleToggleBuiltIn(type: EventType) {
     const newDisabled = new Set(builtInDisabled)
     if (newDisabled.has(type)) {
       newDisabled.delete(type)
@@ -182,20 +198,31 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
       newDisabled.add(type)
     }
     setBuiltInDisabled(newDisabled)
-    const disabledArr = Array.from(newDisabled)
-    const existingId = settingsItemIdRef.current
     setSaveStatus('saving')
-    try {
-      if (existingId) {
-        await deleteContentItem(existingId)
-        settingsItemIdRef.current = null
-      }
-      if (disabledArr.length > 0) {
-        const created = await createContentItem(set.id, { eventType: 'settings', builtInDisabled: disabledArr })
-        settingsItemIdRef.current = created.id
-      }
-      markSaved()
-    } catch { setSaveStatus('error') }
+
+    // Debounced, not immediate: clicking several categories in quick
+    // succession used to fire overlapping delete-then-create calls, each
+    // reading settingsItemIdRef before the previous one resolved and updated
+    // it — that raced into duplicate "settings" rows instead of one clean
+    // replacement (see initDramaEventState in sessions.ts, which now has to
+    // defend against exactly that). Coalescing into one save of the final
+    // set removes the race instead of just tolerating it.
+    if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current)
+    settingsSaveTimer.current = setTimeout(async () => {
+      const disabledArr = Array.from(newDisabled)
+      const existingId = settingsItemIdRef.current
+      try {
+        if (existingId) {
+          await deleteContentItem(existingId)
+          settingsItemIdRef.current = null
+        }
+        if (disabledArr.length > 0) {
+          const created = await createContentItem(set.id, { eventType: 'settings', builtInDisabled: disabledArr })
+          settingsItemIdRef.current = created.id
+        }
+        markSaved()
+      } catch { setSaveStatus('error') }
+    }, 500)
   }
 
   function handleStartSession() {
