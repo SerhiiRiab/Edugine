@@ -68,7 +68,7 @@ export default async function PublicLessonsPage({
       .order('created_at', { ascending: false }),
     supabase
       .from('programs')
-      .select('id, title, description, share_token, program_modules(id), program_lessons(id), profiles(full_name)')
+      .select('id, title, description, share_token, program_modules(id), program_lessons(lesson_id), profiles(full_name)')
       .eq('visibility', 'public')
       .order('created_at', { ascending: false }),
   ])
@@ -101,7 +101,7 @@ export default async function PublicLessonsPage({
       description: p.description,
       share_token: p.share_token as string,
       module_count: ((p.program_modules ?? []) as { id: string }[]).length,
-      lesson_count: ((p.program_lessons ?? []) as { id: string }[]).length,
+      lesson_count: ((p.program_lessons ?? []) as { lesson_id: string }[]).length,
       author_name: profile?.full_name ?? null,
     }
   })
