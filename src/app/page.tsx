@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Fragment } from 'react'
 import { Zap, Users, Play, BookOpen, ArrowRight, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { JoinLessonLink } from '@/components/marketing/join-lesson-link'
 
 export const metadata: Metadata = {
   alternates: { canonical: 'https://edugine.app' },
@@ -49,6 +50,7 @@ export default async function Home() {
             </Link>
           ) : (
             <>
+              <JoinLessonLink variant="dark" />
               <Link
                 href="/login"
                 className="px-4 py-2 text-white/90 font-medium hover:text-white transition-colors text-sm"

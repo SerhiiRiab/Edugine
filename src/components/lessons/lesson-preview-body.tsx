@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { JoinLessonLink } from '@/components/marketing/join-lesson-link'
 import { PublicLessonActions } from './lesson-preview-actions'
 import { MechanicPreview, type PreviewContentItem } from './mechanic-preview'
 import { AvatarInitials } from '@/components/ui/avatar-initials'
@@ -130,12 +131,15 @@ export function TopBar({ user }: { user: { id: string } | null }) {
           Dashboard →
         </Link>
       ) : (
-        <Link
-          href="/signup"
-          className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
-        >
-          Sign up
-        </Link>
+        <div className="flex items-center gap-1">
+          <JoinLessonLink />
+          <Link
+            href="/signup"
+            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-700 text-white font-semibold px-4 py-2 rounded-xl text-sm transition-colors"
+          >
+            Sign up
+          </Link>
+        </div>
       )}
     </header>
   )

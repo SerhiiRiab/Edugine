@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { JoinLessonLink } from '@/components/marketing/join-lesson-link'
 import { GraduationCap, ArrowLeft, ListChecks, GitFork, ListOrdered, PlayCircle, Lightbulb } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 
@@ -73,6 +74,7 @@ export default async function QuickStartGuidePage() {
               </Link>
             ) : (
               <>
+                <JoinLessonLink />
                 <Link
                   href="/login"
                   className="px-4 py-2 text-slate-600 font-medium hover:text-slate-900 transition-colors text-sm"

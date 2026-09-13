@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { JoinLessonLink } from '@/components/marketing/join-lesson-link'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { GraduationCap, ArrowLeft } from 'lucide-react'
@@ -96,6 +97,7 @@ export default async function BlogPostPage({ params }: Props) {
               </Link>
             ) : (
               <>
+                <JoinLessonLink />
                 <Link
                   href="/login"
                   className="px-4 py-2 text-slate-600 font-medium hover:text-slate-900 transition-colors text-sm"

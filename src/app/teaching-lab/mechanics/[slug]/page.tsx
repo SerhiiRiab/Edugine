@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { JoinLessonLink } from '@/components/marketing/join-lesson-link'
 import { GraduationCap, ListOrdered, CheckCircle2, Lightbulb, Code2, ArrowLeft, PlayCircle, LayoutGrid } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -140,6 +141,7 @@ export default async function MechanicPage({ params }: Props) {
               </Link>
             ) : (
               <>
+                <JoinLessonLink />
                 <Link
                   href="/login"
                   className="px-4 py-2 text-slate-600 font-medium hover:text-slate-900 transition-colors text-sm"
