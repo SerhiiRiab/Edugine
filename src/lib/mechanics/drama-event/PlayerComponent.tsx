@@ -160,8 +160,8 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
             )}
             {availableEventTypes(state).length === 0 ? (
               <div className="rounded-2xl bg-amber-500/15 border border-amber-500/40 px-4 py-3 text-center">
-                <p className="text-amber-300 font-semibold text-sm">No event cards available right now</p>
-                <p className="text-amber-200/70 text-xs">Ask your tutor to add some.</p>
+                <p className="text-amber-300 font-semibold text-sm">No unused event cards left</p>
+                <p className="text-amber-200/70 text-xs">Ask your tutor to add more, or wrap up here.</p>
               </div>
             ) : (
               <button onClick={requestSpin}

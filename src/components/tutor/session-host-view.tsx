@@ -3022,7 +3022,7 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
     const available = availableEventTypes(cur)
     if (available.length === 0) {
-      toast.error('No event cards available — enable built-in cards or add custom ones first')
+      toast.error('No unused event cards left — every card has been used, or none are enabled')
       return
     }
     const eventType = available[Math.floor(Math.random() * available.length)]
@@ -3059,7 +3059,7 @@ export function SessionHostView({ session, lesson }: Props) {
     if (!cur || cur.status !== 'active' || cur.spinState !== 'idle') return
     const pool = eventPool(cur, eventType)
     if (pool.length === 0) {
-      toast.error('No cards available for this event type')
+      toast.error('No unused cards left for this event type')
       return
     }
     const targetIndex = EVENT_TYPES.indexOf(eventType)

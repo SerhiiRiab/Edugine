@@ -428,8 +428,12 @@ export function DramaEventHostPanel({
 
             {!hasAnyCards && (
               <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-center space-y-0.5">
-                <p className="text-amber-700 font-bold text-sm">No event cards available</p>
-                <p className="text-amber-600 text-xs">Re-enable built-in cards or add custom ones in the content editor.</p>
+                <p className="text-amber-700 font-bold text-sm">No unused event cards left</p>
+                <p className="text-amber-600 text-xs">
+                  {state.eventHistory.length > 0
+                    ? 'Every available card has already come up this session.'
+                    : 'Re-enable built-in cards or add custom ones in the content editor.'}
+                </p>
               </div>
             )}
 
@@ -473,7 +477,7 @@ export function DramaEventHostPanel({
                       key={type}
                       type="button"
                       disabled={isBusy || noCards}
-                      title={noCards ? 'No cards available for this event type' : undefined}
+                      title={noCards ? 'No unused cards left for this event type' : undefined}
                       onClick={async () => {
                         setShowManual(false)
                         await wrap(() => onSpinWithType(type))()

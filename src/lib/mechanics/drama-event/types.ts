@@ -133,20 +133,27 @@ export interface DramaEventState {
   debriefNote: string
 }
 
-// All available card texts for one event type — built-in pool (unless the
-// tutor disabled it) plus any custom cards for that type. An empty result
-// means the wheel must never be allowed to land on this type: there'd be
-// nothing to show, and the host's "Next Event" button silently no-ops when
-// currentEventText is empty (see handleDENextEvent in session-host-view.tsx).
-export function eventPool(state: Pick<DramaEventState, 'customCards' | 'builtInDisabled'>, type: EventType): string[] {
+// Selectable card texts for one event type — built-in pool (unless the
+// tutor disabled it) plus any custom cards for that type, minus whatever
+// has already been drawn this session (eventHistory). Once every card in a
+// type has been used, that type goes empty just like a type with no cards
+// configured at all — same "must not be selectable" consequence, so no
+// separate handling is needed anywhere that calls this.
+export function eventPool(
+  state: Pick<DramaEventState, 'customCards' | 'builtInDisabled' | 'eventHistory'>,
+  type: EventType,
+): string[] {
   const builtIn = state.builtInDisabled?.[type] ? [] : BUILT_IN_EVENTS[type]
   const custom = state.customCards.filter(c => c.eventType === type).map(c => c.text)
-  return [...builtIn, ...custom]
+  const used = new Set(state.eventHistory.filter(h => h.eventType === type).map(h => h.text))
+  return [...builtIn, ...custom].filter(text => !used.has(text))
 }
 
-// Event types with at least one selectable card — what the random spin and
-// the manual-selection grid must both restrict themselves to.
-export function availableEventTypes(state: Pick<DramaEventState, 'customCards' | 'builtInDisabled'>): EventType[] {
+// Event types with at least one selectable (unused) card — what the random
+// spin and the manual-selection grid must both restrict themselves to.
+export function availableEventTypes(
+  state: Pick<DramaEventState, 'customCards' | 'builtInDisabled' | 'eventHistory'>,
+): EventType[] {
   return EVENT_TYPES.filter(t => eventPool(state, t).length > 0)
 }
 
