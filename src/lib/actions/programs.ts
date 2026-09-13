@@ -22,7 +22,7 @@ export async function createProgram(title: string, description?: string) {
   redirect(`/tutor/programs/${data.id}`)
 }
 
-export async function updateProgram(id: string, patch: { title?: string; description?: string | null }) {
+export async function updateProgram(id: string, patch: { title?: string; description?: string | null; visibility?: 'private' | 'unlisted' | 'public' }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Unauthorized')
@@ -36,6 +36,7 @@ export async function updateProgram(id: string, patch: { title?: string; descrip
   if (error) throw new Error(error.message)
   revalidatePath(`/tutor/programs/${id}`)
   revalidatePath('/tutor/programs')
+  if (patch.visibility) revalidatePath('/programs')
 }
 
 export async function deleteProgram(id: string) {

@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities'
 import {
   GripVertical, Plus, Trash2, GraduationCap,
   LayoutList, Check, X, Search, ChevronDown, ChevronRight, FolderPlus,
+  Lock, Link2, Globe,
 } from 'lucide-react'
 import {
   updateProgram, addLessonsToProgram,
@@ -47,8 +48,10 @@ export interface TutorLesson {
   activity_count: number
 }
 
+type Visibility = 'private' | 'unlisted' | 'public'
+
 interface Props {
-  program: { id: string; title: string; description: string | null }
+  program: { id: string; title: string; description: string | null; visibility: Visibility }
   modules: ProgramModule[]
   programLessons: ProgramLesson[]
   allLessons: TutorLesson[]
@@ -404,6 +407,7 @@ export function ProgramDetail({ program, modules: initialModules, programLessons
   const [lessons, setLessons] = useState<ProgramLesson[]>(programLessons)
   const [title, setTitle] = useState(program.title)
   const [description, setDescription] = useState(program.description ?? '')
+  const [visibility, setVisibility] = useState<Visibility>(program.visibility)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const [editingModuleId, setEditingModuleId] = useState<string | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
@@ -439,6 +443,15 @@ export function ProgramDetail({ program, modules: initialModules, programLessons
     descTimer.current = setTimeout(() => {
       updateProgram(program.id, { description: val.trim() || null }).catch(() => toast.error('Failed to save'))
     }, 800)
+  }
+
+  function handleVisibilityChange(v: Visibility) {
+    const prev = visibility
+    setVisibility(v)
+    updateProgram(program.id, { visibility: v }).catch(() => {
+      toast.error('Failed to update visibility')
+      setVisibility(prev)
+    })
   }
 
   // ── Modules ────────────────────────────────────────────────────────────────
@@ -591,6 +604,54 @@ export function ProgramDetail({ program, modules: initialModules, programLessons
             border-b border-transparent hover:border-slate-200 focus:border-violet-300
             outline-none resize-none transition-colors placeholder:text-slate-300"
         />
+      </div>
+
+      {/* Visibility */}
+      <div className="mb-8 p-4 rounded-2xl border border-slate-100 bg-white space-y-3">
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Visibility</p>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => handleVisibilityChange('private')}
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+              ${visibility === 'private'
+                ? 'border-slate-300 bg-slate-50 text-slate-700'
+                : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
+          >
+            <Lock className="w-3.5 h-3.5 shrink-0" />
+            <span>Private</span>
+            {visibility !== 'private' && <span className="text-xs font-normal text-slate-400 hidden sm:inline">Only you</span>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleVisibilityChange('unlisted')}
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+              ${visibility === 'unlisted'
+                ? 'border-violet-400 bg-violet-50 text-violet-700'
+                : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
+          >
+            <Link2 className="w-3.5 h-3.5 shrink-0" />
+            <span>Unlisted</span>
+            {visibility !== 'unlisted' && <span className="text-xs font-normal text-slate-400 hidden sm:inline">Anyone with the link</span>}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleVisibilityChange('public')}
+            className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-sm font-semibold transition-all
+              ${visibility === 'public'
+                ? 'border-sky-500 bg-sky-500 text-white'
+                : 'border-slate-100 text-slate-400 hover:border-slate-200 bg-white'}`}
+          >
+            <Globe className="w-3.5 h-3.5 shrink-0" />
+            <span>Public</span>
+            {visibility !== 'public' && <span className="text-xs font-normal text-slate-400 hidden sm:inline">Listed in the catalog</span>}
+          </button>
+        </div>
+        {visibility === 'public' && (
+          <p className="text-xs text-sky-600 font-medium">Listed on the Public Programs catalog for anyone to find.</p>
+        )}
       </div>
 
       {/* Header */}

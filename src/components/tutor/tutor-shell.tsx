@@ -27,6 +27,7 @@ const NAV_ITEMS = [
   { href: '/tutor/lessons',       label: 'My Lessons',   icon: GraduationCap },
   { href: '/tutor/content-sets',  label: 'Activities',   icon: Library },
   { href: '/public-lessons',             label: 'Public Lessons', icon: Globe },
+  { href: '/programs',            label: 'Public Programs', icon: Globe },
   { href: '/blog',                label: 'Blog',          icon: Newspaper },
   { href: '/teaching-lab',        label: 'Teaching Lab', icon: FlaskConical },
   { href: '/tutor/settings',      label: 'Settings',     icon: Settings },

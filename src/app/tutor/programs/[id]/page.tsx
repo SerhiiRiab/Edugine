@@ -18,7 +18,7 @@ export default async function ProgramDetailPage({
   // Fetch program
   const { data: program } = await supabase
     .from('programs')
-    .select('id, title, description')
+    .select('id, title, description, visibility')
     .eq('id', id)
     .eq('tutor_id', user!.id)
     .single()

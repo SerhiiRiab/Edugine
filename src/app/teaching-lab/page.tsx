@@ -131,6 +131,9 @@ export default async function TeachingLabPage() {
             <Link href="/public-lessons" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
               Public Lessons
             </Link>
+            <Link href="/programs" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
+              Programs
+            </Link>
             <Link href="/blog" className="text-slate-500 hover:text-violet-600 font-medium text-sm transition-colors">
               Blog
             </Link>
