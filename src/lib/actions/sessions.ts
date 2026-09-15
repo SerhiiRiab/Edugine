@@ -31,6 +31,26 @@ import { isUsableLessonBoardSnapshot, lessonBoardRoomId } from '@/lib/mechanics/
 // 2h threshold: safe margin above the longest realistic lesson (60-90 min).
 async function purgeAbandonedSessions(supabase: SupabaseClient, hostId: string) {
   const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+  const { data: stale } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('host_id', hostId)
+    .in('status', ['waiting', 'active'])
+    .lt('updated_at', cutoff)
+
+  const staleIds = (stale ?? []).map(s => s.id)
+  if (staleIds.length > 0) {
+    // Close the matching history row(s) as abandoned before the session itself
+    // is gone — 'waiting' sessions never got a history row, so this only ever
+    // touches 'active' ones left without an explicit End Lesson.
+    await supabase
+      .from('session_history')
+      .update({ ended_at: new Date().toISOString(), end_reason: 'abandoned' })
+      .in('session_id', staleIds)
+      .is('ended_at', null)
+  }
+
   await supabase
     .from('sessions')
     .delete()
@@ -156,7 +176,7 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
 
   const { data: session } = await supabase
     .from('sessions')
-    .select('config, status')
+    .select('config, status, lesson_id, set_id, mechanic_id')
     .eq('id', sessionId)
     .eq('host_id', user.id)
     .single()
@@ -181,6 +201,17 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
   // for an already-active session.
   if (session?.status === 'waiting' && turnOrder.length > 0) {
     await supabase.rpc('increment_sessions_completed', { uid: user.id })
+
+    // Durable record for admin visibility — the `sessions` row itself is
+    // deleted the moment the session ends (see endSession).
+    await supabase.from('session_history').insert({
+      session_id: sessionId,
+      host_id: user.id,
+      lesson_id: session.lesson_id,
+      set_id: session.set_id,
+      mechanic_id: session.mechanic_id,
+      participant_count: turnOrder.length,
+    })
   }
 
   return { turnOrder }
@@ -1631,6 +1662,14 @@ export async function endSession(sessionId: string) {
   // sessions_completed is now incremented in startSession() as soon as the session
   // genuinely starts (participant present + host pressed Play) — not here — so a
   // session abandoned without an explicit End still counts correctly.
+
+  // Close the durable history record (no-op if the session never started, since
+  // no history row was ever inserted for it).
+  await supabase
+    .from('session_history')
+    .update({ ended_at: new Date().toISOString(), end_reason: 'completed' })
+    .eq('session_id', sessionId)
+    .is('ended_at', null)
 
   // Delete session — CASCADE removes session_participants, session_events,
   // participant_progress, and shared_activity_state automatically.

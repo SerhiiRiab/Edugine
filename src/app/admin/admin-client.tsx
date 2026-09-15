@@ -17,6 +17,7 @@ type UserRow = {
   admin_note: string | null
   activity_count: number
   lesson_count: number
+  last_sign_in_at: string | null
 }
 
 type Stats = {
@@ -27,6 +28,16 @@ type Stats = {
   totalSessions: number
   totalActivities: number
   totalLessons: number
+}
+
+type RecentSession = {
+  id: string
+  startedAt: string
+  endedAt: string | null
+  endReason: 'completed' | 'abandoned' | null
+  participantCount: number
+  hostEmail: string
+  title: string
 }
 
 function timeAgo(iso: string) {
@@ -49,6 +60,15 @@ function formatDate(iso: string) {
 function toDateInputValue(iso: string | null) {
   if (!iso) return ''
   return iso.split('T')[0]
+}
+
+function formatDuration(startedAt: string, endedAt: string | null) {
+  if (!endedAt) return 'ongoing'
+  const mins = Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 60_000)
+  if (mins < 1) return '<1m'
+  if (mins < 60) return `${mins}m`
+  const hrs = Math.floor(mins / 60)
+  return `${hrs}h ${mins % 60}m`
 }
 
 function PlanBadge({ plan }: { plan: string }) {
@@ -88,9 +108,10 @@ function StatCard({ icon: Icon, label, value, color }: {
 interface Props {
   stats: Stats
   users: UserRow[]
+  recentSessions: RecentSession[]
 }
 
-export default function AdminClient({ stats, users }: Props) {
+export default function AdminClient({ stats, users, recentSessions }: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState<'all' | 'free' | 'pro'>('all')
@@ -237,7 +258,7 @@ export default function AdminClient({ stats, users }: Props) {
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Activities</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Lessons</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Sessions</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Last active</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Last login</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -268,7 +289,9 @@ export default function AdminClient({ stats, users }: Props) {
                         <span className={user.lesson_count > 0 ? 'text-orange-300' : 'text-violet-600'}>{user.lesson_count}</span>
                       </td>
                       <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.sessions_completed}</td>
-                      <td className="px-4 py-3 text-violet-300 whitespace-nowrap">{timeAgo(user.updated_at)}</td>
+                      <td className="px-4 py-3 text-violet-300 whitespace-nowrap">
+                        {user.last_sign_in_at ? timeAgo(user.last_sign_in_at) : <span className="text-violet-600">never</span>}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         <button
                           onClick={() => openModal(user)}
@@ -288,6 +311,62 @@ export default function AdminClient({ stats, users }: Props) {
               Showing {filtered.length} of {users.length} users
             </div>
           )}
+        </div>
+
+        {/* Recent sessions */}
+        <div className="bg-violet-900/30 border border-violet-700/40 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-violet-700/40">
+            <h2 className="text-sm font-bold text-white">Recent sessions</h2>
+            <p className="text-xs text-violet-400 mt-0.5">
+              Every session that actually started (host pressed Play with a participant present) — including ones the tutor never explicitly ended.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-violet-700/40">
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Started</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Tutor</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Lesson / activity</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Students</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Duration</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-violet-700/20">
+                {recentSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="text-center py-12 text-violet-400">No sessions yet</td>
+                  </tr>
+                ) : (
+                  recentSessions.map(s => (
+                    <tr key={s.id} className="hover:bg-violet-800/20 transition-colors">
+                      <td className="px-4 py-3 text-violet-300 whitespace-nowrap">{timeAgo(s.startedAt)}</td>
+                      <td className="px-4 py-3 text-white max-w-[200px] truncate">{s.hostEmail}</td>
+                      <td className="px-4 py-3 text-violet-300 max-w-[240px] truncate">{s.title}</td>
+                      <td className="px-4 py-3 text-right font-mono text-violet-300">{s.participantCount}</td>
+                      <td className="px-4 py-3 text-right font-mono text-violet-300">{formatDuration(s.startedAt, s.endedAt)}</td>
+                      <td className="px-4 py-3">
+                        {s.endReason === 'abandoned' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                            Abandoned
+                          </span>
+                        ) : s.endReason === 'completed' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                            Ongoing
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
