@@ -23,6 +23,15 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 'timeout'>
   ])
 }
 
+// Heartbeat for admin visibility (profiles.last_seen_at) — see 073_profiles_last_seen.sql.
+// Gated by a plain (non-httpOnly-sensitive, just a throttle marker) cookie so the
+// actual DB write happens at most once per day per browser, not on every request —
+// this middleware runs on nearly every route, and 073's own comment references the
+// same 2026-07-05 incident that motivated SESSION_CHECK_TIMEOUT_MS above.
+const LAST_SEEN_COOKIE = 'eg_last_seen'
+const LAST_SEEN_THROTTLE_MS = 24 * 60 * 60 * 1000
+const LAST_SEEN_TIMEOUT_MS = 3000
+
 export async function updateSession(request: NextRequest) {
   if (!supabaseConfigured) return NextResponse.next({ request })
 
@@ -59,6 +68,26 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
   const user = result.data.session?.user ?? null
+
+  if (user) {
+    const cookieValue = request.cookies.get(LAST_SEEN_COOKIE)?.value
+    const lastMarked = cookieValue ? Number(cookieValue) : 0
+    if (!lastMarked || Date.now() - lastMarked > LAST_SEEN_THROTTLE_MS) {
+      const now = Date.now()
+      supabaseResponse.cookies.set(LAST_SEEN_COOKIE, String(now), {
+        maxAge: LAST_SEEN_THROTTLE_MS / 1000,
+        httpOnly: true,
+        sameSite: 'lax',
+      })
+      // Best-effort — a failed/slow heartbeat must never block routing.
+      await withTimeout(
+        Promise.resolve(
+          supabase.from('profiles').update({ last_seen_at: new Date(now).toISOString() }).eq('id', user.id),
+        ),
+        LAST_SEEN_TIMEOUT_MS,
+      )
+    }
+  }
 
   const { pathname } = request.nextUrl
 

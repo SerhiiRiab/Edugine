@@ -17,7 +17,7 @@ type UserRow = {
   admin_note: string | null
   activity_count: number
   lesson_count: number
-  last_sign_in_at: string | null
+  last_active_at: string | null
 }
 
 type Stats = {
@@ -258,7 +258,7 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Activities</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Lessons</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Sessions</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Last login</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Last active</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -290,7 +290,7 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                       </td>
                       <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.sessions_completed}</td>
                       <td className="px-4 py-3 text-violet-300 whitespace-nowrap">
-                        {user.last_sign_in_at ? timeAgo(user.last_sign_in_at) : <span className="text-violet-600">never</span>}
+                        {user.last_active_at ? timeAgo(user.last_active_at) : <span className="text-violet-600">never</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button

@@ -35,7 +35,7 @@ export default async function AdminPage() {
     admin.from('profiles').select('*', { count: 'exact', head: true }).eq('plan', 'pro'),
     admin
       .from('profiles')
-      .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note')
+      .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note, last_seen_at')
       .order('created_at', { ascending: false }),
     // Single query — just owner_id column to count per user without N+1
     admin.from('content_sets').select('owner_id'),
@@ -62,14 +62,16 @@ export default async function AdminPage() {
     ...u,
     activity_count: activityCounts[u.id] ?? 0,
     lesson_count:   lessonCounts[u.id]   ?? 0,
-    last_sign_in_at: lastSignInById[u.id] ?? null,
+    // last_sign_in_at only moves on an explicit auth event (password/OAuth/OTP) —
+    // NOT on the silent refresh-token exchange that keeps a browser session alive
+    // for weeks, so it understates activity for anyone who rarely re-authenticates.
+    // last_seen_at (073_profiles_last_seen.sql) is a once-a-day heartbeat written
+    // by middleware on any real authenticated request — take whichever is newer.
+    last_active_at: pickLatest(u.last_seen_at, lastSignInById[u.id] ?? null),
   }))
 
-  // "Active" now means actually logged in recently, not "profile row touched" —
-  // creating/editing lessons never updates `profiles`, so the old
-  // updated_at-based count silently missed most real usage.
-  const activeWeek  = users.filter(u => u.last_sign_in_at && u.last_sign_in_at >= sevenDaysAgo).length
-  const activeMonth = users.filter(u => u.last_sign_in_at && u.last_sign_in_at >= thirtyDaysAgo).length
+  const activeWeek  = users.filter(u => u.last_active_at && u.last_active_at >= sevenDaysAgo).length
+  const activeMonth = users.filter(u => u.last_active_at && u.last_active_at >= thirtyDaysAgo).length
 
   const totalSessions   = users.reduce((s, p) => s + (p.sessions_completed ?? 0), 0)
   const totalActivities = (contentSetsResult.data ?? []).length
@@ -110,6 +112,13 @@ export default async function AdminPage() {
       recentSessions={recentSessions}
     />
   )
+}
+
+// ISO 8601 timestamps compare correctly as plain strings.
+function pickLatest(a: string | null, b: string | null): string | null {
+  if (!a) return b
+  if (!b) return a
+  return a > b ? a : b
 }
 
 // The admin (service-role) client can read auth.users via the Admin API, but
