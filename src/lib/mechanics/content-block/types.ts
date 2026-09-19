@@ -36,6 +36,8 @@ export interface ContentBlockItem {
   type: 'text' | 'video' | 'grammar_table' | 'vocab_cards'
   text: string
   videoUrl: string
+  videoStart: string    // seconds or "mm:ss" — empty = play from the beginning
+  videoEnd: string      // seconds or "mm:ss" — empty = no end limit
   images: unknown[]    // Phase 2
   imageLayout: null    // Phase 2
   discussionQuestions: string[]

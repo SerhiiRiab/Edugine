@@ -5,7 +5,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, FileText, Video, MessageSquare, Table2, BookOpen } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ContentBlockState } from './types'
-import { extractYouTubeId } from './youtube'
+import { buildYouTubeEmbedUrl } from './youtube'
 
 export interface ContentBlockPlayerPanelProps {
   participantId: string
@@ -54,6 +54,9 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
     : null
   const currentTFCard = inTF && state.tfIndex !== null
     ? content.trueFalseCards[state.tfIndex] ?? null
+    : null
+  const videoEmbedUrl = content.type === 'video'
+    ? buildYouTubeEmbedUrl(content.videoUrl, { start: content.videoStart, end: content.videoEnd })
     : null
 
   return (
@@ -156,9 +159,9 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
               transition={{ duration: 0.35 }}
               className="rounded-2xl overflow-hidden border border-slate-700/60 bg-black aspect-video"
             >
-              {content.videoUrl && extractYouTubeId(content.videoUrl) ? (
+              {videoEmbedUrl ? (
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${extractYouTubeId(content.videoUrl)}`}
+                  src={videoEmbedUrl}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   className="w-full h-full"

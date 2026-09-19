@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { ChevronRight, StopCircle, Users, Eye, FileText, Video, MessageSquare, ToggleLeft, Check, ChevronLeft, Table2, BookOpen } from 'lucide-react'
 import type { ContentBlockState } from './types'
-import { extractYouTubeId } from './youtube'
+import { buildYouTubeEmbedUrl } from './youtube'
 
 export interface ContentBlockHostPanelProps {
   state: ContentBlockState
@@ -49,6 +49,9 @@ export function ContentBlockHostPanel({
   const currentTFCard = inTF && state.tfIndex !== null ? content.trueFalseCards[state.tfIndex] : null
   const isLastQuestion = state.discussionIndex !== null && state.discussionIndex >= content.discussionQuestions.length - 1
   const isLastTFCard = state.tfIndex !== null && state.tfIndex >= content.trueFalseCards.length - 1
+  const videoEmbedUrl = content.type === 'video'
+    ? buildYouTubeEmbedUrl(content.videoUrl, { start: content.videoStart, end: content.videoEnd })
+    : null
 
   function wrap(fn: () => Promise<void>) {
     return async () => {
@@ -101,10 +104,10 @@ export function ContentBlockHostPanel({
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3 px-2">
               Video (student view)
             </p>
-            {content.videoUrl && extractYouTubeId(content.videoUrl) ? (
+            {videoEmbedUrl ? (
               <div className="aspect-video rounded-xl overflow-hidden bg-slate-100">
                 <iframe
-                  src={`https://www.youtube-nocookie.com/embed/${extractYouTubeId(content.videoUrl)}`}
+                  src={videoEmbedUrl}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
                   className="w-full h-full"

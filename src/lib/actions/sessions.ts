@@ -419,6 +419,8 @@ export async function initContentBlockState(
     type: (rawItem.type as ContentBlockItem['type']) ?? 'text',
     text: (rawItem.text as string) ?? '',
     videoUrl: (rawItem.videoUrl as string) ?? '',
+    videoStart: (rawItem.videoStart as string) ?? '',
+    videoEnd: (rawItem.videoEnd as string) ?? '',
     images: (rawItem.images as unknown[]) ?? [],
     imageLayout: null,
     discussionQuestions: (rawItem.discussionQuestions as string[]) ?? [],

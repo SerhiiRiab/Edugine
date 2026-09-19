@@ -21,7 +21,7 @@ import type {
 import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from './types'
 import type { AiFill } from '@/lib/ai/fill-editor-props'
 import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
-import { extractYouTubeId } from './youtube'
+import { extractYouTubeId, buildYouTubeEmbedUrl, parseTimeToSeconds } from './youtube'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -45,9 +45,9 @@ interface Props {
   aiFill?: AiFill
 }
 
-function YouTubePreview({ url }: { url: string }) {
-  const vid = extractYouTubeId(url)
-  if (!vid) {
+function YouTubePreview({ url, start, end }: { url: string; start: string; end: string }) {
+  const embedUrl = buildYouTubeEmbedUrl(url, { start, end })
+  if (!embedUrl) {
     return (
       <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
         <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -58,7 +58,7 @@ function YouTubePreview({ url }: { url: string }) {
   return (
     <div className="aspect-video rounded-xl overflow-hidden border border-slate-200 bg-slate-100">
       <iframe
-        src={`https://www.youtube-nocookie.com/embed/${vid}`}
+        src={embedUrl}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         allowFullScreen
         className="w-full h-full"
@@ -116,6 +116,8 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
         type: (rawItem.data.type as ContentBlockItem['type']) ?? 'text',
         text: (rawItem.data.text as string) ?? '',
         videoUrl: (rawItem.data.videoUrl as string) ?? '',
+        videoStart: (rawItem.data.videoStart as string) ?? '',
+        videoEnd: (rawItem.data.videoEnd as string) ?? '',
         images: (rawItem.data.images as unknown[]) ?? [],
         imageLayout: null,
         discussionQuestions: (rawItem.data.discussionQuestions as string[]) ?? [],
@@ -124,7 +126,7 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
         vocabCards: (rawItem.data.vocabCards as ContentBlockItem['vocabCards']) ?? EMPTY_VOCAB_CARDS,
       }
     : {
-        type: 'text', text: '', videoUrl: '', images: [], imageLayout: null,
+        type: 'text', text: '', videoUrl: '', videoStart: '', videoEnd: '', images: [], imageLayout: null,
         discussionQuestions: [], trueFalseCards: [],
         grammarTable: EMPTY_GRAMMAR_TABLE, vocabCards: EMPTY_VOCAB_CARDS,
       }
@@ -135,6 +137,8 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
   const [type, setType] = useState<ContentBlockItem['type']>(initial.type)
   const [text, setText] = useState(initial.text)
   const [videoUrl, setVideoUrl] = useState(initial.videoUrl)
+  const [videoStart, setVideoStart] = useState(initial.videoStart)
+  const [videoEnd, setVideoEnd] = useState(initial.videoEnd)
   const [discussionQuestions, setDiscussionQuestions] = useState<string[]>(initial.discussionQuestions)
   const [dqBulkText, setDqBulkText] = useState(initial.discussionQuestions.join('\n'))
   const [dqOpen, setDqOpen] = useState(initial.discussionQuestions.length > 0)
@@ -190,7 +194,7 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
 
   function buildItem(overrides: Partial<ContentBlockItem> = {}): ContentBlockItem {
     return {
-      type, text, videoUrl, images: [], imageLayout: null, discussionQuestions, trueFalseCards,
+      type, text, videoUrl, videoStart, videoEnd, images: [], imageLayout: null, discussionQuestions, trueFalseCards,
       grammarTable: initial.grammarTable,
       vocabCards: initial.vocabCards,
       ...overrides,
@@ -208,6 +212,14 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
   function handleVideoUrlChange(v: string) {
     setVideoUrl(v)
     flushContent(buildItem({ videoUrl: v }))
+  }
+  function handleVideoStartChange(v: string) {
+    setVideoStart(v)
+    flushContent(buildItem({ videoStart: v }))
+  }
+  function handleVideoEndChange(v: string) {
+    setVideoEnd(v)
+    flushContent(buildItem({ videoEnd: v }))
   }
 
   function parseDQBulk(raw: string): string[] {
@@ -418,7 +430,50 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
                   px-4 py-3 transition-colors placeholder:text-slate-300 font-mono"
               />
             </div>
-            {videoUrl.trim() && <YouTubePreview url={videoUrl} />}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  Start time
+                </label>
+                <input
+                  type="text"
+                  value={videoStart}
+                  onChange={(e) => handleVideoStartChange(e.target.value)}
+                  placeholder="e.g. 1:30 or 90"
+                  className="w-full text-sm text-slate-800 bg-white rounded-xl border-2 border-slate-200
+                    focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none
+                    px-4 py-3 transition-colors placeholder:text-slate-300 font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-700">
+                  End time
+                </label>
+                <input
+                  type="text"
+                  value={videoEnd}
+                  onChange={(e) => handleVideoEndChange(e.target.value)}
+                  placeholder="e.g. 3:00 or 180"
+                  className="w-full text-sm text-slate-800 bg-white rounded-xl border-2 border-slate-200
+                    focus:border-orange-400 focus:ring-2 focus:ring-orange-100 outline-none
+                    px-4 py-3 transition-colors placeholder:text-slate-300 font-mono"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-slate-400 -mt-2">
+              Optional — seconds (e.g. <code className="bg-slate-100 px-1 py-0.5 rounded font-mono">90</code>) or
+              {' '}<code className="bg-slate-100 px-1 py-0.5 rounded font-mono">mm:ss</code>. Leave blank to play the full video.
+            </p>
+            {((videoStart.trim() && parseTimeToSeconds(videoStart) === null) ||
+              (videoEnd.trim() && parseTimeToSeconds(videoEnd) === null)) && (
+              <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Time must be seconds (e.g. 90) or mm:ss (e.g. 1:30).</span>
+              </div>
+            )}
+
+            {videoUrl.trim() && <YouTubePreview url={videoUrl} start={videoStart} end={videoEnd} />}
           </div>
         )}
 
