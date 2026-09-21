@@ -319,6 +319,7 @@ interface ParticipantGameState {
   wbResults?: boolean[]         // word_bank individual: correct/incorrect per blank
   sortingCorrectCount?: number  // sorting individual: blocks placed in the correct category
   sortingTotal?: number
+  sortingPlacements?: Record<string, string>  // sorting individual: live blockId -> categoryId while still sorting
   sequenceCorrectCount?: number // sequence individual: blocks in the correct position
   sequenceTotal?: number
   ctmAnswerIndex?: number       // correct_the_mistake individual: sentence index the fields below apply to
@@ -1160,6 +1161,15 @@ export function SessionHostView({ session, lesson }: Props) {
           })
           return newState
         })
+      })
+      // ── Sorting individual: live board so the tutor sees placements as
+      // they happen, not just the final result once a student submits ──────
+      .on('broadcast', { event: 'sorting_progress' }, ({ payload }) => {
+        const p = payload as { participantId: string; placements: Record<string, string> }
+        if (!p.participantId) return
+        setParticipants(prev => prev.map(x =>
+          x.id === p.participantId ? { ...x, sortingPlacements: p.placements } : x
+        ))
       })
       .on('broadcast', { event: 'sorting_place' }, ({ payload }) => {
         const p = payload as { blockId: string; categoryId: string | null; activityIndex?: number }

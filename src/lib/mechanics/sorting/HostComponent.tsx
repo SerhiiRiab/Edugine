@@ -155,6 +155,7 @@ export interface SortingHostParticipant {
   score: number
   sortingCorrectCount?: number
   sortingTotal?: number
+  sortingPlacements?: Record<string, string>
 }
 
 export interface SortingIndividualHostPanelProps {
@@ -215,6 +216,19 @@ export function SortingIndividualHostPanel({
                   <p className="text-[10px] text-slate-400">pts</p>
                 </div>
               </div>
+
+              {blocks.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-1">Board</p>
+                  <BoardMirror
+                    categories={categories}
+                    blocks={blocks}
+                    placements={p.sortingPlacements ?? {}}
+                    revealed={submitted}
+                  />
+                </div>
+              )}
+
               <div className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${p.online ? 'bg-emerald-400' : 'bg-slate-300'}`} />
                 <span className="text-xs text-slate-400">{p.online ? 'Live' : 'Disconnected'}</span>

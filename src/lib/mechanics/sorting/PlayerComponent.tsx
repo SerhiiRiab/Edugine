@@ -301,15 +301,24 @@ export function SortingPlayerPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const shuffledBlocks = useMemo(() => shuffleArray(blocks), [activityIndex, blockIdsKey])
 
+  // Live board for the host — mirrors the shared-mode `sorting_place` broadcast
+  // so the tutor can watch each student's board fill in in real time instead
+  // of only learning the result once they submit.
+  function broadcastProgress(next: Record<string, string>) {
+    channelRef.current?.send({
+      type: 'broadcast', event: 'sorting_progress',
+      payload: { participantId: participantIdRef.current, placements: next },
+    })
+  }
+
   function handleSelectBlock(blockId: string) {
     if (submitted) return
     if (placements[blockId]) {
       // Tap a placed block to pick it back up
-      setPlacements(prev => {
-        const next = { ...prev }
-        delete next[blockId]
-        return next
-      })
+      const next = { ...placements }
+      delete next[blockId]
+      setPlacements(next)
+      broadcastProgress(next)
       setSelectedId(null)
       return
     }
@@ -318,14 +327,14 @@ export function SortingPlayerPanel({
 
   function handlePlaceInCategory(blockId: string, categoryId: string | null) {
     if (submitted) return
-    setPlacements(prev => {
-      if (categoryId === null) {
-        const next = { ...prev }
-        delete next[blockId]
-        return next
-      }
-      return { ...prev, [blockId]: categoryId }
-    })
+    const next = { ...placements }
+    if (categoryId === null) {
+      delete next[blockId]
+    } else {
+      next[blockId] = categoryId
+    }
+    setPlacements(next)
+    broadcastProgress(next)
     setSelectedId(null)
   }
 
