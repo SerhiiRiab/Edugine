@@ -56,6 +56,18 @@ export function WordCardsPlayerPanel({
     isCompletedRef.current = false
   }, [activityIndex])
 
+  // Live position for the host — which card is on screen and which side is
+  // showing, independent of the per-card self-check tally below. Fires on
+  // mount too, so the host sees "Card 1, front" right away.
+  useEffect(() => {
+    if (!participantIdRef.current) return
+    channelRef.current?.send({
+      type: 'broadcast', event: 'word_cards_progress',
+      payload: { participantId: participantIdRef.current, cardIndex, flipped, activityIndex: activityIndexRef.current },
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardIndex, flipped])
+
   const known = Object.values(results).filter(Boolean).length
   const markedCount = Object.keys(results).length
 

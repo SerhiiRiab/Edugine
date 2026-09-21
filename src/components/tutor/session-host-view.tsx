@@ -322,6 +322,8 @@ interface ParticipantGameState {
   sortingPlacements?: Record<string, string>  // sorting individual: live blockId -> categoryId while still sorting
   sequenceCorrectCount?: number // sequence individual: blocks in the correct position
   sequenceTotal?: number
+  wcViewIndex?: number          // word_cards individual: card currently on screen (0-based, may be behind cardIndex while browsing)
+  wcFlipped?: boolean           // word_cards individual: which side of that card is showing
   ctmAnswerIndex?: number       // correct_the_mistake individual: sentence index the fields below apply to
   ctmAnswerText?: string        // correct_the_mistake individual: live/checked text for that sentence
   ctmChecked?: boolean          // correct_the_mistake individual: has the student checked this sentence yet
@@ -1161,6 +1163,16 @@ export function SessionHostView({ session, lesson }: Props) {
           })
           return newState
         })
+      })
+      // ── Word Cards individual: live position + face so the tutor sees
+      // where a student is browsing, not just their knew/didn't-know tally ─
+      .on('broadcast', { event: 'word_cards_progress' }, ({ payload }) => {
+        const p = payload as { participantId: string; cardIndex: number; flipped: boolean; activityIndex?: number }
+        if (!p.participantId) return
+        if (p.activityIndex !== undefined && p.activityIndex !== currentActivityIndexRef.current) return
+        setParticipants(prev => prev.map(x =>
+          x.id === p.participantId ? { ...x, wcViewIndex: p.cardIndex, wcFlipped: p.flipped } : x
+        ))
       })
       // ── Sorting individual: live board so the tutor sees placements as
       // they happen, not just the final result once a student submits ──────
@@ -4860,6 +4872,7 @@ export function SessionHostView({ session, lesson }: Props) {
             {currentMechanicId === 'word_cards' && (
               <WordCardsHostPanel
                 participants={participants}
+                items={currentActivityItems.map(i => ({ id: i.id, front: i.word, back: i.translation }))}
                 totalItems={currentActivityItems.length}
                 isLastActivity={isLastActivity}
                 isAdvancing={isAdvancing}

@@ -16,10 +16,15 @@ interface HostParticipant {
   score: number
   correctCount: number
   totalSwipes: number
+  wcViewIndex?: number
+  wcFlipped?: boolean
 }
+
+interface HostCard { id: string; front: string; back: string }
 
 export interface WordCardsHostPanelProps {
   participants: HostParticipant[]
+  items: HostCard[]
   totalItems: number
   isLastActivity: boolean
   isAdvancing: boolean
@@ -33,7 +38,7 @@ const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-ro
 function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 export function WordCardsHostPanel({
-  participants, totalItems, isLastActivity, isAdvancing, isLesson,
+  participants, items, totalItems, isLastActivity, isAdvancing, isLesson,
   onNextActivity, onEndLesson, onEndGame,
 }: WordCardsHostPanelProps) {
   return (
@@ -42,6 +47,7 @@ export function WordCardsHostPanel({
         {participants.map((p, i) => {
           const seen = p.cardIndex
           const done = seen >= totalItems && totalItems > 0
+          const viewCard = !done ? items[p.wcViewIndex ?? seen] : undefined
 
           return (
             <div
@@ -67,6 +73,23 @@ export function WordCardsHostPanel({
                   <p className="text-xs text-slate-400">knew it</p>
                 </div>
               </div>
+
+              {/* Student sees — the card currently on screen, and which side */}
+              {viewCard !== undefined && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Student sees</p>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-sky-500">
+                      Card {(p.wcViewIndex ?? seen) + 1}/{totalItems} · {p.wcFlipped ? 'Back' : 'Front'}
+                    </span>
+                  </div>
+                  <div className="bg-slate-900 rounded-xl border border-slate-700 px-4 py-3">
+                    <p className="text-xs text-slate-100 leading-snug text-center">
+                      {p.wcFlipped ? viewCard.back : viewCard.front}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {totalItems > 0 && (
                 <div className="space-y-1">
