@@ -2888,7 +2888,7 @@ export function SessionHostView({ session, lesson }: Props) {
       const item = currentActivityItems[idx]
       return item && (item as unknown as HiddenRoleItem).isSpy
     })
-    const spyWins = voteWinner === null || !spyPids.includes(voteWinner)
+    const spyWins = spyPids.length === 0 ? voteWinner !== null : !spyPids.includes(voteWinner ?? '')
     await hrStateUpdate({ ...cur, phase: 4, voteWinner, voteResults: votes, spyWins, revealed: true })
   }
 
