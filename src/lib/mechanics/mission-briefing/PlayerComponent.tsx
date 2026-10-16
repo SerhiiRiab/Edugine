@@ -140,14 +140,16 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
               </div>
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Briefing (private)</p>
-                <p className="text-sm text-slate-200 leading-relaxed">{myItem.briefing}</p>
+                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{myItem.briefing}</p>
               </div>
               {myItem.languageConstraints?.filter(Boolean).length ? (
                 <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
                   <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
-                  {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                    <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
-                  ))}
+                  <ul className="space-y-1 list-disc pl-4">
+                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                      <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
             </div>
@@ -180,14 +182,16 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
               </div>
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Briefing (private)</p>
-                <p className="text-sm text-slate-200 leading-relaxed">{myItem.briefing}</p>
+                <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{myItem.briefing}</p>
               </div>
               {myItem.languageConstraints?.filter(Boolean).length ? (
                 <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
                   <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
-                  {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                    <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
-                  ))}
+                  <ul className="space-y-1 list-disc pl-4">
+                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                      <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
+                    ))}
+                  </ul>
                 </div>
               ) : null}
             </div>
@@ -200,7 +204,7 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
           {state.scenario && (
             <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Mission scenario</p>
-              <p className="text-xs text-slate-300 leading-relaxed">{state.scenario}</p>
+              <p className="text-xs text-slate-300 leading-relaxed whitespace-pre-line">{state.scenario}</p>
             </div>
           )}
 
@@ -242,7 +246,7 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
           {state.scenario && (
             <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Mission</p>
-              <p className="text-sm text-slate-200 leading-relaxed">{state.scenario}</p>
+              <p className="text-sm text-slate-200 leading-relaxed whitespace-pre-line">{state.scenario}</p>
             </div>
           )}
 
@@ -275,13 +279,15 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
               </button>
               {!briefingCollapsed && (
                 <div className="px-4 pb-3 space-y-2 border-t border-slate-700/40">
-                  <p className="text-xs text-slate-300 leading-relaxed pt-2">{myItem.briefing}</p>
+                  <p className="text-xs text-slate-300 leading-relaxed pt-2 whitespace-pre-line">{myItem.briefing}</p>
                   {myItem.languageConstraints?.filter(Boolean).length ? (
                     <div className="pt-1 border-t border-slate-700/40 space-y-1">
                       <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide">Language constraints</p>
-                      {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                        <p key={i} className="text-xs text-amber-300">• {c}</p>
-                      ))}
+                      <ul className="space-y-0.5 list-disc pl-4">
+                        {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                          <li key={i} className="text-xs text-amber-300 whitespace-pre-line">{c}</li>
+                        ))}
+                      </ul>
                     </div>
                   ) : null}
                 </div>
@@ -335,13 +341,13 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
                       {item && <p className="text-xs font-semibold text-violet-400">{item.playerLabel}</p>}
                     </div>
                   </div>
-                  {item && <p className="text-xs text-slate-400 leading-relaxed pl-9">{item.briefing}</p>}
+                  {item && <p className="text-xs text-slate-400 leading-relaxed pl-9 whitespace-pre-line">{item.briefing}</p>}
                   {item?.languageConstraints?.filter(Boolean).length ? (
-                    <div className="pl-9 space-y-0.5">
+                    <ul className="pl-9 space-y-0.5 list-disc">
                       {item.languageConstraints.filter(Boolean).map((c, ci) => (
-                        <p key={ci} className="text-[11px] text-amber-400">• {c}</p>
+                        <li key={ci} className="text-[11px] text-amber-400 whitespace-pre-line">{c}</li>
                       ))}
-                    </div>
+                    </ul>
                   ) : null}
                 </div>
               )
