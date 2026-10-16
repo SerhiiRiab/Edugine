@@ -158,7 +158,7 @@ export function MissionBriefingHostPanel({
           {state.scenario && (
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Mission scenario (visible to all)</p>
-              <p className="text-sm text-slate-700 leading-relaxed">{state.scenario || <span className="text-slate-400 italic">No scenario set</span>}</p>
+              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{state.scenario || <span className="text-slate-400 italic">No scenario set</span>}</p>
             </div>
           )}
 
@@ -207,7 +207,7 @@ export function MissionBriefingHostPanel({
         <div className="space-y-4">
           <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4 space-y-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Mission scenario (visible to all)</p>
-            <p className="text-sm text-slate-700 leading-relaxed">{state.scenario || <span className="text-slate-400 italic">No scenario set</span>}</p>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{state.scenario || <span className="text-slate-400 italic">No scenario set</span>}</p>
           </div>
 
           <div className="space-y-2">
@@ -225,12 +225,14 @@ export function MissionBriefingHostPanel({
                   </div>
                   {item && (
                     <div className="pl-9 space-y-1">
-                      <p className="text-xs text-slate-600 leading-relaxed">{item.briefing}</p>
+                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{item.briefing}</p>
                       {item.languageConstraints?.filter(Boolean).length ? (
-                        <div className="rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-1.5 space-y-0.5">
-                          {item.languageConstraints.filter(Boolean).map((c, ci) => (
-                            <p key={ci} className="text-[11px] text-amber-700">• {c}</p>
-                          ))}
+                        <div className="rounded-lg bg-amber-50 border border-amber-100 px-2.5 py-1.5">
+                          <ul className="space-y-0.5 list-disc pl-4">
+                            {item.languageConstraints.filter(Boolean).map((c, ci) => (
+                              <li key={ci} className="text-[11px] text-amber-700 whitespace-pre-line">{c}</li>
+                            ))}
+                          </ul>
                         </div>
                       ) : null}
                     </div>
@@ -257,7 +259,7 @@ export function MissionBriefingHostPanel({
         <div className="space-y-4">
           <div className="bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Mission</p>
-            <p className="text-sm text-slate-700 leading-relaxed">{state.scenario}</p>
+            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line">{state.scenario}</p>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -436,7 +438,7 @@ export function MissionBriefingHostPanel({
                   </div>
                   {item && (
                     <div className="pl-9">
-                      <p className="text-xs text-slate-600 leading-relaxed">{item.briefing}</p>
+                      <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{item.briefing}</p>
                     </div>
                   )}
                 </div>
