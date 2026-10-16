@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Timer, Zap, Trophy, CheckCircle2, ChevronDown, ChevronRight, StopCircle } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { SpeedMatchState, SpeedMatchProgress } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 // ── Stub satisfying MechanicDefinition type ───────────────────────────────────
 export function SpeedMatchHostComponent(
@@ -20,11 +21,6 @@ function formatTime(s: number) {
   const sec = s % 60
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
-
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500',
-]
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 export interface SpeedMatchHostPanelProps {
   participants: { id: string; nickname: string; online: boolean }[]

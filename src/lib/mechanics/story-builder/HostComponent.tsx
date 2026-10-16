@@ -4,12 +4,7 @@ import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { BookOpen, Check, ChevronRight, SkipForward, StopCircle, Trophy, Users, PartyPopper, PenLine } from 'lucide-react'
 import type { StoryBuilderState } from './types'
-
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-sky-500',
-]
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
+import { avatarBg } from '@/lib/avatar-colors'
 
 export interface StoryBuilderHostPanelProps {
   storyState: StoryBuilderState

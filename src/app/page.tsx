@@ -79,7 +79,7 @@ export default async function Home() {
           Turn online lessons into live multiplayer experiences
         </h1>
         <p className="text-violet-200 text-lg md:text-xl mb-10 max-w-2xl leading-relaxed">
-          Create interactive lesson flows with collaborative activities, speaking challenges and pair work for 1–4 learners.
+          Create interactive lesson flows with collaborative activities, speaking challenges and pair work for 1–8 learners.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4">

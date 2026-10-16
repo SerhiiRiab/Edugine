@@ -72,6 +72,8 @@ import { ElevatorPitchHostPanel } from '@/lib/mechanics/elevator-pitch/HostCompo
 import { ElevatorPitchPlayerPanel } from '@/lib/mechanics/elevator-pitch/PlayerComponent'
 import type { JigsawReadingState, JigsawReadingItem } from '@/lib/mechanics/jigsaw-reading/types'
 import { JigsawReadingHostPanel } from '@/lib/mechanics/jigsaw-reading/HostComponent'
+import { getClaimedFragmentIndices } from '@/lib/mechanics/jigsaw-reading/types'
+import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
 import { JigsawReadingPlayerPanel } from '@/lib/mechanics/jigsaw-reading/PlayerComponent'
 import type { PredictVerifyState, PredictVerifyItem, PredictionMode } from '@/lib/mechanics/predict-verify/types'
 import { PredictVerifyHostPanel } from '@/lib/mechanics/predict-verify/HostComponent'
@@ -88,7 +90,7 @@ import { computeTimeLeft as computeSpeedDebateTimeLeft } from '@/lib/mechanics/s
 import type { RoleplayQuestState } from '@/lib/mechanics/roleplay-quest/types'
 import { RoleplayQuestHostPanel } from '@/lib/mechanics/roleplay-quest/HostComponent'
 import { RoleplayQuestPlayerPanel } from '@/lib/mechanics/roleplay-quest/PlayerComponent'
-import { computeTimeLeft as computeRoleplayTimeLeft } from '@/lib/mechanics/roleplay-quest/types'
+import { computeTimeLeft as computeRoleplayTimeLeft, getClaimedRoleIndex } from '@/lib/mechanics/roleplay-quest/types'
 import type { SpeakingChallengeState } from '@/lib/mechanics/speaking-challenge/types'
 import { SpeakingChallengeHostPanel } from '@/lib/mechanics/speaking-challenge/HostComponent'
 import { SpeakingChallengePlayerPanel } from '@/lib/mechanics/speaking-challenge/PlayerComponent'
@@ -99,6 +101,7 @@ import type { SequenceSharedState } from '@/lib/mechanics/sequence/types'
 import { SequenceIndividualHostPanel, SequenceSharedHostPanel, type SequenceRuntimeItem } from '@/lib/mechanics/sequence/HostComponent'
 import { WordCardsHostPanel } from '@/lib/mechanics/word-cards/HostComponent'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { avatarBg } from '@/lib/avatar-colors'
 
 // ── Floating Lesson Board ──────────────────────────────────────────────────────
 // A scratch-space canvas available at any point in the session, independent of
@@ -371,15 +374,6 @@ const MECHANIC_NAMES: Record<string, string> = {
   word_cards:         'Word Cards',
 }
 
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-sky-500',
-]
-
-function avatarBg(index: number) {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length]
-}
-
 export function SessionHostView({ session, lesson }: Props) {
   const isLesson = !!lesson && !!lesson.id
   const isMultiActivity = isLesson && (lesson?.activities.length ?? 0) > 1
@@ -558,6 +552,9 @@ export function SessionHostView({ session, lesson }: Props) {
   useEffect(() => { speakingChallengeStateRef.current = speakingChallengeState }, [speakingChallengeState])
 
   const currentActivityItems = lesson?.activities[currentActivityIndex]?.items ?? []
+  // Claim handlers subscribe once, so they read the card count through a ref.
+  const currentActivityItemCountRef = useRef(0)
+  useEffect(() => { currentActivityItemCountRef.current = currentActivityItems.length }, [currentActivityItems.length])
   const currentMechanicId = lesson?.activities[currentActivityIndex]?.mechanic_id
   const currentActivityMode = lesson?.activities[currentActivityIndex]?.mode
 
@@ -1332,7 +1329,9 @@ export function SessionHostView({ session, lesson }: Props) {
           if (!prev || prev.phase !== 0) return prev
           const alreadyClaimedByOther = Object.entries(prev.assignments)
             .some(([pid, idx]) => idx === p.itemIndex && pid !== p.participantId && pid !== TUTOR_PARTICIPANT_ID)
-          if (alreadyClaimedByOther) return prev
+          const canShare = prev.assignments[p.participantId] === undefined
+            && everyCardClaimed(Object.values(prev.assignments), currentActivityItemCountRef.current)
+          if (alreadyClaimedByOther && !canShare) return prev
           const newAssignments = { ...prev.assignments, [p.participantId]: p.itemIndex }
           const next: HiddenRoleState = { ...prev, assignments: newAssignments }
           hiddenRoleStateRef.current = next
@@ -1353,7 +1352,9 @@ export function SessionHostView({ session, lesson }: Props) {
           if (!prev || prev.phase !== 0) return prev
           const alreadyClaimedByOther = Object.entries(prev.assignments)
             .some(([pid, idx]) => idx === p.itemIndex && pid !== p.participantId)
-          if (alreadyClaimedByOther) return prev
+          const canShare = prev.assignments[p.participantId] === undefined
+            && everyCardClaimed(Object.values(prev.assignments), currentActivityItemCountRef.current)
+          if (alreadyClaimedByOther && !canShare) return prev
           const newAssignments = { ...prev.assignments, [p.participantId]: p.itemIndex }
           const next: MissionBriefingState = { ...prev, assignments: newAssignments }
           missionBriefingStateRef.current = next
@@ -1450,8 +1451,17 @@ export function SessionHostView({ session, lesson }: Props) {
         setJigsawReadingState(prev => {
           if (!prev) return prev
           const key = String(p.fragmentIndex)
-          if (prev.claims[key]) return prev  // already claimed by someone
-          const newState: JigsawReadingState = { ...prev, claims: { ...prev.claims, [key]: p.participantId } }
+          let newState: JigsawReadingState
+          if (!prev.claims[key]) {
+            newState = { ...prev, claims: { ...prev.claims, [key]: p.participantId } }
+          } else {
+            // Already claimed — join it as a co-reader if every fragment is taken and this student has none
+            const fragmentCount = currentActivityItemCountRef.current
+            if (p.fragmentIndex >= fragmentCount) return prev
+            if (getClaimedFragmentIndices(p.participantId, prev).length > 0) return prev
+            if (!everyCardClaimed(Object.keys(prev.claims).map(Number), fragmentCount)) return prev
+            newState = { ...prev, sharedClaims: { ...prev.sharedClaims, [p.participantId]: p.fragmentIndex } }
+          }
           jigsawReadingStateRef.current = newState
           const supabase = createClient()
           supabase.from('shared_activity_state')
@@ -1508,11 +1518,15 @@ export function SessionHostView({ session, lesson }: Props) {
         if (p.activityIndex !== currentActivityIndexRef.current) return
         setRoleplayQuestState(prev => {
           if (!prev) return prev
-          if (prev.claims[String(p.itemIndex)]) return prev  // card already claimed
-          if (Object.values(prev.claims).includes(p.participantId)) return prev  // participant already has a role
-          const newState: RoleplayQuestState = {
-            ...prev,
-            claims: { ...prev.claims, [String(p.itemIndex)]: p.participantId },
+          if (getClaimedRoleIndex(p.participantId, prev) !== null) return prev  // participant already has a role
+          let newState: RoleplayQuestState
+          if (!prev.claims[String(p.itemIndex)]) {
+            newState = { ...prev, claims: { ...prev.claims, [String(p.itemIndex)]: p.participantId } }
+          } else {
+            // Card already claimed — share it once every role has a holder
+            if (p.itemIndex >= prev.roles.length) return prev
+            if (!everyCardClaimed(Object.keys(prev.claims).map(Number), prev.roles.length)) return prev
+            newState = { ...prev, sharedClaims: { ...prev.sharedClaims, [p.participantId]: p.itemIndex } }
           }
           roleplayQuestStateRef.current = newState
           const supabase = createClient()
@@ -2868,13 +2882,13 @@ export function SessionHostView({ session, lesson }: Props) {
     const votes = cur.voteResults
     const sortedIds = Object.keys(votes).sort((a, b) => (votes[b] ?? 0) - (votes[a] ?? 0))
     const voteWinner = sortedIds[0] ?? null
-    // Find which participant holds the spy role
-    const spyPid = Object.keys(cur.assignments).find(pid => {
+    // Find who holds the spy role — two players when the spy card was shared
+    const spyPids = Object.keys(cur.assignments).filter(pid => {
       const idx = cur.assignments[pid]
       const item = currentActivityItems[idx]
       return item && (item as unknown as HiddenRoleItem).isSpy
-    }) ?? null
-    const spyWins = voteWinner !== spyPid
+    })
+    const spyWins = voteWinner === null || !spyPids.includes(voteWinner)
     await hrStateUpdate({ ...cur, phase: 4, voteWinner, voteResults: votes, spyWins, revealed: true })
   }
 

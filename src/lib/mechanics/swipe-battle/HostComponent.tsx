@@ -8,6 +8,7 @@ import {
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import { isStatementCard } from './types'
 import type { SwipeBattleState } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function SwipeBattleHostComponent(
   _props: MechanicHostProps<SwipeBattleState>,
@@ -74,15 +75,6 @@ export interface SwipeBattleHostPanelProps {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-sky-500',
-]
-
-function avatarBg(index: number) {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length]
-}
 
 function formatTime(s: number) {
   const m = Math.floor(s / 60)

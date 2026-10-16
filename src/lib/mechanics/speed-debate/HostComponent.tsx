@@ -9,9 +9,7 @@ import {
 } from 'lucide-react'
 import type { SpeedDebateState, DebatePosition } from './types'
 import { computeTimeLeft, getActivePhrases } from './types'
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
+import { avatarBg } from '@/lib/avatar-colors'
 
 const POSITION_STYLES: Record<DebatePosition, { badge: string; label: string }> = {
   for:     { badge: 'bg-emerald-100 text-emerald-700 border-emerald-300', label: 'For' },

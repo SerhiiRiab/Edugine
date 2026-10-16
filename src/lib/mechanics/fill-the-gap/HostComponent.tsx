@@ -3,6 +3,7 @@
 import { StopCircle, Users, CheckCircle2, XCircle } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { FillTheGapState } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function FillTheGapHostComponent(_props: MechanicHostProps<FillTheGapState>) {
   return null
@@ -28,13 +29,6 @@ export interface FillTheGapHostPanelProps {
   onEndLesson: () => void
   onEndGame: () => void
 }
-
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-sky-500',
-]
-
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 export function FillTheGapHostPanel({
   participants,

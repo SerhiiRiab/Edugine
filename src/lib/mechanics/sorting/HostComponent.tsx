@@ -3,6 +3,7 @@
 import { CheckCircle2, Eye, StopCircle, Users } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { SortingBlock, SortingIndividualState, SortingSharedState } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function SortingHostComponent(_props: MechanicHostProps<SortingIndividualState>) {
   return null
@@ -73,9 +74,6 @@ function NavButtons({ isLesson, isLastActivity, isAdvancing, onNextActivity, onE
 }
 
 // ── Avatar helpers ────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 // ── Board mirror (shared by individual + shared host panels) ─────────────────
 

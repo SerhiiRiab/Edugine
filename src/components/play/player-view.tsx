@@ -61,6 +61,7 @@ import type { SequenceSharedState } from '@/lib/mechanics/sequence/types'
 import { SequencePlayerPanel, SequenceSharedPlayerPanel } from '@/lib/mechanics/sequence/PlayerComponent'
 import { WordCardsPlayerPanel } from '@/lib/mechanics/word-cards/PlayerComponent'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { avatarBg } from '@/lib/avatar-colors'
 
 // ── Floating Lesson Board ──────────────────────────────────────────────────────
 // Mirrors the "Floating Lesson Board" block in session-host-view.tsx — see
@@ -200,19 +201,7 @@ interface Props {
   lesson?: LessonInfo
 }
 
-const MAX_PARTICIPANTS = 4
-
-const AVATAR_COLORS = [
-  'bg-violet-500',
-  'bg-emerald-500',
-  'bg-amber-500',
-  'bg-rose-500',
-  'bg-sky-500',
-]
-
-function avatarColor(index: number) {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length]
-}
+const MAX_PARTICIPANTS = 8
 
 // Result-screen labels — most individual mechanics have a genuine right/wrong
 // answer, but Word Cards is pure self-assessment (there's no "correct"
@@ -1269,7 +1258,7 @@ export function PlayerView({ session, lesson }: Props) {
                       }`}
                     >
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center
-                        font-bold text-sm text-white shrink-0 ${avatarColor(i)}`}>
+                        font-bold text-sm text-white shrink-0 ${avatarBg(i)}`}>
                         {p.nickname[0].toUpperCase()}
                       </div>
                       <span className={`flex-1 font-semibold text-sm ${p.isSelf ? 'text-white' : 'text-slate-200'}`}>

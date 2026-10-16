@@ -4,6 +4,7 @@ import { StopCircle, Users, CheckCircle2, XCircle, Eye } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { MultipleChoiceState } from './types'
 import type { VoteState } from '@/lib/mechanics/vote/types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function MultipleChoiceHostComponent(_props: MechanicHostProps<MultipleChoiceState>) {
   return null
@@ -34,15 +35,6 @@ export interface MultipleChoiceHostPanelProps {
   onNextActivity: () => void
   onEndLesson: () => void
   onEndGame: () => void
-}
-
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-sky-500',
-]
-
-function avatarBg(index: number) {
-  return AVATAR_COLORS[index % AVATAR_COLORS.length]
 }
 
 export function MultipleChoiceHostPanel({

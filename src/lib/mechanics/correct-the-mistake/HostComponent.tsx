@@ -6,6 +6,7 @@ import type { CorrectTheMistakeIndividualState, CorrectTheMistakeSharedState } f
 import { computeWordDiff, type DiffSegment } from './diff'
 import { SentenceDiffView } from './SentenceDiffView'
 import { ErrorBoundary } from '@/components/error-boundary'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function CorrectTheMistakeHostComponent(_props: MechanicHostProps<CorrectTheMistakeIndividualState>) {
   return null
@@ -37,9 +38,6 @@ interface CTMItem {
   incorrect: string
   correct: string
 }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 // ── Individual Host Panel ─────────────────────────────────────────────────────
 // Host-paced: one sentence at a time, synced to every student. The host sees

@@ -421,7 +421,7 @@ export function MissionBriefingContentEditor({ set, initialItems, aiFill }: Prop
                   targets={[{
                     kind: 'bulk',
                     label: 'Role cards',
-                    hint: '3-4 roles whose secret objectives pull against each other.',
+                    hint: '3-8 roles (one per student) whose secret objectives pull against each other.',
                   }]}
                   separator={bulkSep}
                   onUse={text => setBulkText(text)}
@@ -476,9 +476,9 @@ export function MissionBriefingContentEditor({ set, initialItems, aiFill }: Prop
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{rows.length} briefing card{rows.length !== 1 ? 's' : ''}</p>
-              {rows.length > 4 && (
+              {rows.length > 8 && (
                 <p className="text-xs text-amber-500 font-medium flex items-center gap-1">
-                  <AlertCircle className="w-3.5 h-3.5" />Max 4 players supported
+                  <AlertCircle className="w-3.5 h-3.5" />Max 8 players supported
                 </p>
               )}
             </div>

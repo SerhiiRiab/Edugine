@@ -6,12 +6,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 import type { StoryBuilderState, StorySentence, StoryWordEntry } from './types'
 import { BookOpen, Check, Send, Trophy, PartyPopper, BookText } from 'lucide-react'
-
-const AVATAR_COLORS = [
-  'bg-violet-500', 'bg-emerald-500', 'bg-amber-500',
-  'bg-rose-500', 'bg-sky-500',
-]
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
+import { avatarBg } from '@/lib/avatar-colors'
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

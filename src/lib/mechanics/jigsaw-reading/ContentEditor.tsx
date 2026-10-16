@@ -227,10 +227,10 @@ export function JigsawReadingContentEditor({ set, initialItems }: Props) {
               <div className="space-y-1">
                 <p className="text-xs font-bold text-amber-700 uppercase tracking-wide">Tips</p>
                 {[
-                  'Split a longer article into 2–4 logical sections',
+                  'Split a longer article into logical sections — one per student',
                   'Write 3–5 discussion questions that require knowledge of ALL parts',
                   'Questions can be: comprehension, opinion, analysis or prediction',
-                  'Works best with 2–4 students — one fragment per person',
+                  'Works best with 2–8 students — one fragment per person',
                   'You can add a suggested answer after each question using: Question? | Suggested answer',
                 ].map(tip => (
                   <div key={tip} className="flex gap-2 text-sm text-amber-900">

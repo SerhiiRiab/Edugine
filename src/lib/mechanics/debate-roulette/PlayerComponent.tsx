@@ -8,13 +8,11 @@ import { RouletteWheel } from './HostComponent'
 import { useState } from 'react'
 import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { Dices, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function DebateRoulettePlayerComponent(_props: MechanicPlayerProps<DebateRouletteState>) {
   return null
 }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 function CircleTimer({ timeLeft, total, running, isMyTurn }: {
   timeLeft: number; total: number; running: boolean; isMyTurn: boolean

@@ -6,10 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { MessageSquare, Lock, PartyPopper, Users } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { RoleplayQuestState } from './types'
-import { computeTimeLeft } from './types'
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
+import { computeTimeLeft, getClaimedRoleIndex, getRoleHolders } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
+import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
 
 function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: number; running: boolean }) {
   const r = 42
@@ -57,28 +56,34 @@ export function RoleplayQuestPlayerPanel({
     [state.timerRunning, state.timerStartedAt, state.timeLeftAtStart],
   )
 
-  const myClaimedIndex = Object.entries(state.claims).find(([, pid]) => pid === participantId)?.[0]
-  const myRole = myClaimedIndex !== undefined ? state.roles[Number(myClaimedIndex)] : null
+  const myClaimedIndex = getClaimedRoleIndex(participantId, state)
+  const myRole = myClaimedIndex !== null ? state.roles[myClaimedIndex] : null
+  // More students than roles: once every role is taken, a student without one may join a taken role
+  const canShare = myClaimedIndex === null && everyCardClaimed(Object.keys(state.claims).map(Number), state.roles.length)
+  const myCoPlayers = myClaimedIndex !== null
+    ? getRoleHolders(myClaimedIndex, state).filter(pid => pid !== participantId)
+        .map(pid => participants.find(p => p.id === pid)?.nickname).filter(Boolean)
+    : []
 
   // Clear spinner once host broadcasts back the confirmed claim
   useEffect(() => {
     if (claiming === null) return
-    if (state.claims[String(claiming)] || myClaimedIndex !== undefined) {
+    if (myClaimedIndex !== null || (state.claims[String(claiming)] && !canShare)) {
       setClaiming(null)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.claims])
+  }, [state.claims, state.sharedClaims])
 
   const myPhrases = myRole?.usefulPhrases ?? []
 
   function handleClaim(itemIndex: number) {
     if (claiming !== null) return
-    if (myClaimedIndex !== undefined) return  // already have a role
-    if (state.claims[String(itemIndex)]) return  // card already taken
+    if (myClaimedIndex !== null) return  // already have a role
+    if (state.claims[String(itemIndex)] && !canShare) return  // card already taken
     if (state.status !== 'claiming') return
 
     setClaiming(itemIndex)
-    // Host validates both guards (card free + participant has no other claim),
+    // Host validates the guards (card free or sharing unlocked + participant has no other claim),
     // writes to DB as authenticated user, then rebroadcasts the updated state.
     channelRef.current?.send({
       type: 'broadcast',
@@ -134,7 +139,7 @@ export function RoleplayQuestPlayerPanel({
 
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-3">
           {/* My role (if claimed) */}
-          {myRole && myClaimedIndex !== undefined && (
+          {myRole && (
             <AnimatePresence>
               <motion.div
                 initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -145,6 +150,9 @@ export function RoleplayQuestPlayerPanel({
                   <span className="text-violet-300 text-xs font-bold uppercase tracking-wide">Your Role</span>
                 </div>
                 <h3 className="text-white font-bold text-lg">{myRole.roleName}</h3>
+                {myCoPlayers.length > 0 && (
+                  <p className="text-violet-300 text-xs">Shared with {myCoPlayers.join(', ')} — play it together</p>
+                )}
                 <p className="text-slate-300 text-sm leading-relaxed">{myRole.roleDescription}</p>
                 <div className="bg-violet-800/50 border border-violet-600/40 rounded-xl px-3 py-2.5">
                   <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Your Secret Goal</p>
@@ -170,16 +178,15 @@ export function RoleplayQuestPlayerPanel({
           {/* Role cards grid */}
           <div>
             <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-2">
-              {myClaimedIndex !== undefined ? 'Other roles' : 'Pick your role'}
+              {myClaimedIndex !== null ? 'Other roles' : canShare ? 'All roles are taken — join one to play it together' : 'Pick your role'}
             </p>
             <div className="grid grid-cols-2 gap-2">
               {state.roles.map((role, i) => {
-                const claimedBy = state.claims[String(i)]
-                const claimer = claimedBy ? participants.find(p => p.id === claimedBy) : null
-                const claimeridx = claimer ? participants.findIndex(p => p.id === claimedBy) : -1
-                const isMe = claimedBy === participantId
+                const holders = getRoleHolders(i, state)
+                const isClaimed = holders.length > 0
+                const isMe = holders.includes(participantId)
                 const isClaiming = claiming === i
-                const canClaim = !claimedBy && myClaimedIndex === undefined && state.status === 'claiming'
+                const canClaim = myClaimedIndex === null && state.status === 'claiming' && (!isClaimed || canShare)
 
                 if (isMe) return null  // shown above as full card
 
@@ -187,32 +194,45 @@ export function RoleplayQuestPlayerPanel({
                   <button
                     key={i}
                     type="button"
-                    disabled={!!claimedBy || myClaimedIndex !== undefined || isClaiming}
+                    disabled={!canClaim || isClaiming}
                     onClick={() => handleClaim(i)}
                     className={`text-left rounded-2xl border px-3 py-3 transition-all ${
-                      claimedBy
-                        ? 'bg-slate-800/40 border-slate-700/50 opacity-60 cursor-not-allowed'
-                        : canClaim
-                          ? 'bg-slate-800 border-slate-600 hover:border-violet-500/70 hover:bg-violet-900/30 active:scale-[0.97] cursor-pointer'
+                      canClaim
+                        ? 'bg-slate-800 border-slate-600 hover:border-violet-500/70 hover:bg-violet-900/30 active:scale-[0.97] cursor-pointer'
+                        : isClaimed
+                          ? 'bg-slate-800/40 border-slate-700/50 opacity-60 cursor-not-allowed'
                           : 'bg-slate-800/40 border-slate-700/50 opacity-50 cursor-not-allowed'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-1 mb-1.5">
-                      <span className={`text-sm font-bold leading-tight ${claimedBy ? 'text-slate-400' : 'text-white'}`}>
+                      <span className={`text-sm font-bold leading-tight ${isClaimed && !canClaim ? 'text-slate-400' : 'text-white'}`}>
                         {role.roleName}
                       </span>
                       {isClaiming && (
                         <span className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full animate-spin shrink-0 mt-0.5" />
                       )}
                     </div>
-                    {claimedBy && claimer ? (
-                      <div className={`flex items-center gap-1.5 text-xs font-medium mt-1 px-1.5 py-0.5 rounded-full w-fit text-white ${avatarBg(claimeridx)}`}>
-                        <Lock className="w-2.5 h-2.5" />
-                        {claimer.nickname}
-                      </div>
-                    ) : claimedBy ? (
-                      <div className="flex items-center gap-1 text-xs text-slate-400">
-                        <Lock className="w-2.5 h-2.5" />taken
+                    {isClaimed ? (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {holders.map(pid => {
+                          const holderIdx = participants.findIndex(p => p.id === pid)
+                          const holder = holderIdx >= 0 ? participants[holderIdx] : null
+                          return holder ? (
+                            <div key={pid} className={`flex items-center gap-1.5 text-xs font-medium px-1.5 py-0.5 rounded-full w-fit text-white ${avatarBg(holderIdx)}`}>
+                              <Lock className="w-2.5 h-2.5" />
+                              {holder.nickname}
+                            </div>
+                          ) : (
+                            <div key={pid} className="flex items-center gap-1 text-xs text-slate-400">
+                              <Lock className="w-2.5 h-2.5" />taken
+                            </div>
+                          )
+                        })}
+                        {canClaim && (
+                          <div className="flex items-center gap-1 text-xs text-violet-300 w-full mt-0.5">
+                            <Users className="w-2.5 h-2.5" />tap to join
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
@@ -275,6 +295,9 @@ export function RoleplayQuestPlayerPanel({
                 <span className="text-violet-300 text-xs font-bold uppercase tracking-wide">Your Role</span>
               </div>
               <h3 className="text-white font-bold text-xl">{myRole.roleName}</h3>
+              {myCoPlayers.length > 0 && (
+                <p className="text-violet-300 text-xs">Shared with {myCoPlayers.join(', ')} — play it together</p>
+              )}
               <p className="text-slate-300 text-sm leading-relaxed">{myRole.roleDescription}</p>
               <div className="bg-violet-800/50 border border-violet-600/40 rounded-xl px-3 py-2.5">
                 <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Secret Goal</p>
@@ -307,10 +330,8 @@ export function RoleplayQuestPlayerPanel({
             <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide text-center">In this scene</p>
             <div className="flex flex-wrap justify-center gap-2">
               {state.roles.map((role, i) => {
-                const claimedBy = state.claims[String(i)]
-                const claimer = claimedBy ? participants.find(p => p.id === claimedBy) : null
-                const claimeridx = claimer ? participants.findIndex(p => p.id === claimedBy) : -1
-                const isMe = claimedBy === participantId
+                const holders = getRoleHolders(i, state)
+                const isMe = holders.includes(participantId)
                 return (
                   <div
                     key={i}
@@ -320,11 +341,15 @@ export function RoleplayQuestPlayerPanel({
                         : 'border-slate-700 bg-slate-800/50 text-slate-400'
                     }`}
                   >
-                    {claimer && (
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${avatarBg(claimeridx)}`}>
-                        {claimer.nickname[0].toUpperCase()}
-                      </div>
-                    )}
+                    {holders.map(pid => {
+                      const holderIdx = participants.findIndex(p => p.id === pid)
+                      const holder = holderIdx >= 0 ? participants[holderIdx] : null
+                      return holder && (
+                        <div key={pid} className={`w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${avatarBg(holderIdx)}`}>
+                          {holder.nickname[0].toUpperCase()}
+                        </div>
+                      )
+                    })}
                     <span className="font-medium">{role.roleName}</span>
                     {isMe && <span className="text-[9px] text-violet-400">●</span>}
                   </div>

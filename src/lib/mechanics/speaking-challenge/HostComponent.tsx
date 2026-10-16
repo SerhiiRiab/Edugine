@@ -9,9 +9,7 @@ import {
 } from 'lucide-react'
 import type { SpeakingChallengeState } from './types'
 import { computeTurnTimeLeft, computeWordTimeLeft } from './types'
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
+import { avatarBg } from '@/lib/avatar-colors'
 
 function ProgressBar({ value, max, low }: { value: number; max: number; low?: boolean }) {
   const pct = max > 0 ? Math.max(0, value / max) * 100 : 0

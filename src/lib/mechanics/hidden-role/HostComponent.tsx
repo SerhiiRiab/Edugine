@@ -6,11 +6,9 @@ import { Play, Pause, RotateCcw, StopCircle, Shield, Eye, ChevronRight, Users, U
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
 import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function HiddenRoleHostComponent(_props: MechanicHostProps<HiddenRoleState>) { return null }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 const PHASE_LABELS: Record<number, string> = { 0: 'Selection', 1: 'Role Reveal', 2: 'Discussion', 3: 'Voting', 4: 'Reveal' }
 
@@ -107,7 +105,8 @@ export function HiddenRoleHostPanel({
   const totalPlayers = participants.length + (tutorItem ? 1 : 0)
 
   if (state.status === 'finished') {
-    const spyPlayer = participants.find(p => getItem(p.id)?.isSpy)
+    // Two students hold the spy role when it was shared
+    const spyPlayers = participants.filter(p => getItem(p.id)?.isSpy)
     const spyRoleName = items.find(i => i.isSpy)?.roleName ?? 'The spy'
     const tutorIsSpy = tutorItem?.isSpy ?? false
     return (
@@ -116,7 +115,7 @@ export function HiddenRoleHostPanel({
         <p className="font-bold text-slate-800 text-lg">{state.spyWins ? `${spyRoleName} wins!` : `Investigators win! ${spyRoleName} has been caught!`}</p>
         {tutorIsSpy
           ? <p className="text-sm text-slate-500">The spy was <span className="font-bold text-rose-600">you ({tutorNickname})</span> ({tutorItem?.roleName})</p>
-          : spyPlayer && <p className="text-sm text-slate-500">The spy was <span className="font-bold text-rose-600">{spyPlayer.nickname}</span> ({getItem(spyPlayer.id)?.roleName})</p>
+          : spyPlayers.length > 0 && <p className="text-sm text-slate-500">The spy was <span className="font-bold text-rose-600">{spyPlayers.map(p => p.nickname).join(' & ')}</span> ({getItem(spyPlayers[0].id)?.roleName})</p>
         }
         <div className="flex gap-3 justify-center flex-wrap">
           {isLesson ? (
@@ -159,12 +158,14 @@ export function HiddenRoleHostPanel({
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Available roles</p>
             {items.map((item, idx) => {
-              const claimerEntry = Object.entries(state.assignments).find(([, i]) => i === idx)
-              const claimer = claimerEntry
-                ? claimerEntry[0] === TUTOR_PARTICIPANT_ID
-                  ? { nickname: tutorNickname + ' (you)' }
-                  : participants.find(p => p.id === claimerEntry[0])
-                : null
+              // Several players share a role when there are more students than roles
+              const claimerNames = Object.entries(state.assignments)
+                .filter(([, i]) => i === idx)
+                .map(([pid]) => pid === TUTOR_PARTICIPANT_ID
+                  ? tutorNickname + ' (you)'
+                  : participants.find(p => p.id === pid)?.nickname)
+                .filter(Boolean)
+              const claimer = claimerNames.length > 0 ? { nickname: claimerNames.join(', ') } : null
               const tutorHasThis = state.assignments[TUTOR_PARTICIPANT_ID] === idx
               return (
                 <div key={idx} className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${

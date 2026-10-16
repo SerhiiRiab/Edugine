@@ -7,6 +7,7 @@ import { Play, Pause, RotateCcw, ChevronRight, StopCircle, Dices, Timer, Users, 
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { DebateRouletteState } from './types'
 import { computeTimeLeft } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function DebateRouletteHostComponent(_props: MechanicHostProps<DebateRouletteState>) {
   return null
@@ -212,9 +213,6 @@ function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: nu
 }
 
 // ── Host Panel ─────────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 const DURATION_OPTIONS = [
   { label: '30s', value: 30 },

@@ -6,6 +6,7 @@ import { Play, Pause, RotateCcw, StopCircle, ChevronRight, CheckCircle2, XCircle
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
 import { computeTimeLeft } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function MissionBriefingHostComponent(_props: MechanicHostProps<MissionBriefingState>) { return null }
 
@@ -15,9 +16,6 @@ function relativeTime(sentAt: number): string {
   const mins = Math.floor(secs / 60)
   return `${mins} min ago`
 }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 const PHASE_LABELS: Record<number, string> = { 0: 'Selection', 1: 'Briefing', 2: 'Communication', 3: 'Decision', 4: 'Debrief' }
 
@@ -166,8 +164,12 @@ export function MissionBriefingHostPanel({
           <div className="space-y-2">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Available briefing cards</p>
             {items.map((item, idx) => {
-              const claimerEntry = Object.entries(state.assignments).find(([, i]) => i === idx)
-              const claimer = claimerEntry ? participants.find(p => p.id === claimerEntry[0]) : null
+              // Several students share a card when there are more students than briefings
+              const claimerNames = Object.entries(state.assignments)
+                .filter(([, i]) => i === idx)
+                .map(([pid]) => participants.find(p => p.id === pid)?.nickname)
+                .filter(Boolean)
+              const claimer = claimerNames.length > 0 ? { nickname: claimerNames.join(', ') } : null
               return (
                 <div key={idx} className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors ${claimer ? 'bg-emerald-50 border-emerald-200' : 'bg-white border-slate-200'}`}>
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-violet-500">

@@ -7,6 +7,8 @@ import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { MissionBriefingState, MissionBriefingItem } from './types'
 import { computeTimeLeft } from './types'
 import { ChevronDown, ChevronUp, FileText, Check } from 'lucide-react'
+import { avatarBg } from '@/lib/avatar-colors'
+import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
 
 export function MissionBriefingPlayerComponent(_props: MechanicPlayerProps<MissionBriefingState>) { return null }
 
@@ -16,9 +18,6 @@ function relativeTime(sentAt: number): string {
   const mins = Math.floor(secs / 60)
   return `${mins} min ago`
 }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: number; running: boolean }) {
   const r = 42, circumference = 2 * Math.PI * r
@@ -67,6 +66,8 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
   const myIndex = state.assignments[participantId]
   const myItem: MissionBriefingItem | null = myIndex !== undefined ? (items[myIndex] ?? null) : null
   const otherParticipants = participants.filter(p => p.id !== participantId)
+  // More students than briefings: once every card is taken, a student without one may share a taken card
+  const canShare = myIndex === undefined && everyCardClaimed(Object.values(state.assignments), items.length)
 
   function claimBriefing(itemIndex: number) {
     channelRef.current?.send({ type: 'broadcast', event: 'mission_briefing_claim', payload: { participantId, itemIndex } })
@@ -93,30 +94,35 @@ export function MissionBriefingPlayerPanel({ participantId, state, items, partic
       {state.phase === 0 && (
         <div className="flex-1 flex flex-col gap-4 px-4 py-4">
           <p className="text-center text-white font-bold text-lg">Choose your briefing</p>
-          <p className="text-center text-slate-400 text-xs">Tap a card to claim it. Your full briefing is revealed after claiming.</p>
+          <p className="text-center text-slate-400 text-xs">
+            {canShare
+              ? 'All briefings are taken — join one to share it with its holder.'
+              : 'Tap a card to claim it. Your full briefing is revealed after claiming.'}
+          </p>
 
           <div className="space-y-2">
             {items.map((item, idx) => {
               const claimedByMe = state.assignments[participantId] === idx
               const claimedByOther = !claimedByMe && Object.entries(state.assignments).some(([pid, i]) => i === idx && pid !== participantId)
               const claimerName = claimedByOther
-                ? (otherParticipants.find(p => state.assignments[p.id] === idx)?.nickname ?? 'Someone')
+                ? (otherParticipants.filter(p => state.assignments[p.id] === idx).map(p => p.nickname).join(', ') || 'Someone')
                 : null
+              const locked = claimedByOther && !canShare
               return (
                 <button key={idx}
-                  onClick={() => { if (!claimedByOther) claimBriefing(idx) }}
-                  disabled={claimedByOther}
+                  onClick={() => { if (!locked) claimBriefing(idx) }}
+                  disabled={locked}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-colors text-left ${
-                    claimedByMe ? 'bg-violet-900/30 border-violet-500' : claimedByOther ? 'bg-slate-800/30 border-slate-700/40 opacity-50 cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-violet-400 hover:bg-violet-900/20 active:scale-[0.98]'
+                    claimedByMe ? 'bg-violet-900/30 border-violet-500' : locked ? 'bg-slate-800/30 border-slate-700/40 opacity-50 cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-violet-400 hover:bg-violet-900/20 active:scale-[0.98]'
                   }`}
                 >
-                  <div className={`w-9 h-12 rounded-xl flex items-center justify-center shrink-0 ${claimedByMe ? 'bg-violet-600' : claimedByOther ? 'bg-slate-700' : 'bg-slate-600'}`}>
+                  <div className={`w-9 h-12 rounded-xl flex items-center justify-center shrink-0 ${claimedByMe ? 'bg-violet-600' : locked ? 'bg-slate-700' : 'bg-slate-600'}`}>
                     <FileText className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-bold text-sm ${claimedByMe ? 'text-violet-300' : claimedByOther ? 'text-slate-500' : 'text-white'}`}>{item.playerLabel}</p>
+                    <p className={`font-bold text-sm ${claimedByMe ? 'text-violet-300' : locked ? 'text-slate-500' : 'text-white'}`}>{item.playerLabel}</p>
                     <p className="text-xs text-slate-500">
-                      {claimedByMe ? 'Your briefing' : claimedByOther ? `Claimed by ${claimerName}` : 'Tap to claim'}
+                      {claimedByMe ? 'Your briefing' : claimedByOther ? `Claimed by ${claimerName}${canShare ? ' — tap to join' : ''}` : 'Tap to claim'}
                     </p>
                   </div>
                   {claimedByMe && <Check className="w-4 h-4 text-violet-400 shrink-0" />}

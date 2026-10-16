@@ -7,11 +7,10 @@ import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
 import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
 import { Shield, Eye, Check, Gamepad2 } from 'lucide-react'
+import { avatarBg } from '@/lib/avatar-colors'
+import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
 
 export function HiddenRolePlayerComponent(_props: MechanicPlayerProps<HiddenRoleState>) { return null }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: number; running: boolean }) {
   const r = 42, circumference = 2 * Math.PI * r
@@ -61,6 +60,8 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
     : null
   const votableParticipants = [...otherParticipants, ...(tutorParticipant ? [tutorParticipant] : [])]
   const totalPlayers = participants.length + (tutorParticipant ? 1 : 0)
+  // More students than roles: once every role is taken, a student without one may share a taken role
+  const canShare = myIndex === undefined && everyCardClaimed(Object.values(state.assignments), items.length)
 
   function claimRole(itemIndex: number) {
     channelRef.current?.send({ type: 'broadcast', event: 'hidden_role_claim', payload: { participantId, itemIndex } })
@@ -79,7 +80,9 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
   }
 
   if (state.status === 'finished') {
-    const spyPlayer = participants.find(p => (state.assignments[p.id] !== undefined) && items[state.assignments[p.id]]?.isSpy)
+    // Two students hold the spy role when it was shared
+    const spyPlayers = participants.filter(p => (state.assignments[p.id] !== undefined) && items[state.assignments[p.id]]?.isSpy)
+    const otherSpies = spyPlayers.filter(p => p.id !== participantId)
     const tutorIsSpy = tutorParticipant && (items[state.assignments[TUTOR_PARTICIPANT_ID]]?.isSpy ?? false)
     const spyRoleName = items.find(i => i.isSpy)?.roleName ?? 'The spy'
     const iAmSpy = myItem?.isSpy ?? false
@@ -87,9 +90,9 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
       <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6 text-center">
         <div className="text-5xl">{state.spyWins ? '🕵️' : '🔍'}</div>
         <p className="text-white font-extrabold text-xl">{state.spyWins ? `${spyRoleName} wins!` : `Investigators win! ${spyRoleName} has been caught!`}</p>
-        {iAmSpy && <p className="text-rose-400 text-sm font-semibold">You were the spy!</p>}
+        {iAmSpy && <p className="text-rose-400 text-sm font-semibold">You were the spy{otherSpies.length > 0 ? ` (with ${otherSpies.map(p => p.nickname).join(', ')})` : ''}!</p>}
         {tutorIsSpy && !iAmSpy && <p className="text-slate-300 text-sm">The spy was <span className="font-bold text-rose-400">{state.tutorNickname}</span> (teacher)</p>}
-        {spyPlayer && !iAmSpy && !tutorIsSpy && <p className="text-slate-300 text-sm">The spy was <span className="font-bold text-rose-400">{spyPlayer.nickname}</span></p>}
+        {spyPlayers.length > 0 && !iAmSpy && !tutorIsSpy && <p className="text-slate-300 text-sm">The spy was <span className="font-bold text-rose-400">{spyPlayers.map(p => p.nickname).join(' & ')}</span></p>}
       </div>
     )
   }
@@ -101,30 +104,35 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
       {state.phase === 0 && (
         <div className="flex-1 flex flex-col gap-4 px-4 py-4">
           <p className="text-center text-white font-bold text-lg">Choose your role</p>
-          <p className="text-center text-slate-400 text-xs">Tap a role to claim it. Your full card is revealed after claiming.</p>
+          <p className="text-center text-slate-400 text-xs">
+            {canShare
+              ? 'All roles are taken — join one to play it together with its holder.'
+              : 'Tap a role to claim it. Your full card is revealed after claiming.'}
+          </p>
 
           <div className="space-y-2">
             {items.map((item, idx) => {
               const claimedByMe = state.assignments[participantId] === idx
               const claimedByOther = !claimedByMe && Object.entries(state.assignments).some(([pid, i]) => i === idx && pid !== participantId)
               const claimerName = claimedByOther
-                ? (otherParticipants.find(p => state.assignments[p.id] === idx)?.nickname ?? 'Someone')
+                ? (votableParticipants.filter(p => state.assignments[p.id] === idx).map(p => p.nickname).join(', ') || 'Someone')
                 : null
+              const locked = claimedByOther && !canShare
               return (
                 <button key={idx}
-                  onClick={() => { if (!claimedByOther) claimRole(idx) }}
-                  disabled={claimedByOther}
+                  onClick={() => { if (!locked) claimRole(idx) }}
+                  disabled={locked}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border-2 transition-colors text-left ${
-                    claimedByMe ? 'bg-pink-900/30 border-pink-500' : claimedByOther ? 'bg-slate-800/30 border-slate-700/40 opacity-50 cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-pink-400 hover:bg-pink-900/20 active:scale-[0.98]'
+                    claimedByMe ? 'bg-pink-900/30 border-pink-500' : locked ? 'bg-slate-800/30 border-slate-700/40 opacity-50 cursor-not-allowed' : 'bg-slate-800 border-slate-700 hover:border-pink-400 hover:bg-pink-900/20 active:scale-[0.98]'
                   }`}
                 >
-                  <div className={`w-9 h-12 rounded-xl flex items-center justify-center shrink-0 ${claimedByMe ? 'bg-pink-600' : claimedByOther ? 'bg-slate-700' : 'bg-slate-600'}`}>
+                  <div className={`w-9 h-12 rounded-xl flex items-center justify-center shrink-0 ${claimedByMe ? 'bg-pink-600' : locked ? 'bg-slate-700' : 'bg-slate-600'}`}>
                     <Shield className="w-5 h-5 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className={`font-bold text-sm ${claimedByMe ? 'text-pink-300' : claimedByOther ? 'text-slate-500' : 'text-white'}`}>{item.roleName}</p>
+                    <p className={`font-bold text-sm ${claimedByMe ? 'text-pink-300' : locked ? 'text-slate-500' : 'text-white'}`}>{item.roleName}</p>
                     <p className="text-xs text-slate-500">
-                      {claimedByMe ? 'Your role' : claimedByOther ? `Claimed by ${claimerName}` : 'Tap to claim'}
+                      {claimedByMe ? 'Your role' : claimedByOther ? `Claimed by ${claimerName}${canShare ? ' — tap to join' : ''}` : 'Tap to claim'}
                     </p>
                   </div>
                   {claimedByMe && <Check className="w-4 h-4 text-pink-400 shrink-0" />}

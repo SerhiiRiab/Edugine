@@ -4,7 +4,8 @@ import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import type { MechanicPlayerProps } from '@/lib/mechanics/types'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { JigsawReadingState, JigsawReadingItem } from './types'
-import { computeTimeLeft, getClaimedFragmentIndices } from './types'
+import { computeTimeLeft, getClaimedFragmentIndices, getFragmentReaders } from './types'
+import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
 
 export function JigsawReadingPlayerComponent(_props: MechanicPlayerProps<JigsawReadingState>) {
   return null
@@ -42,7 +43,9 @@ export interface JigsawReadingPlayerPanelProps {
 export function JigsawReadingPlayerPanel({
   participantId, state, items, participants, channelRef, activityIndex,
 }: JigsawReadingPlayerPanelProps) {
-  const myFragmentIndices = getClaimedFragmentIndices(participantId, state.claims)
+  const myFragmentIndices = getClaimedFragmentIndices(participantId, state)
+  // More students than fragments: once every fragment is taken, a student without one may co-read a taken one
+  const canShare = myFragmentIndices.length === 0 && everyCardClaimed(Object.keys(state.claims).map(Number), items.length)
 
   const currentDuration = state.phase === 'read' ? state.readTimerDuration : state.shareTimerDuration
   const timerActive = (state.phase === 'read' || state.phase === 'share') && state.timerRunning && currentDuration !== 0
@@ -55,7 +58,7 @@ export function JigsawReadingPlayerPanel({
   const currentQuestion = state.questions[state.currentQuestionIndex] ?? null
 
   function handleClaim(fragmentIndex: number) {
-    if (state.claims[String(fragmentIndex)]) return  // already claimed
+    if (state.claims[String(fragmentIndex)] && !canShare) return  // already claimed
     channelRef.current?.send({
       type: 'broadcast',
       event: 'jigsaw_reading_claim',
@@ -193,7 +196,7 @@ export function JigsawReadingPlayerPanel({
         {/* Others reading indicator */}
         <OtherReadingIndicator
           participantId={participantId}
-          claims={state.claims}
+          state={state}
           items={items}
           participants={participants}
         />
@@ -206,26 +209,45 @@ export function JigsawReadingPlayerPanel({
     <div className="flex-1 flex flex-col overflow-y-auto p-4 gap-4">
       <div className="bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-center">
         <p className="text-violet-400 text-sm font-bold uppercase tracking-wide">Claim Fragments</p>
-        <p className="text-slate-400 text-xs mt-0.5">Pick the text(s) you want to read</p>
+        <p className="text-slate-400 text-xs mt-0.5">
+          {canShare ? 'All fragments are taken — join one to read it together' : 'Pick the text(s) you want to read'}
+        </p>
       </div>
 
       <div className="space-y-2">
         {items.map((item, i) => {
-          const claimerPid = state.claims[String(i)] ?? null
-          const claimer = claimerPid ? participants.find(p => p.id === claimerPid) : null
-          const isOwnClaim = claimerPid === participantId
-          const isClaimed = !!claimerPid
+          const readers = getFragmentReaders(i, state)
+          const readerNames = (pids: string[]) => pids.map(pid => participants.find(p => p.id === pid)?.nickname ?? '…').join(', ')
+          const isOwnClaim = readers.includes(participantId)
+          const isClaimed = readers.length > 0
 
           if (isOwnClaim) {
+            const coReaders = readers.filter(pid => pid !== participantId)
             return (
               <div key={i} className="bg-violet-900/40 border-2 border-violet-500/60 rounded-2xl p-4 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-violet-600 text-white text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-white">{item.title}</p>
-                  <p className="text-xs text-violet-300 mt-0.5">You claimed this</p>
+                  <p className="text-xs text-violet-300 mt-0.5">
+                    {coReaders.length > 0 ? `You're reading this with ${readerNames(coReaders)}` : 'You claimed this'}
+                  </p>
                 </div>
                 <span className="text-[10px] bg-violet-700/60 text-violet-200 font-bold px-2 py-0.5 rounded-full shrink-0">Yours</span>
               </div>
+            )
+          }
+
+          if (isClaimed && canShare) {
+            return (
+              <button key={i} type="button" onClick={() => handleClaim(i)}
+                className="w-full bg-slate-800 border-2 border-slate-700 hover:border-violet-500/60 hover:bg-violet-900/20 rounded-2xl p-4 flex items-center gap-3 transition-all text-left active:scale-[0.98]">
+                <div className="w-8 h-8 rounded-full bg-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white">{item.title}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Read by {readerNames(readers)} — tap to join</p>
+                </div>
+                <span className="text-[10px] bg-violet-800/60 text-violet-300 font-semibold px-2 py-0.5 rounded-full shrink-0">Join</span>
+              </button>
             )
           }
 
@@ -235,7 +257,7 @@ export function JigsawReadingPlayerPanel({
                 <div className="w-8 h-8 rounded-full bg-slate-700 text-slate-400 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-slate-300">{item.title}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">Claimed by {claimer?.nickname ?? '…'}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Claimed by {readerNames(readers)}</p>
                 </div>
               </div>
             )
@@ -267,16 +289,16 @@ export function JigsawReadingPlayerPanel({
 }
 
 function OtherReadingIndicator({
-  participantId, claims, items, participants,
+  participantId, state, items, participants,
 }: {
   participantId: string
-  claims: Record<string, string>
+  state: Pick<JigsawReadingState, 'claims' | 'sharedClaims'>
   items: JigsawReadingItem[]
   participants: Array<{ id: string; nickname: string }>
 }) {
-  const others = Object.entries(claims)
-    .filter(([, pid]) => pid !== participantId)
-    .map(([idxStr, pid]) => ({ fragmentIndex: Number(idxStr), pid }))
+  const others = items
+    .flatMap((_, fragmentIndex) => getFragmentReaders(fragmentIndex, state).map(pid => ({ fragmentIndex, pid })))
+    .filter(({ pid }) => pid !== participantId)
 
   if (others.length === 0) return null
 

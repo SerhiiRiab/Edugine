@@ -411,7 +411,7 @@ export const TEACHING_LAB_MECHANICS: TeachingLabMechanic[] = [
       'Role cards distributed randomly (3+ roles needed)',
       'Players discuss without revealing their role',
       'The dynamic emerges naturally from different agendas',
-      'Works best with 3-4 participants',
+      'Works best with 3-8 participants — one role each',
     ],
     bestFor: ['Strategic communication', 'Deduction', 'Trust-building', 'Complex group dynamics'],
     example: 'Alliance negotiation where one party has hidden licensing goals the other doesn\'t know about',

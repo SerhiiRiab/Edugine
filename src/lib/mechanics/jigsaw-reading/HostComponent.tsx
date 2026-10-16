@@ -5,7 +5,7 @@ import { useRafTimer } from '@/lib/hooks/useRafTimer'
 import { Play, ChevronRight, StopCircle, Timer, Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { JigsawReadingState, JigsawReadingItem } from './types'
-import { computeTimeLeft } from './types'
+import { computeTimeLeft, getFragmentReaders } from './types'
 
 export function JigsawReadingHostComponent(_props: MechanicHostProps<JigsawReadingState>) {
   return null
@@ -154,7 +154,7 @@ export function JigsawReadingHostPanel({
           )}
         </div>
 
-        <FragmentList items={items} participants={participants} claims={state.claims} />
+        <FragmentList items={items} participants={participants} state={state} />
       </div>
     )
   }
@@ -215,7 +215,7 @@ export function JigsawReadingHostPanel({
           )}
         </div>
 
-        <FragmentList items={items} participants={participants} claims={state.claims} />
+        <FragmentList items={items} participants={participants} state={state} />
       </div>
     )
   }
@@ -260,7 +260,7 @@ export function JigsawReadingHostPanel({
           ))}
         </div>
 
-        <FragmentList items={items} participants={participants} claims={state.claims} />
+        <FragmentList items={items} participants={participants} state={state} />
 
         <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
           className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
@@ -310,7 +310,7 @@ export function JigsawReadingHostPanel({
           ))}
         </div>
 
-        <FragmentList items={items} participants={participants} claims={state.claims} />
+        <FragmentList items={items} participants={participants} state={state} />
 
         <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
           className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
@@ -340,7 +340,7 @@ export function JigsawReadingHostPanel({
       </button>
 
       {/* Fragment cards — tutor sees titles + full text expandable */}
-      <FragmentList items={items} participants={participants} claims={state.claims} />
+      <FragmentList items={items} participants={participants} state={state} />
 
       <button onClick={wrap(() => { onEndGame(); return Promise.resolve() })} disabled={isBusy}
         className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-slate-200 bg-white hover:bg-red-50 hover:border-red-200 hover:text-red-600 text-slate-400 text-sm font-semibold transition-colors">
@@ -351,11 +351,11 @@ export function JigsawReadingHostPanel({
 }
 
 function FragmentList({
-  items, participants, claims,
+  items, participants, state,
 }: {
   items: JigsawReadingItem[]
   participants: Array<{ id: string; nickname: string; online: boolean }>
-  claims: Record<string, string>
+  state: Pick<JigsawReadingState, 'claims' | 'sharedClaims'>
 }) {
   const [expanded, setExpanded] = useState<number | null>(null)
 
@@ -368,8 +368,9 @@ function FragmentList({
       </div>
       <div className="divide-y divide-slate-100">
         {items.map((item, i) => {
-          const claimerPid = claims[String(i)] ?? null
-          const claimer = claimerPid ? participants.find(p => p.id === claimerPid) : null
+          const readerNames = getFragmentReaders(i, state)
+            .map(pid => participants.find(p => p.id === pid)?.nickname)
+            .filter(Boolean)
           const isOpen = expanded === i
           return (
             <div key={i}>
@@ -378,7 +379,7 @@ function FragmentList({
                 <div className="w-6 h-6 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center shrink-0">{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-slate-800 truncate">{item.title}</p>
-                  <p className="text-xs text-slate-400">{claimer ? claimer.nickname : 'Unclaimed'}</p>
+                  <p className="text-xs text-slate-400">{readerNames.length > 0 ? readerNames.join(', ') : 'Unclaimed'}</p>
                 </div>
                 {isOpen ? <EyeOff className="w-3.5 h-3.5 text-slate-300 shrink-0" /> : <Eye className="w-3.5 h-3.5 text-slate-300 shrink-0" />}
               </button>

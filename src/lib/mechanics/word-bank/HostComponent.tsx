@@ -3,6 +3,7 @@
 import { Check, X, Eye, StopCircle, Users, CheckCircle2 } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { WordBankIndividualState, WordBankSharedState, WordBankBlank } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function WordBankHostComponent(_props: MechanicHostProps<WordBankIndividualState>) {
   return null
@@ -81,9 +82,6 @@ function NavButtons({ isLesson, isLastActivity, isAdvancing, onNextActivity, onE
 }
 
 // ── Avatar helpers ────────────────────────────────────────────────────────────
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 // ── HostParticipant ───────────────────────────────────────────────────────────
 

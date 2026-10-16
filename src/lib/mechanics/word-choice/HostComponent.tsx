@@ -3,6 +3,7 @@
 import { StopCircle, Users, CheckCircle2, XCircle, Eye } from 'lucide-react'
 import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { WordChoiceIndividualState, WordChoiceBlank, WordChoiceSharedState } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 export function WordChoiceHostComponent(_props: MechanicHostProps<WordChoiceIndividualState>) {
   return null
@@ -20,9 +21,6 @@ interface HostParticipant {
   totalSwipes: number
   answers?: Record<number, boolean | number | (number | null)[]>
 }
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
 
 // ── WordChoiceIndividualHostPanel ─────────────────────────────────────────────
 

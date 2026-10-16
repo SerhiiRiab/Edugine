@@ -7,10 +7,8 @@ import {
   Users, MessageSquare, ChevronDown, ChevronUp, Eye, Lock, Timer,
 } from 'lucide-react'
 import type { RoleplayQuestState } from './types'
-import { computeTimeLeft } from './types'
-
-const AVATAR_COLORS = ['bg-violet-500', 'bg-emerald-500', 'bg-amber-500', 'bg-rose-500', 'bg-sky-500']
-function avatarBg(i: number) { return AVATAR_COLORS[i % AVATAR_COLORS.length] }
+import { computeTimeLeft, getRoleHolders } from './types'
+import { avatarBg } from '@/lib/avatar-colors'
 
 function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: number; running: boolean }) {
   const r = 42
@@ -137,21 +135,19 @@ export function RoleplayQuestHostPanel({
             Role Cards ({claimedCount}/{state.roles.length} claimed)
           </p>
           {state.roles.map((role, i) => {
-            const claimedBy = state.claims[String(i)]
-            const claimer = claimedBy ? participants.find(p => p.id === claimedBy) : null
-            const claimeridx = claimer ? participants.findIndex(p => p.id === claimedBy) : -1
+            const holders = getRoleHolders(i, state)
             return (
               <div
                 key={i}
                 className={`rounded-2xl border px-4 py-3 space-y-2 transition-colors ${
-                  claimer ? 'bg-violet-50 border-violet-200' : 'bg-white border-slate-200'
+                  holders.length > 0 ? 'bg-violet-50 border-violet-200' : 'bg-white border-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-slate-800 text-sm">{role.roleName}</span>
-                  {claimer ? (
-                    <span className={`ml-auto flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full text-white ${avatarBg(claimeridx)}`}>
-                      <Lock className="w-3 h-3" />{claimer.nickname}
+                  {holders.length > 0 ? (
+                    <span className="ml-auto flex flex-wrap justify-end gap-1">
+                      {holders.map(pid => <HolderBadge key={pid} pid={pid} participants={participants} locked />)}
                     </span>
                   ) : (
                     <span className="ml-auto text-xs text-slate-400 flex items-center gap-1">
@@ -303,16 +299,14 @@ export function RoleplayQuestHostPanel({
       <div className="space-y-2">
         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Roles in play</p>
         {state.roles.map((role, i) => {
-          const claimedBy = state.claims[String(i)]
-          const claimer = claimedBy ? participants.find(p => p.id === claimedBy) : null
-          const claimeridx = claimer ? participants.findIndex(p => p.id === claimedBy) : -1
+          const holders = getRoleHolders(i, state)
           return (
             <div key={i} className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 py-3 space-y-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-800 text-sm">{role.roleName}</span>
-                {claimer ? (
-                  <span className={`ml-auto flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full text-white ${avatarBg(claimeridx)}`}>
-                    {claimer.nickname}
+                {holders.length > 0 ? (
+                  <span className="ml-auto flex flex-wrap justify-end gap-1">
+                    {holders.map(pid => <HolderBadge key={pid} pid={pid} participants={participants} />)}
                   </span>
                 ) : (
                   <span className="ml-auto text-xs text-slate-400">unclaimed</span>
@@ -377,5 +371,19 @@ export function RoleplayQuestHostPanel({
         </button>
       </div>
     </div>
+  )
+}
+
+function HolderBadge({ pid, participants, locked }: {
+  pid: string
+  participants: Array<{ id: string; nickname: string }>
+  locked?: boolean
+}) {
+  const idx = participants.findIndex(p => p.id === pid)
+  if (idx < 0) return null
+  return (
+    <span className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full text-white ${avatarBg(idx)}`}>
+      {locked && <Lock className="w-3 h-3" />}{participants[idx].nickname}
+    </span>
   )
 }
