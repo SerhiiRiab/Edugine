@@ -54,7 +54,7 @@ import type { DebateRouletteState } from '@/lib/mechanics/debate-roulette/types'
 import { DebateRouletteHostPanel } from '@/lib/mechanics/debate-roulette/HostComponent'
 import { DebateRoulettePlayerPanel } from '@/lib/mechanics/debate-roulette/PlayerComponent'
 import type { HiddenRoleState, HiddenRoleItem } from '@/lib/mechanics/hidden-role/types'
-import { TUTOR_PARTICIPANT_ID } from '@/lib/mechanics/hidden-role/types'
+import { TUTOR_PARTICIPANT_ID, assignSpyIfUnclaimed } from '@/lib/mechanics/hidden-role/types'
 import { HiddenRoleHostPanel } from '@/lib/mechanics/hidden-role/HostComponent'
 import { HiddenRolePlayerPanel } from '@/lib/mechanics/hidden-role/PlayerComponent'
 import type { MissionBriefingState, MissionBriefingItem } from '@/lib/mechanics/mission-briefing/types'
@@ -2835,7 +2835,13 @@ export function SessionHostView({ session, lesson }: Props) {
   async function handleHiddenRoleStartReading() {
     const cur = hiddenRoleStateRef.current
     if (!cur) return
-    await hrStateUpdate({ ...cur, phase: 1 })
+    // Prefer online students so the spy doesn't land on someone who left
+    const online = participants.filter(p => p.online)
+    const studentIds = (online.length > 0 ? online : participants).map(p => p.id)
+    const assignments = assignSpyIfUnclaimed(
+      cur.assignments, currentActivityItems as unknown as HiddenRoleItem[], studentIds,
+    )
+    await hrStateUpdate({ ...cur, phase: 1, assignments })
   }
 
   async function handleHiddenRoleStartDiscussion() {

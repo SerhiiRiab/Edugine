@@ -34,6 +34,32 @@ export interface HiddenRoleState {
   tutorCandidateIndex: number | null   // pre-determined role slot for tutor (next item after distributed pool)
 }
 
+// Called when the tutor starts the game. If nobody claimed the spy card, hand
+// it to a student so the game always has a spy. Roles are hidden from the
+// other players from phase 1 on, so the swap stays secret. Preference:
+// a student with no role, then one sharing a card (so no role goes unplayed),
+// then anyone.
+export function assignSpyIfUnclaimed(
+  assignments: Record<string, number>,
+  items: Pick<HiddenRoleItem, 'isSpy'>[],
+  studentIds: string[],
+  random: () => number = Math.random,
+): Record<string, number> {
+  const spyIdx = items.findIndex(i => i.isSpy)
+  if (spyIdx < 0 || Object.values(assignments).includes(spyIdx)) return assignments
+
+  const holderCount = new Map<number, number>()
+  for (const idx of Object.values(assignments)) holderCount.set(idx, (holderCount.get(idx) ?? 0) + 1)
+
+  const withoutRole = studentIds.filter(id => assignments[id] === undefined)
+  const sharing = studentIds.filter(id => assignments[id] !== undefined && (holderCount.get(assignments[id]) ?? 0) > 1)
+  const pool = [withoutRole, sharing, studentIds].find(group => group.length > 0)
+  if (!pool) return assignments
+
+  const chosen = pool[Math.floor(random() * pool.length)]
+  return { ...assignments, [chosen]: spyIdx }
+}
+
 export function computeTimeLeft(state: HiddenRoleState): number {
   if (!state.timerRunning || !state.timerStartedAt || state.turnDuration === 0) {
     return state.timeLeftAtStart

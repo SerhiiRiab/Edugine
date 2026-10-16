@@ -211,6 +211,12 @@ export function HiddenRoleHostPanel({
             </p>
           </div>
 
+          {items.some(i => i.isSpy) && !Object.values(state.assignments).some(idx => items[idx]?.isSpy) && participants.length > 0 && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+              Nobody has the spy role yet — a random student will secretly get it when you start.
+            </p>
+          )}
+
           <button onClick={wrap(onStartReading)} disabled={isBusy}
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-pink-600 hover:bg-pink-700 disabled:opacity-40 text-white font-bold text-sm transition-colors">
             <ChevronRight className="w-4 h-4" />Start (Everyone Ready?)
