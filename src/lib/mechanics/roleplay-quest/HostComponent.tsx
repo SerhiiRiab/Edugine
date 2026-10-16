@@ -124,7 +124,7 @@ export function RoleplayQuestHostPanel({
         {/* Scenario */}
         <div className="bg-slate-800 rounded-2xl border border-slate-700 px-5 py-4">
           <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide mb-1">Scenario</p>
-          <p className="text-white font-medium text-sm leading-relaxed">
+          <p className="text-white font-medium text-sm leading-relaxed whitespace-pre-line">
             {state.scenario || <span className="text-slate-400 italic">No scenario set</span>}
           </p>
         </div>
@@ -155,8 +155,8 @@ export function RoleplayQuestHostPanel({
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-600 leading-relaxed">{role.roleDescription}</p>
-                <p className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
+                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{role.roleDescription}</p>
+                <p className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5 whitespace-pre-line">
                   Goal: {role.secretGoal}
                 </p>
               </div>
@@ -259,7 +259,7 @@ export function RoleplayQuestHostPanel({
           )}
           <div className="flex-1 min-w-0">
             <p className="text-[10px] text-violet-500 font-semibold uppercase tracking-wide mb-1">Scenario</p>
-            <p className="text-slate-800 font-medium text-sm leading-relaxed">
+            <p className="text-slate-800 font-medium text-sm leading-relaxed whitespace-pre-line">
               {state.scenario || <span className="text-slate-400 italic">No scenario</span>}
             </p>
           </div>
@@ -312,8 +312,8 @@ export function RoleplayQuestHostPanel({
                   <span className="ml-auto text-xs text-slate-400">unclaimed</span>
                 )}
               </div>
-              <p className="text-xs text-slate-600 leading-relaxed">{role.roleDescription}</p>
-              <p className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5">
+              <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-line">{role.roleDescription}</p>
+              <p className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5 whitespace-pre-line">
                 Goal: {role.secretGoal}
               </p>
             </div>
@@ -341,7 +341,7 @@ export function RoleplayQuestHostPanel({
               {allPhrases.map((phrase, i) => (
                 <div key={i} className="flex items-start gap-2 text-sm text-slate-600">
                   <span className="text-slate-300 shrink-0 mt-0.5">•</span>
-                  <span>{phrase}</span>
+                  <span className="whitespace-pre-line">{phrase}</span>
                 </div>
               ))}
             </div>

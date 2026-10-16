@@ -131,7 +131,7 @@ export function RoleplayQuestPlayerPanel({
         <div className="px-4 pt-4 pb-3">
           <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3">
             <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Scenario</p>
-            <p className="text-slate-200 text-sm leading-relaxed">
+            <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line">
               {state.scenario || 'Waiting for scenario…'}
             </p>
           </div>
@@ -153,10 +153,10 @@ export function RoleplayQuestPlayerPanel({
                 {myCoPlayers.length > 0 && (
                   <p className="text-violet-300 text-xs">Shared with {myCoPlayers.join(', ')} — play it together</p>
                 )}
-                <p className="text-slate-300 text-sm leading-relaxed">{myRole.roleDescription}</p>
+                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{myRole.roleDescription}</p>
                 <div className="bg-violet-800/50 border border-violet-600/40 rounded-xl px-3 py-2.5">
                   <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Your Secret Goal</p>
-                  <p className="text-violet-200 text-sm font-medium">{myRole.secretGoal}</p>
+                  <p className="text-violet-200 text-sm font-medium leading-relaxed whitespace-pre-line">{myRole.secretGoal}</p>
                 </div>
                 {myPhrases.length > 0 && (
                   <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-2.5 space-y-1.5">
@@ -166,7 +166,7 @@ export function RoleplayQuestPlayerPanel({
                     {myPhrases.map((phrase, i) => (
                       <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
                         <span className="text-slate-600 shrink-0 mt-0.5">•</span>
-                        <span>{phrase}</span>
+                        <span className="whitespace-pre-line">{phrase}</span>
                       </div>
                     ))}
                   </div>
@@ -278,7 +278,7 @@ export function RoleplayQuestPlayerPanel({
         {/* Scenario */}
         <div className="w-full max-w-sm bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3">
           <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Scenario</p>
-          <p className="text-slate-200 text-sm leading-relaxed">
+          <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line">
             {state.scenario || 'See your teacher for the scenario'}
           </p>
         </div>
@@ -298,10 +298,10 @@ export function RoleplayQuestPlayerPanel({
               {myCoPlayers.length > 0 && (
                 <p className="text-violet-300 text-xs">Shared with {myCoPlayers.join(', ')} — play it together</p>
               )}
-              <p className="text-slate-300 text-sm leading-relaxed">{myRole.roleDescription}</p>
+              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{myRole.roleDescription}</p>
               <div className="bg-violet-800/50 border border-violet-600/40 rounded-xl px-3 py-2.5">
                 <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Secret Goal</p>
-                <p className="text-violet-200 text-sm font-medium">{myRole.secretGoal}</p>
+                <p className="text-violet-200 text-sm font-medium leading-relaxed whitespace-pre-line">{myRole.secretGoal}</p>
               </div>
               {myPhrases.length > 0 && (
                 <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-2.5 space-y-1.5">
@@ -311,7 +311,7 @@ export function RoleplayQuestPlayerPanel({
                   {myPhrases.map((phrase, i) => (
                     <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
                       <span className="text-slate-600 shrink-0 mt-0.5">•</span>
-                      <span>{phrase}</span>
+                      <span className="whitespace-pre-line">{phrase}</span>
                     </div>
                   ))}
                 </div>
