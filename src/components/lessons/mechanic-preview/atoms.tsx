@@ -1,3 +1,5 @@
+import { FormattedText } from '@/components/ui/formatted-text'
+
 export interface PreviewContentItem {
   id: string
   position: number
@@ -15,7 +17,7 @@ export function ScenarioBlock({ text }: { text: string }) {
   return (
     <div className="bg-violet-50/60 border border-violet-100 rounded-xl p-3 mb-3">
       <p className="text-xs font-semibold text-violet-500 uppercase tracking-wide mb-1">Scenario</p>
-      <p className="text-sm text-slate-700 whitespace-pre-line">{text}</p>
+      <FormattedText text={text} className="text-sm text-slate-700" />
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { Check, X, Video, PenTool } from 'lucide-react'
 import type { MechanicId } from '@/lib/mechanics/types'
+import { BulletList, FormattedText, InlineText } from '@/components/ui/formatted-text'
 import { ScenarioBlock, NumberedList, EmptyNote, TrueFalseTag, type RendererProps } from './atoms'
 
 import type { SwipeBattleItem } from '@/lib/mechanics/swipe-battle/types'
@@ -67,9 +68,12 @@ function MissionBriefing({ description, items }: RendererProps) {
           {roles.map((r, i) => (
             <li key={i} className="p-3 rounded-lg border border-slate-100">
               <p className="font-semibold text-slate-800 text-sm mb-1">{r.playerLabel}</p>
-              <p className="text-sm text-slate-600 whitespace-pre-line">{r.briefing}</p>
-              {r.languageConstraints && r.languageConstraints.length > 0 && (
-                <p className="text-xs text-slate-400 mt-1.5">Must use: {r.languageConstraints.join(', ')}</p>
+              <FormattedText text={r.briefing} className="text-sm text-slate-600" />
+              {r.languageConstraints && r.languageConstraints.filter(Boolean).length > 0 && (
+                <div className="text-xs text-slate-400 mt-1.5">
+                  <p>Must use:</p>
+                  <BulletList items={r.languageConstraints.filter(Boolean)} />
+                </div>
               )}
             </li>
           ))}
@@ -120,7 +124,7 @@ function JigsawReading({ description, items }: RendererProps) {
       {fragments.length === 0 ? <EmptyNote /> : fragments.map((f, i) => (
         <div key={i} className="p-3 rounded-lg border border-slate-100">
           <p className="font-semibold text-slate-800 text-sm mb-1">{f.title}</p>
-          <p className="text-sm text-slate-600 whitespace-pre-line">{f.text}</p>
+          <FormattedText text={f.text} className="text-sm text-slate-600" />
         </div>
       ))}
       <NumberedList label="Comprehension questions" items={questions} />
@@ -144,7 +148,7 @@ function DramaEvent({ description, items }: RendererProps) {
                   <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: meta?.color }}>
                     {meta?.label ?? c.eventType}
                   </p>
-                  <p className="text-sm text-slate-700">{c.text}</p>
+                  <FormattedText text={c.text} className="text-sm text-slate-700" />
                 </div>
               </li>
             )
@@ -168,10 +172,13 @@ function HiddenRole({ description, items }: RendererProps) {
                 <p className="font-semibold text-slate-800 text-sm">{r.roleName}</p>
                 {r.isSpy && <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-rose-100 text-rose-600">Spy</span>}
               </div>
-              <p className="text-sm text-slate-600">{r.roleDescription}</p>
-              <p className="text-xs text-slate-500 mt-1.5"><span className="font-semibold">Secret goal:</span> {r.secretGoal}</p>
-              {r.languageConstraints?.length > 0 && (
-                <p className="text-xs text-slate-400 mt-1">Must use: {r.languageConstraints.join(', ')}</p>
+              <FormattedText text={r.roleDescription} className="text-sm text-slate-600" />
+              <p className="text-xs text-slate-500 mt-1.5 whitespace-pre-line"><span className="font-semibold">Secret goal:</span> <InlineText text={r.secretGoal} /></p>
+              {r.languageConstraints?.filter(Boolean).length > 0 && (
+                <div className="text-xs text-slate-400 mt-1">
+                  <p>Must use:</p>
+                  <BulletList items={r.languageConstraints.filter(Boolean)} />
+                </div>
               )}
             </li>
           ))}
@@ -191,10 +198,13 @@ function RoleplayQuest({ description, items }: RendererProps) {
           {roles.map((r, i) => (
             <li key={i} className="p-3 rounded-lg border border-slate-100">
               <p className="font-semibold text-slate-800 text-sm mb-1">{r.roleName}</p>
-              <p className="text-sm text-slate-600">{r.roleDescription}</p>
-              <p className="text-xs text-slate-500 mt-1.5"><span className="font-semibold">Secret goal:</span> {r.secretGoal}</p>
+              <FormattedText text={r.roleDescription} className="text-sm text-slate-600" />
+              <p className="text-xs text-slate-500 mt-1.5 whitespace-pre-line"><span className="font-semibold">Secret goal:</span> <InlineText text={r.secretGoal} /></p>
               {r.usefulPhrases && r.usefulPhrases.length > 0 && (
-                <p className="text-xs text-slate-400 mt-1">Useful phrases: {r.usefulPhrases.join(', ')}</p>
+                <div className="text-xs text-slate-400 mt-1">
+                  <p>Useful phrases:</p>
+                  <BulletList items={r.usefulPhrases} />
+                </div>
               )}
             </li>
           ))}
@@ -327,7 +337,7 @@ function ContentBlock({ items }: RendererProps) {
   if (!c) return <EmptyNote />
   return (
     <div className="space-y-3">
-      {c.text && <p className="text-sm text-slate-700 whitespace-pre-line">{c.text}</p>}
+      {c.text && <FormattedText text={c.text} className="text-sm text-slate-700" />}
       {c.type === 'video' && c.videoUrl && (
         <a
           href={c.videoUrl}
@@ -340,7 +350,7 @@ function ContentBlock({ items }: RendererProps) {
       )}
       {c.type === 'grammar_table' && c.grammarTable?.rows?.length > 0 && (
         <div className="overflow-x-auto">
-          {c.grammarTable.whenToUse && <p className="text-xs text-slate-400 mb-1.5">{c.grammarTable.whenToUse}</p>}
+          {c.grammarTable.whenToUse && <FormattedText text={c.grammarTable.whenToUse} className="text-xs text-slate-400 mb-1.5" />}
           <table className="w-full text-sm border border-slate-100 rounded-lg overflow-hidden">
             <tbody>
               {c.grammarTable.rows.map((row, i) => (
@@ -361,7 +371,7 @@ function ContentBlock({ items }: RendererProps) {
               <p className="font-semibold text-slate-800 text-sm">
                 {v.word} <span className="text-xs text-slate-400 font-normal">{v.pos}</span>
               </p>
-              <p className="text-xs text-slate-600 mt-0.5">{v.definition}</p>
+              <FormattedText text={v.definition} className="text-xs text-slate-600 mt-0.5" />
               {v.example && <p className="text-xs text-slate-400 italic mt-0.5">{v.example}</p>}
             </li>
           ))}
@@ -442,7 +452,7 @@ function StoryBuilder({ description, items }: RendererProps) {
       {description?.trim() && (
         <div className="mb-3">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Story prompt</p>
-          <p className="text-sm text-slate-700 whitespace-pre-line">{description}</p>
+          <FormattedText text={description} className="text-sm text-slate-700" />
         </div>
       )}
       {words.length === 0 ? <EmptyNote /> : (

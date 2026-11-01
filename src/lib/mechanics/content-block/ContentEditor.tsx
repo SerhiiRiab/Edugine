@@ -22,6 +22,7 @@ import { EMPTY_GRAMMAR_TABLE, EMPTY_VOCAB_CARDS } from './types'
 import type { AiFill } from '@/lib/ai/fill-editor-props'
 import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
 import { extractYouTubeId, buildYouTubeEmbedUrl, parseTimeToSeconds } from './youtube'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -392,6 +393,7 @@ export function ContentBlockContentEditorPage({ set, initialItems, aiFill }: Pro
                 px-4 py-3 resize-y transition-colors placeholder:text-slate-300
                 leading-relaxed font-medium"
             />
+            <FormattingHint text={text} />
             <p className="text-xs text-slate-400 text-right">{text.length} chars</p>
             {aiFill?.enabled && (
               <FillWithAiPanel

@@ -17,6 +17,7 @@ import {
 import { createSession } from '@/lib/actions/sessions'
 import { parseBulkText, SEPARATOR_OPTIONS, type BulkSeparator } from '@/lib/utils/bulk-import-parser'
 import type { JigsawReadingItem } from './types'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -285,6 +286,7 @@ export function JigsawReadingContentEditor({ set, initialItems }: Props) {
                   rows={5}
                   placeholder="Paste the reading passage here…"
                   className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 placeholder:text-slate-300 transition-colors resize-none leading-relaxed" />
+                <FormattingHint text={draft.text} />
               </div>
               <button type="button" onClick={handleAddDraft} disabled={!draft.title.trim() || !draft.text.trim() || addingDraft}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-semibold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
@@ -378,6 +380,7 @@ function FragmentCard({ row, index, onChange, onDelete }: {
           <textarea value={row.text} onChange={e => onChange({ text: e.target.value })}
             rows={4} placeholder="Reading passage…"
             className="w-full text-sm text-slate-600 bg-transparent outline-none border-b border-transparent focus:border-slate-300 transition-colors placeholder:text-slate-300 resize-none leading-relaxed" />
+          <FormattingHint text={row.text} />
         </div>
         <button onClick={onDelete} className="opacity-0 group-hover:opacity-100 w-7 h-7 rounded-lg flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-all shrink-0">
           <Trash2 className="w-3.5 h-3.5" />

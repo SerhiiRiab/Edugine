@@ -21,6 +21,7 @@ import type { ContentEditorProps } from '@/lib/mechanics/types'
 import type { AiFill } from '@/lib/ai/fill-editor-props'
 import { FillWithAiPanel } from '@/components/ai/fill-with-ai-panel'
 import type { MissionBriefingItem } from './types'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 export function MissionBriefingContentEditorStub(_props: ContentEditorProps<MissionBriefingItem>) { return null }
 
@@ -348,6 +349,7 @@ export function MissionBriefingContentEditor({ set, initialItems, aiFill }: Prop
               placeholder="Describe the mission scenario and shared objective that all players will see, e.g. 'Your team must evacuate survivors from a damaged building. Mission objective: Decide the evacuation route in 5 minutes.'"
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 resize-none placeholder:text-slate-300 transition-colors"
             />
+            <FormattingHint text={scenario} />
           </div>
           {aiFill?.enabled && (
             <FillWithAiPanel
@@ -383,6 +385,7 @@ export function MissionBriefingContentEditor({ set, initialItems, aiFill }: Prop
               <textarea value={draft.briefing} onChange={e => setDraft(p => ({ ...p, briefing: e.target.value }))}
                 rows={3} placeholder="Private briefing — only this player sees this information"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20 resize-none placeholder:text-slate-300 transition-colors" />
+              <FormattingHint text={draft.briefing} />
               <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Language constraints <span className="font-normal text-slate-300">(optional, one per line)</span></p>
                 <textarea
@@ -516,6 +519,7 @@ function BriefingCard({ row, index, onChange, onDelete }: {
         <textarea value={row.briefing} onChange={e => onChange({ briefing: e.target.value })}
           rows={3} placeholder="What only this player knows…"
           className="w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:border-violet-300 focus:ring-2 focus:ring-violet-200/30 resize-none placeholder:text-slate-300 transition-colors" />
+        <FormattingHint text={row.briefing} />
       </div>
 
       <div className="space-y-1">

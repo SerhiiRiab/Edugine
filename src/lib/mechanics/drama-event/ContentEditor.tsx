@@ -15,6 +15,7 @@ import { createSession } from '@/lib/actions/sessions'
 import type { ContentEditorProps } from '@/lib/mechanics/types'
 import type { DramaEventItem, EventType } from './types'
 import { EVENT_TYPES, EVENT_CONFIG, BUILT_IN_EVENTS } from './types'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 export function DramaEventContentEditorStub(_props: ContentEditorProps<DramaEventItem>) {
   return null
@@ -312,6 +313,7 @@ export function DramaEventContentEditor({ set, initialItems }: Props) {
               focus:outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20
               resize-none transition-colors placeholder:text-slate-300"
           />
+          <FormattingHint text={scenario} />
           {/* Scenario templates */}
           <div className="space-y-2">
             <p className="text-xs text-slate-400 font-medium">Quick start templates:</p>

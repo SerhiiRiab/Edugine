@@ -18,6 +18,7 @@ import {
 import { createSession } from '@/lib/actions/sessions'
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { roleplayQuestDefinition } from '@/lib/mechanics/roleplay-quest/index'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -286,6 +287,7 @@ export function RoleplayQuestContentEditor({ set, initialItems }: Props) {
               focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
               resize-none transition-colors placeholder:text-slate-300"
           />
+          <FormattingHint text={scenario} />
         </div>
 
         {/* Add role button + bulk */}
@@ -354,6 +356,7 @@ export function RoleplayQuestContentEditor({ set, initialItems }: Props) {
                         focus:outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-400/20
                         resize-none transition-colors placeholder:text-slate-300"
                     />
+                    <FormattingHint text={row.roleDescription} />
                   </div>
                   <div>
                     <label className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide block mb-1">

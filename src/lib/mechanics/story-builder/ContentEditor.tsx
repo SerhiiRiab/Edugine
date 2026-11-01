@@ -17,6 +17,7 @@ import {
 import { createSession } from '@/lib/actions/sessions'
 import { BulkImportModal } from '@/components/tutor/bulk-import-modal'
 import { storyBuilderDefinition } from '@/lib/mechanics/story-builder/index'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -263,6 +264,7 @@ export function StoryBuilderContentEditor({ set, initialItems }: Props) {
               focus:ring-2 focus:ring-emerald-100 outline-none px-4 py-3 text-slate-800
               text-sm resize-none transition-colors placeholder:text-slate-300 bg-white"
           />
+          <FormattingHint text={prompt} />
           <p className="text-xs text-slate-400 mt-1">
             This prompt is shown to all students during the activity.
           </p>

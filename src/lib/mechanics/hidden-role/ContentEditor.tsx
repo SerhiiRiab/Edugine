@@ -19,6 +19,7 @@ import { createSession } from '@/lib/actions/sessions'
 import { parseBulkText, SEPARATOR_OPTIONS, type BulkSeparator } from '@/lib/utils/bulk-import-parser'
 import type { ContentEditorProps } from '@/lib/mechanics/types'
 import type { HiddenRoleItem } from './types'
+import { FormattingHint } from '@/components/ui/formatted-text'
 
 export function HiddenRoleContentEditorStub(_props: ContentEditorProps<HiddenRoleItem>) { return null }
 
@@ -311,6 +312,7 @@ export function HiddenRoleContentEditor({ set, initialItems }: Props) {
               placeholder="Describe the situation all players will see, e.g. 'A valuable painting has gone missing from the museum…'"
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 resize-none placeholder:text-slate-300 transition-colors"
             />
+            <FormattingHint text={scenario} />
           </div>
         </div>
 
@@ -343,6 +345,7 @@ export function HiddenRoleContentEditor({ set, initialItems }: Props) {
               <textarea value={draft.roleDescription} onChange={e => setDraft(p => ({ ...p, roleDescription: e.target.value }))}
                 rows={2} placeholder="Role description (private — only this player sees this)"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 resize-none placeholder:text-slate-300 transition-colors" />
+              <FormattingHint text={draft.roleDescription} />
               <input type="text" value={draft.secretGoal} onChange={e => setDraft(p => ({ ...p, secretGoal: e.target.value }))}
                 placeholder="Secret goal (private)"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-400/20 placeholder:text-slate-300 transition-colors" />
@@ -476,6 +479,7 @@ function RoleCard({ row, index, onChange, onDelete }: {
         <textarea value={row.roleDescription} onChange={e => onChange({ roleDescription: e.target.value })}
           rows={2} placeholder="What this player knows about their role…"
           className="w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-200/30 resize-none placeholder:text-slate-300 transition-colors" />
+        <FormattingHint text={row.roleDescription} />
       </div>
 
       <div className="space-y-1">
