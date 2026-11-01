@@ -41,16 +41,25 @@ export function parseFormattedText(text: string): Block[] {
   return blocks.filter(b => b.kind !== "p" || b.text !== "")
 }
 
+// Bullet list for item arrays (e.g. language constraints); each item may span lines
+export function BulletList({ items, className }: { items: string[]; className?: string }) {
+  return (
+    <ul className={cn("space-y-0.5 list-disc pl-4", className)}>
+      {items.map((item, i) => <li key={i} className="whitespace-pre-line">{item}</li>)}
+    </ul>
+  )
+}
+
 export function FormattedText({ text, className }: { text: string; className?: string }) {
   return (
     <div className={cn("space-y-2", className)}>
       {parseFormattedText(text).map((block, i) => {
         if (block.kind === "p") return <p key={i} className="whitespace-pre-line">{block.text}</p>
-        const List = block.kind
+        if (block.kind === "ul") return <BulletList key={i} items={block.items} />
         return (
-          <List key={i} className={cn("space-y-0.5 pl-5", List === "ul" ? "list-disc" : "list-decimal")}>
+          <ol key={i} className="space-y-0.5 list-decimal pl-4">
             {block.items.map((item, j) => <li key={j} className="whitespace-pre-line">{item}</li>)}
-          </List>
+          </ol>
         )
       })}
     </div>

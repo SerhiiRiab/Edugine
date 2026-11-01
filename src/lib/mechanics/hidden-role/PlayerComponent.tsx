@@ -9,7 +9,7 @@ import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
 import { Shield, Eye, Check, Gamepad2 } from 'lucide-react'
 import { avatarBg } from '@/lib/avatar-colors'
 import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
-import { FormattedText } from '@/components/ui/formatted-text'
+import { BulletList, FormattedText } from '@/components/ui/formatted-text'
 
 export function HiddenRolePlayerComponent(_props: MechanicPlayerProps<HiddenRoleState>) { return null }
 
@@ -167,11 +167,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
                 {myItem.languageConstraints?.length > 0 && (
                   <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
-                    <ul className="space-y-1 list-disc pl-4">
-                      {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                        <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
-                      ))}
-                    </ul>
+                    <BulletList items={myItem.languageConstraints.filter(Boolean)} className="space-y-1 text-xs text-amber-300 leading-relaxed" />
                   </div>
                 )}
               </div>
@@ -213,11 +209,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
                 {myItem.languageConstraints?.length > 0 && (
                   <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
-                    <ul className="space-y-1 list-disc pl-4">
-                      {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                        <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
-                      ))}
-                    </ul>
+                    <BulletList items={myItem.languageConstraints.filter(Boolean)} className="space-y-1 text-xs text-amber-300 leading-relaxed" />
                   </div>
                 )}
               </div>
@@ -290,11 +282,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
               {myItem.languageConstraints?.length > 0 && (
                 <div className="pt-1 border-t border-slate-700/40 space-y-1">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Language constraints</p>
-                  <ul className="space-y-0.5 list-disc pl-4">
-                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                      <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
-                    ))}
-                  </ul>
+                  <BulletList items={myItem.languageConstraints.filter(Boolean)} className="text-xs text-amber-300 leading-relaxed" />
                 </div>
               )}
             </div>

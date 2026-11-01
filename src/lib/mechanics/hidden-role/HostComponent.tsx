@@ -7,7 +7,7 @@ import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
 import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
 import { avatarBg } from '@/lib/avatar-colors'
-import { FormattedText } from '@/components/ui/formatted-text'
+import { BulletList, FormattedText } from '@/components/ui/formatted-text'
 
 export function HiddenRoleHostComponent(_props: MechanicHostProps<HiddenRoleState>) { return null }
 
@@ -284,11 +284,7 @@ export function HiddenRoleHostPanel({
                 {tutorItem.languageConstraints?.filter(Boolean).length > 0 && (
                   <div className="rounded-xl px-3 py-2 bg-amber-50 border border-amber-200">
                     <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-1">Language constraints</p>
-                    <ul className="space-y-0.5 list-disc pl-4">
-                      {tutorItem.languageConstraints.filter(Boolean).map((c, i) => (
-                        <li key={i} className="text-xs text-amber-700 leading-relaxed whitespace-pre-line">{c}</li>
-                      ))}
-                    </ul>
+                    <BulletList items={tutorItem.languageConstraints.filter(Boolean)} className="text-xs text-amber-700 leading-relaxed" />
                   </div>
                 )}
               </div>

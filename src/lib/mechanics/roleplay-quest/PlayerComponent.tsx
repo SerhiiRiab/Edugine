@@ -9,6 +9,7 @@ import type { RoleplayQuestState } from './types'
 import { computeTimeLeft, getClaimedRoleIndex, getRoleHolders } from './types'
 import { avatarBg } from '@/lib/avatar-colors'
 import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
+import { BulletList, FormattedText } from '@/components/ui/formatted-text'
 
 function CircleTimer({ timeLeft, total, running }: { timeLeft: number; total: number; running: boolean }) {
   const r = 42
@@ -131,9 +132,7 @@ export function RoleplayQuestPlayerPanel({
         <div className="px-4 pt-4 pb-3">
           <div className="bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3">
             <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Scenario</p>
-            <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line">
-              {state.scenario || 'Waiting for scenario…'}
-            </p>
+            <FormattedText text={state.scenario || 'Waiting for scenario…'} className="text-slate-200 text-sm leading-relaxed" />
           </div>
         </div>
 
@@ -153,22 +152,17 @@ export function RoleplayQuestPlayerPanel({
                 {myCoPlayers.length > 0 && (
                   <p className="text-violet-300 text-xs">Shared with {myCoPlayers.join(', ')} — play it together</p>
                 )}
-                <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{myRole.roleDescription}</p>
+                <FormattedText text={myRole.roleDescription} className="text-slate-300 text-sm leading-relaxed" />
                 <div className="bg-violet-800/50 border border-violet-600/40 rounded-xl px-3 py-2.5">
                   <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Your Secret Goal</p>
-                  <p className="text-violet-200 text-sm font-medium leading-relaxed whitespace-pre-line">{myRole.secretGoal}</p>
+                  <FormattedText text={myRole.secretGoal} className="text-violet-200 text-sm font-medium leading-relaxed" />
                 </div>
                 {myPhrases.length > 0 && (
                   <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-2.5 space-y-1.5">
                     <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-1">
                       <MessageSquare className="w-3 h-3" />Useful phrases
                     </p>
-                    {myPhrases.map((phrase, i) => (
-                      <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                        <span className="text-slate-600 shrink-0 mt-0.5">•</span>
-                        <span className="whitespace-pre-line">{phrase}</span>
-                      </div>
-                    ))}
+                    <BulletList items={myPhrases} className="space-y-1.5 text-sm text-slate-300 marker:text-slate-600" />
                   </div>
                 )}
               </motion.div>
@@ -278,9 +272,7 @@ export function RoleplayQuestPlayerPanel({
         {/* Scenario */}
         <div className="w-full max-w-sm bg-slate-800/80 border border-slate-700 rounded-2xl px-4 py-3">
           <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Scenario</p>
-          <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-line">
-            {state.scenario || 'See your teacher for the scenario'}
-          </p>
+          <FormattedText text={state.scenario || 'See your teacher for the scenario'} className="text-slate-200 text-sm leading-relaxed" />
         </div>
 
         {/* My role card */}
@@ -298,22 +290,17 @@ export function RoleplayQuestPlayerPanel({
               {myCoPlayers.length > 0 && (
                 <p className="text-violet-300 text-xs">Shared with {myCoPlayers.join(', ')} — play it together</p>
               )}
-              <p className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{myRole.roleDescription}</p>
+              <FormattedText text={myRole.roleDescription} className="text-slate-300 text-sm leading-relaxed" />
               <div className="bg-violet-800/50 border border-violet-600/40 rounded-xl px-3 py-2.5">
                 <p className="text-[10px] text-violet-400 font-semibold uppercase tracking-wide mb-1">Secret Goal</p>
-                <p className="text-violet-200 text-sm font-medium leading-relaxed whitespace-pre-line">{myRole.secretGoal}</p>
+                <FormattedText text={myRole.secretGoal} className="text-violet-200 text-sm font-medium leading-relaxed" />
               </div>
               {myPhrases.length > 0 && (
                 <div className="bg-slate-800/60 border border-slate-700 rounded-xl px-3 py-2.5 space-y-1.5">
                   <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide flex items-center gap-1">
                     <MessageSquare className="w-3 h-3" />Useful phrases
                   </p>
-                  {myPhrases.map((phrase, i) => (
-                    <div key={i} className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-slate-600 shrink-0 mt-0.5">•</span>
-                      <span className="whitespace-pre-line">{phrase}</span>
-                    </div>
-                  ))}
+                  <BulletList items={myPhrases} className="space-y-1.5 text-sm text-slate-300 marker:text-slate-600" />
                 </div>
               )}
             </motion.div>
