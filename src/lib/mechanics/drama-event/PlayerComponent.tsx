@@ -8,6 +8,7 @@ import { EVENT_CONFIG, computeTimeLeft, availableEventTypes } from './types'
 import { EventWheel, EventCard } from './HostComponent'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { Dices, History } from 'lucide-react'
+import { FormattedText } from '@/components/ui/formatted-text'
 
 export function DramaEventPlayerComponent(_props: MechanicPlayerProps<DramaEventState>) {
   return null
@@ -90,7 +91,7 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
         {state.debriefNote && (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl px-4 py-4">
             <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide mb-1">Debrief</p>
-            <p className="text-white text-sm leading-relaxed">{state.debriefNote}</p>
+            <FormattedText text={state.debriefNote} className="text-white text-sm leading-relaxed" />
           </div>
         )}
 
@@ -125,7 +126,7 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
     <div className="flex-1 flex flex-col overflow-y-auto">
       {/* Scenario strip */}
       <div className="bg-slate-800/60 border-b border-slate-700 px-4 py-2.5 shrink-0 max-h-32 overflow-y-auto">
-        <p className="text-slate-400 text-xs leading-relaxed">{state.scenario}</p>
+        <FormattedText text={state.scenario} className="text-slate-400 text-xs leading-relaxed" />
       </div>
 
       <div className="flex-1 flex flex-col gap-4 px-4 py-4">
@@ -195,7 +196,7 @@ export function DramaEventPlayerPanel({ state, channelRef }: DramaEventPlayerPan
                 {EVENT_CONFIG[state.currentEventType].label}
               </span>
             </div>
-            <p className="text-white font-bold text-base leading-snug">{state.currentEventText}</p>
+            <FormattedText text={state.currentEventText} className="text-white font-bold text-base leading-snug" />
             <p className="text-slate-400 text-xs italic">Think about how this applies to your scenario and react in character.</p>
           </div>
         )}

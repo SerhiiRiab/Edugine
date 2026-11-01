@@ -7,6 +7,7 @@ import type { MechanicHostProps } from '@/lib/mechanics/types'
 import type { HiddenRoleState, HiddenRoleItem } from './types'
 import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
 import { avatarBg } from '@/lib/avatar-colors'
+import { FormattedText } from '@/components/ui/formatted-text'
 
 export function HiddenRoleHostComponent(_props: MechanicHostProps<HiddenRoleState>) { return null }
 
@@ -274,18 +275,20 @@ export function HiddenRoleHostPanel({
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Your role</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">{tutorItem.roleDescription}</p>
+                  <FormattedText text={tutorItem.roleDescription} className="text-xs text-slate-600 leading-relaxed" />
                 </div>
                 <div className={`rounded-xl px-3 py-2 ${tutorItem.isSpy ? 'bg-rose-100/60' : 'bg-slate-100'}`}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">Secret goal</p>
-                  <p className={`text-xs font-semibold leading-relaxed ${tutorItem.isSpy ? 'text-rose-600' : 'text-slate-600'}`}>{tutorItem.secretGoal}</p>
+                  <FormattedText text={tutorItem.secretGoal} className={`text-xs font-semibold leading-relaxed ${tutorItem.isSpy ? 'text-rose-600' : 'text-slate-600'}`} />
                 </div>
                 {tutorItem.languageConstraints?.filter(Boolean).length > 0 && (
                   <div className="rounded-xl px-3 py-2 bg-amber-50 border border-amber-200">
                     <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide mb-1">Language constraints</p>
-                    {tutorItem.languageConstraints.filter(Boolean).map((c, i) => (
-                      <p key={i} className="text-xs text-amber-700 leading-relaxed">• {c}</p>
-                    ))}
+                    <ul className="space-y-0.5 list-disc pl-4">
+                      {tutorItem.languageConstraints.filter(Boolean).map((c, i) => (
+                        <li key={i} className="text-xs text-amber-700 leading-relaxed whitespace-pre-line">{c}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -343,7 +346,7 @@ export function HiddenRoleHostPanel({
         <div className="space-y-4">
           <div className="bg-slate-50 rounded-2xl border border-slate-200 px-4 py-3">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Scenario</p>
-            <p className="text-sm text-slate-700 leading-relaxed">{state.scenario}</p>
+            <FormattedText text={state.scenario} className="text-sm text-slate-700 leading-relaxed" />
           </div>
 
           {/* Timer duration picker */}

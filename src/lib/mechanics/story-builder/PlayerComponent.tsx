@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { StoryBuilderState, StorySentence, StoryWordEntry } from './types'
 import { BookOpen, Check, Send, Trophy, PartyPopper, BookText } from 'lucide-react'
 import { avatarBg } from '@/lib/avatar-colors'
+import { FormattedText } from '@/components/ui/formatted-text'
 
 function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -296,9 +297,7 @@ export function StoryBuilderPlayerPanel({
       <div className="px-4 pt-3 pb-3 bg-slate-900 border-b border-slate-800">
         <div className="flex items-start gap-2">
           <BookOpen className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-          <p className="text-sm text-slate-300 leading-relaxed">
-            {storyState.prompt || 'Tell a story together...'}
-          </p>
+          <FormattedText text={storyState.prompt || 'Tell a story together...'} className="text-sm text-slate-300 leading-relaxed" />
         </div>
       </div>
 

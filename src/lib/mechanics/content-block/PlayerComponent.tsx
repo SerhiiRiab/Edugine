@@ -6,6 +6,7 @@ import { CheckCircle2, FileText, Video, MessageSquare, Table2, BookOpen } from '
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { ContentBlockState } from './types'
 import { buildYouTubeEmbedUrl } from './youtube'
+import { FormattedText } from '@/components/ui/formatted-text'
 
 export interface ContentBlockPlayerPanelProps {
   participantId: string
@@ -131,7 +132,7 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
             </p>
           </div>
           <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-5 w-full max-w-sm text-center">
-            <p className="text-white font-semibold text-base leading-relaxed">{currentQuestion}</p>
+            <FormattedText text={currentQuestion} className="text-white font-semibold text-base leading-relaxed" />
           </div>
           <p className="text-slate-500 text-xs text-center">Discuss with your class!</p>
         </div>
@@ -148,9 +149,9 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
               transition={{ duration: 0.35 }}
               className="bg-slate-800/60 rounded-2xl border border-slate-700/60 px-5 sm:px-7 py-6"
             >
-              <p className="text-white leading-[1.8] text-base sm:text-lg font-medium whitespace-pre-wrap">
-                {content.text || <span className="text-slate-500 italic">No content</span>}
-              </p>
+              {content.text
+                ? <FormattedText text={content.text} className="text-white leading-[1.8] text-base sm:text-lg font-medium space-y-4" />
+                : <p className="text-slate-500 italic">No content</p>}
             </motion.div>
           ) : content.type === 'video' ? (
             <motion.div
@@ -186,7 +187,7 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
               {content.grammarTable.whenToUse && (
                 <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 mb-5">
                   <Table2 className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-                  <p className="text-orange-200 text-sm leading-relaxed">{content.grammarTable.whenToUse}</p>
+                  <FormattedText text={content.grammarTable.whenToUse} className="text-orange-200 text-sm leading-relaxed" />
                 </div>
               )}
               {content.grammarTable.rows.length === 0 ? (
@@ -223,7 +224,7 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
               {content.vocabCards.whenToUse && (
                 <div className="flex items-start gap-2 bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 mb-5">
                   <BookOpen className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
-                  <p className="text-orange-200 text-sm leading-relaxed">{content.vocabCards.whenToUse}</p>
+                  <FormattedText text={content.vocabCards.whenToUse} className="text-orange-200 text-sm leading-relaxed" />
                 </div>
               )}
               {content.vocabCards.cards.length === 0 ? (
@@ -240,7 +241,7 @@ export function ContentBlockPlayerPanel({ participantId, state, onGotIt, channel
                           </span>
                         )}
                       </div>
-                      <p className="text-slate-300 text-sm leading-relaxed">{card.definition}</p>
+                      <FormattedText text={card.definition} className="text-slate-300 text-sm leading-relaxed" />
                       {card.example && (
                         <p className="text-slate-500 text-sm italic mt-1.5">&ldquo;{card.example}&rdquo;</p>
                       )}

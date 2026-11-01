@@ -9,6 +9,7 @@ import { computeTimeLeft, TUTOR_PARTICIPANT_ID } from './types'
 import { Shield, Eye, Check, Gamepad2 } from 'lucide-react'
 import { avatarBg } from '@/lib/avatar-colors'
 import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
+import { FormattedText } from '@/components/ui/formatted-text'
 
 export function HiddenRolePlayerComponent(_props: MechanicPlayerProps<HiddenRoleState>) { return null }
 
@@ -157,18 +158,20 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
               <div className="space-y-3">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Your role</p>
-                  <p className="text-sm text-slate-200 leading-relaxed">{myItem.roleDescription}</p>
+                  <FormattedText text={myItem.roleDescription} className="text-sm text-slate-200 leading-relaxed" />
                 </div>
                 <div className={`rounded-xl px-4 py-3 ${myItem.isSpy ? 'bg-rose-900/40 border border-rose-700/40' : 'bg-pink-900/30 border border-pink-700/40'}`}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Secret goal</p>
-                  <p className={`text-sm font-semibold leading-relaxed ${myItem.isSpy ? 'text-rose-300' : 'text-pink-300'}`}>{myItem.secretGoal}</p>
+                  <FormattedText text={myItem.secretGoal} className={`text-sm font-semibold leading-relaxed ${myItem.isSpy ? 'text-rose-300' : 'text-pink-300'}`} />
                 </div>
                 {myItem.languageConstraints?.length > 0 && (
                   <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
-                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                      <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
-                    ))}
+                    <ul className="space-y-1 list-disc pl-4">
+                      {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                        <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -201,18 +204,20 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
               <div className="space-y-3">
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Your role</p>
-                  <p className="text-sm text-slate-200 leading-relaxed">{myItem.roleDescription}</p>
+                  <FormattedText text={myItem.roleDescription} className="text-sm text-slate-200 leading-relaxed" />
                 </div>
                 <div className={`rounded-xl px-4 py-3 ${myItem.isSpy ? 'bg-rose-900/40 border border-rose-700/40' : 'bg-pink-900/30 border border-pink-700/40'}`}>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1">Secret goal</p>
-                  <p className={`text-sm font-semibold leading-relaxed ${myItem.isSpy ? 'text-rose-300' : 'text-pink-300'}`}>{myItem.secretGoal}</p>
+                  <FormattedText text={myItem.secretGoal} className={`text-sm font-semibold leading-relaxed ${myItem.isSpy ? 'text-rose-300' : 'text-pink-300'}`} />
                 </div>
                 {myItem.languageConstraints?.length > 0 && (
                   <div className="rounded-xl px-4 py-3 bg-amber-900/20 border border-amber-700/30">
                     <p className="text-[10px] font-bold text-amber-400 uppercase tracking-wide mb-1.5">Language constraints</p>
-                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                      <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
-                    ))}
+                    <ul className="space-y-1 list-disc pl-4">
+                      {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                        <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
+                      ))}
+                    </ul>
                   </div>
                 )}
               </div>
@@ -227,7 +232,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
           {state.scenario && (
             <div className="bg-slate-800/60 border border-slate-700 rounded-2xl px-4 py-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1.5">Scenario</p>
-              <p className="text-xs text-slate-300 leading-relaxed">{state.scenario}</p>
+              <FormattedText text={state.scenario} className="text-xs text-slate-300 leading-relaxed" />
             </div>
           )}
 
@@ -259,7 +264,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
           {state.scenario && (
             <div className="bg-slate-800 border border-slate-700 rounded-2xl px-5 py-4">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Scenario</p>
-              <p className="text-sm text-slate-200 leading-relaxed">{state.scenario}</p>
+              <FormattedText text={state.scenario} className="text-sm text-slate-200 leading-relaxed" />
             </div>
           )}
 
@@ -281,13 +286,15 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
             <div className={`rounded-2xl border px-4 py-3 mt-auto space-y-2 ${myItem.isSpy ? 'bg-rose-900/20 border-rose-700/40' : 'bg-slate-800/60 border-slate-700/40'}`}>
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Your role reminder</p>
               <p className={`text-sm font-bold ${myItem.isSpy ? 'text-rose-300' : 'text-pink-300'}`}>{myItem.roleName}</p>
-              <p className="text-xs text-slate-400 leading-relaxed">{myItem.secretGoal}</p>
+              <FormattedText text={myItem.secretGoal} className="text-xs text-slate-400 leading-relaxed" />
               {myItem.languageConstraints?.length > 0 && (
                 <div className="pt-1 border-t border-slate-700/40 space-y-1">
                   <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Language constraints</p>
-                  {myItem.languageConstraints.filter(Boolean).map((c, i) => (
-                    <p key={i} className="text-xs text-amber-300 leading-relaxed">• {c}</p>
-                  ))}
+                  <ul className="space-y-0.5 list-disc pl-4">
+                    {myItem.languageConstraints.filter(Boolean).map((c, i) => (
+                      <li key={i} className="text-xs text-amber-300 leading-relaxed whitespace-pre-line">{c}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
@@ -362,7 +369,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
                     {voteCount > 0 && <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${item?.isSpy ? 'bg-rose-700/50 text-rose-300' : 'bg-slate-700 text-slate-300'}`}>{voteCount}v</span>}
                     {state.voteWinner === p.id && <Eye className="w-4 h-4 text-yellow-400 shrink-0" />}
                   </div>
-                  {item && <p className="text-xs text-slate-400 leading-relaxed pl-10">{item.roleDescription}</p>}
+                  {item && <FormattedText text={item.roleDescription} className="text-xs text-slate-400 leading-relaxed pl-10" />}
                 </div>
               )
             })}
@@ -382,7 +389,7 @@ export function HiddenRolePlayerPanel({ participantId, state, items, participant
                     {tutorVotes > 0 && <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${tutorRevealItem?.isSpy ? 'bg-rose-700/50 text-rose-300' : 'bg-slate-700 text-slate-300'}`}>{tutorVotes}v</span>}
                     {state.voteWinner === TUTOR_PARTICIPANT_ID && <Eye className="w-4 h-4 text-yellow-400 shrink-0" />}
                   </div>
-                  {tutorRevealItem && <p className="text-xs text-slate-400 leading-relaxed pl-10">{tutorRevealItem.roleDescription}</p>}
+                  {tutorRevealItem && <FormattedText text={tutorRevealItem.roleDescription} className="text-xs text-slate-400 leading-relaxed pl-10" />}
                 </div>
               )
             })()}

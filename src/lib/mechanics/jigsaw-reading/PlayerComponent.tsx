@@ -6,6 +6,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js'
 import type { JigsawReadingState, JigsawReadingItem } from './types'
 import { computeTimeLeft, getClaimedFragmentIndices, getFragmentReaders } from './types'
 import { everyCardClaimed } from '@/lib/mechanics/shared-claims'
+import { FormattedText } from '@/components/ui/formatted-text'
 
 export function JigsawReadingPlayerComponent(_props: MechanicPlayerProps<JigsawReadingState>) {
   return null
@@ -96,7 +97,7 @@ export function JigsawReadingPlayerPanel({
             <p className="text-[10px] font-bold uppercase tracking-wide text-violet-400">
               Question {state.currentQuestionIndex + 1}
             </p>
-            <p className="text-2xl font-black text-white leading-snug">{currentQuestion}</p>
+            <FormattedText text={currentQuestion} className="text-2xl font-black text-white leading-snug" />
           </div>
         ) : (
           <div className="bg-slate-800 border border-slate-700 rounded-2xl p-5 text-center">
@@ -154,7 +155,7 @@ export function JigsawReadingPlayerPanel({
             <div key={idx} className="bg-slate-800 border border-slate-700 rounded-2xl p-4 space-y-2">
               <p className="text-[10px] font-bold uppercase tracking-wide text-violet-400">Your fragment (reference)</p>
               <p className="text-sm font-bold text-white">{frag.title}</p>
-              <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{frag.text}</p>
+              <FormattedText text={frag.text} className="text-sm text-slate-300 leading-relaxed" />
             </div>
           )
         })}
@@ -183,7 +184,7 @@ export function JigsawReadingPlayerPanel({
                   <span className="text-[10px] bg-violet-800/50 text-violet-300 font-bold px-2 py-0.5 rounded-full">private</span>
                 </div>
                 <p className="text-xl font-black text-white leading-snug">{frag.title}</p>
-                <p className="text-base text-slate-200 leading-relaxed whitespace-pre-wrap">{frag.text}</p>
+                <FormattedText text={frag.text} className="text-base text-slate-200 leading-relaxed" />
               </div>
             )
           })
