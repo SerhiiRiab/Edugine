@@ -12,8 +12,10 @@ type Block =
 const BULLET = /^\s*[-*•–]\s+(.*)$/
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/
 
-// Text comes from stored lesson JSON, so older items can lack a field entirely —
-// treat null/undefined as empty rather than crashing the whole page render
+// Text comes from stored lesson JSON, so older items can lack a field or hold a
+// non-string — coerce instead of crashing the whole page render
+const asText = (v: unknown): string => (v == null ? "" : String(v))
+
 export function parseFormattedText(text: string | null | undefined): Block[] {
   const blocks: Block[] = []
   let para: string[] = []
@@ -22,7 +24,7 @@ export function parseFormattedText(text: string | null | undefined): Block[] {
     para = []
   }
 
-  for (const line of (text ?? "").replace(/\r\n?/g, "\n").split("\n")) {
+  for (const line of asText(text).replace(/\r\n?/g, "\n").split("\n")) {
     const bullet = BULLET.exec(line)
     const numbered = bullet ? null : NUMBERED.exec(line)
     if (bullet || numbered) {
@@ -48,7 +50,7 @@ export type InlineSegment = { text: string; bold: boolean }
 
 // Splits **bold** spans out of a line; an unclosed or empty ** stays literal
 export function parseInlineBold(input: string | null | undefined): InlineSegment[] {
-  const text = input ?? ""
+  const text = asText(input)
   const segments: InlineSegment[] = []
   const push = (t: string, bold: boolean) => {
     if (!t) return
@@ -114,7 +116,7 @@ export function FormattingHint({ text }: { text: string | null | undefined }) {
   return (
     <div className="space-y-1.5">
       <p className="text-[11px] text-slate-400">Use **bold** for emphasis, - for bullet points</p>
-      {HAS_FORMATTING.test(text ?? "") && (
+      {HAS_FORMATTING.test(asText(text)) && (
         <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Preview</p>
           <FormattedText text={text} className="text-sm text-slate-700 leading-relaxed" />

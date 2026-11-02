@@ -157,7 +157,7 @@ export function RoleplayQuestHostPanel({
                   )}
                 </div>
                 <FormattedText text={role.roleDescription} className="text-xs text-slate-600 leading-relaxed" />
-                <FormattedText text={`Goal: ${role.secretGoal}`} className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5" />
+                <FormattedText text={`Goal: ${role.secretGoal ?? ""}`} className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5" />
               </div>
             )
           })}
@@ -312,7 +312,7 @@ export function RoleplayQuestHostPanel({
                 )}
               </div>
               <FormattedText text={role.roleDescription} className="text-xs text-slate-600 leading-relaxed" />
-              <FormattedText text={`Goal: ${role.secretGoal}`} className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5" />
+              <FormattedText text={`Goal: ${role.secretGoal ?? ""}`} className="text-xs font-medium text-violet-700 bg-violet-50 border border-violet-100 rounded-lg px-2.5 py-1.5" />
             </div>
           )
         })}
