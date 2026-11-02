@@ -12,7 +12,9 @@ type Block =
 const BULLET = /^\s*[-*•–]\s+(.*)$/
 const NUMBERED = /^\s*\d+[.)]\s+(.*)$/
 
-export function parseFormattedText(text: string): Block[] {
+// Text comes from stored lesson JSON, so older items can lack a field entirely —
+// treat null/undefined as empty rather than crashing the whole page render
+export function parseFormattedText(text: string | null | undefined): Block[] {
   const blocks: Block[] = []
   let para: string[] = []
   const flush = () => {
@@ -20,7 +22,7 @@ export function parseFormattedText(text: string): Block[] {
     para = []
   }
 
-  for (const line of text.replace(/\r\n?/g, "\n").split("\n")) {
+  for (const line of (text ?? "").replace(/\r\n?/g, "\n").split("\n")) {
     const bullet = BULLET.exec(line)
     const numbered = bullet ? null : NUMBERED.exec(line)
     if (bullet || numbered) {
@@ -45,7 +47,8 @@ export function parseFormattedText(text: string): Block[] {
 export type InlineSegment = { text: string; bold: boolean }
 
 // Splits **bold** spans out of a line; an unclosed or empty ** stays literal
-export function parseInlineBold(text: string): InlineSegment[] {
+export function parseInlineBold(input: string | null | undefined): InlineSegment[] {
+  const text = input ?? ""
   const segments: InlineSegment[] = []
   const push = (t: string, bold: boolean) => {
     if (!t) return
@@ -68,7 +71,7 @@ export function parseInlineBold(text: string): InlineSegment[] {
   return segments
 }
 
-export function InlineText({ text }: { text: string }) {
+export function InlineText({ text }: { text: string | null | undefined }) {
   return (
     <>
       {parseInlineBold(text).map((seg, i) =>
@@ -87,7 +90,7 @@ export function BulletList({ items, className }: { items: string[]; className?: 
   )
 }
 
-export function FormattedText({ text, className }: { text: string; className?: string }) {
+export function FormattedText({ text, className }: { text: string | null | undefined; className?: string }) {
   return (
     <div className={cn("space-y-2", className)}>
       {parseFormattedText(text).map((block, i) => {
@@ -107,11 +110,11 @@ const HAS_FORMATTING = /\*\*|\n\s*\n|^\s*([-*•–]|\d+[.)])\s/m
 
 // Shown under multi-line editor fields: the syntax hint, plus a live preview
 // rendered exactly as students see it once the text uses any formatting
-export function FormattingHint({ text }: { text: string }) {
+export function FormattingHint({ text }: { text: string | null | undefined }) {
   return (
     <div className="space-y-1.5">
       <p className="text-[11px] text-slate-400">Use **bold** for emphasis, - for bullet points</p>
-      {HAS_FORMATTING.test(text) && (
+      {HAS_FORMATTING.test(text ?? "") && (
         <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2">
           <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">Preview</p>
           <FormattedText text={text} className="text-sm text-slate-700 leading-relaxed" />
