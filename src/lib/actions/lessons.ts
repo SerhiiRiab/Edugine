@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
+import { LESSON_TITLE_MAX, LESSON_DESCRIPTION_MAX } from '@/lib/lesson-limits'
 
 // A lesson can have at most one lesson_board activity — the floating board
 // feature (session-host-view.tsx) always loads whichever single lesson_board
@@ -45,8 +46,8 @@ export async function createLesson(
   const language = (formData.get('language') as string | null) ?? 'en'
 
   if (!title) return { error: 'Title is required' }
-  if (title.length > 100) return { error: 'Title must be 100 characters or less' }
-  if (description.length > 500) return { error: 'Description must be 500 characters or less' }
+  if (title.length > LESSON_TITLE_MAX) return { error: `Title must be ${LESSON_TITLE_MAX} characters or less` }
+  if (description.length > LESSON_DESCRIPTION_MAX) return { error: `Description must be ${LESSON_DESCRIPTION_MAX} characters or less` }
 
   const supabase = await createClient()
   const user = await getAuthedUser(supabase)

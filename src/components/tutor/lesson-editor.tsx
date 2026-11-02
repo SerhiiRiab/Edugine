@@ -83,6 +83,7 @@ import { searchContentSets } from '@/lib/actions/content-sets'
 import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
 import { INDIVIDUAL_ONLY, SHARED_ONLY, TIMER_SUPPORTED } from '@/lib/mechanics/activity-mode-capabilities'
 import { isRedirectError } from 'next/dist/client/components/redirect-error'
+import { LESSON_DESCRIPTION_MAX } from '@/lib/lesson-limits'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1008,12 +1009,15 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
           value={description}
           onChange={(e) => handleDescriptionChange(e.target.value)}
           placeholder="Add a lesson description... (optional)"
-          maxLength={500}
-          rows={2}
-          className="w-full mb-8 text-slate-500 bg-transparent border-0 border-b border-slate-200
+          maxLength={LESSON_DESCRIPTION_MAX}
+          rows={3}
+          className="w-full field-sizing-content min-h-[4.5rem] text-slate-500 bg-transparent border-0 border-b border-slate-200
             focus:border-violet-400 outline-none resize-none py-1 text-sm transition-colors
             placeholder:text-slate-300"
         />
+        <p className={`mb-8 mt-1 text-right text-xs tabular-nums ${description.length >= LESSON_DESCRIPTION_MAX ? 'text-red-500' : 'text-slate-300'}`}>
+          {description.length}/{LESSON_DESCRIPTION_MAX}
+        </p>
 
         {/* Tags */}
         <div className="mb-8 p-4 rounded-2xl border border-slate-100 bg-white space-y-3">
@@ -1143,12 +1147,15 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
                   value={description}
                   onChange={(e) => handleDescriptionChange(e.target.value)}
                   placeholder="What will students practise in this lesson?"
-                  maxLength={300}
-                  rows={2}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
+                  maxLength={LESSON_DESCRIPTION_MAX}
+                  rows={4}
+                  className="w-full field-sizing-content min-h-[6rem] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm
                     focus:outline-none focus:ring-2 focus:ring-sky-300 focus:border-sky-400
                     resize-none transition-colors placeholder:text-slate-300"
                 />
+                <p className={`text-right text-xs tabular-nums ${description.length >= LESSON_DESCRIPTION_MAX ? 'text-red-500' : 'text-slate-400'}`}>
+                  {description.length}/{LESSON_DESCRIPTION_MAX}
+                </p>
               </div>
 
               {/* Level */}

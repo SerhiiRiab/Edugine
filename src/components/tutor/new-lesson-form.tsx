@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react'
 import { createLesson } from '@/lib/actions/lessons'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { LESSON_TITLE_MAX, LESSON_DESCRIPTION_MAX } from '@/lib/lesson-limits'
 import {
   Select,
   SelectContent,
@@ -24,8 +25,8 @@ const LANGUAGES = [
   { value: 'other', label: 'Other' },
 ]
 
-const TITLE_MAX = 100
-const DESC_MAX = 500
+const TITLE_MAX = LESSON_TITLE_MAX
+const DESC_MAX = LESSON_DESCRIPTION_MAX
 
 export function NewLessonForm() {
   const [state, action, isPending] = useActionState(createLesson, { error: '' })
