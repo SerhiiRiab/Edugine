@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useTransition, useEffect } from 'react'
+import { useState, useTransition, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid, PenSquare } from 'lucide-react'
+import { Search, X, Shield, ChevronLeft, ChevronRight, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid, PenSquare } from 'lucide-react'
 import { updateUserPlan, setUserInvited } from './actions'
 import { FunnelPanel } from './funnel-panel'
-import { UserTimeline } from './user-timeline'
+import Link from 'next/link'
 
 type UserRow = {
   id: string
@@ -159,6 +159,27 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
   const [organicOnly, setOrganicOnly] = useState(false)
   const [tab, setTab] = useState<AdminTab>('overview')
 
+  // Users table horizontal scroll: edge shadows + ◀ ▶ buttons.
+  const tableScrollRef = useRef<HTMLDivElement>(null)
+  const [scrollEdges, setScrollEdges] = useState({ left: false, right: false })
+  const updateScrollEdges = useCallback(() => {
+    const el = tableScrollRef.current
+    if (!el) return
+    setScrollEdges({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    })
+  }, [])
+  useEffect(() => {
+    updateScrollEdges()
+    window.addEventListener('resize', updateScrollEdges)
+    return () => window.removeEventListener('resize', updateScrollEdges)
+  }, [updateScrollEdges, tab])
+  function scrollTable(dir: 1 | -1) {
+    const el = tableScrollRef.current
+    if (el) el.scrollBy({ left: dir * Math.max(300, el.clientWidth * 0.6), behavior: 'smooth' })
+  }
+
   // Keep the active tab in the URL hash (#users etc.) so it survives
   // router.refresh()/reloads and can be linked to directly.
   useEffect(() => {
@@ -305,7 +326,7 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
         </div>
       </header>
 
-      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8">
+      <div className={`p-4 sm:p-6 mx-auto space-y-8 ${tab === 'users' ? 'max-w-none' : 'max-w-7xl'}`}>
 
         {tab === 'overview' && <>
         {/* Stats */}
@@ -370,13 +391,34 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-violet-900/30 border border-violet-700/40 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
+        {/* Table — scrolls inside a viewport-height box so the horizontal
+            scrollbar is always on screen; header row and Email column stay pinned. */}
+        <div className="relative bg-violet-900/30 border border-violet-700/40 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 py-2 border-b border-violet-700/40 text-xs text-violet-400">
+            <span>Shift + mouse wheel or trackpad to scroll sideways. Click an email to open the tutor&rsquo;s page.</span>
+            <div className="flex gap-1 shrink-0">
+              <button type="button" onClick={() => scrollTable(-1)} disabled={!scrollEdges.left} aria-label="Scroll left"
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-violet-800/60 hover:bg-violet-700 text-violet-200 disabled:opacity-30 disabled:cursor-default">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={() => scrollTable(1)} disabled={!scrollEdges.right} aria-label="Scroll right"
+                className="w-8 h-8 flex items-center justify-center rounded-lg bg-violet-800/60 hover:bg-violet-700 text-violet-200 disabled:opacity-30 disabled:cursor-default">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+          {scrollEdges.right && (
+            <div aria-hidden className="pointer-events-none absolute right-0 top-[41px] bottom-0 w-10 z-20 bg-gradient-to-l from-violet-950/90 to-transparent" />
+          )}
+          <div
+            ref={tableScrollRef}
+            onScroll={updateScrollEdges}
+            className="overflow-auto max-h-[calc(100vh-15rem)] overscroll-x-contain"
+          >
             <table className="w-full text-sm">
-              <thead>
+              <thead className="sticky top-0 z-20 bg-violet-950">
                 <tr className="border-b border-violet-700/40">
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Email</th>
+                  <th className={`sticky left-0 z-30 bg-violet-950 text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400 ${scrollEdges.left ? 'shadow-[6px_0_8px_-4px_rgba(0,0,0,0.6)]' : ''}`}>Email</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Name</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Registered</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Source</th>
@@ -399,9 +441,11 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                   </tr>
                 ) : (
                   filtered.map(user => (
-                    <tr key={user.id} className="hover:bg-violet-800/20 transition-colors">
-                      <td className="px-4 py-3 font-medium text-white max-w-[220px] truncate">
-                        {user.email}
+                    <tr key={user.id} className="group hover:bg-violet-800/20 transition-colors">
+                      <td className={`sticky left-0 z-10 bg-violet-950 group-hover:bg-[#3b1a6e] px-4 py-3 font-medium text-white max-w-[240px] truncate ${scrollEdges.left ? 'shadow-[6px_0_8px_-4px_rgba(0,0,0,0.6)]' : ''}`}>
+                        <Link href={`/admin/users/${user.id}`} className="hover:text-violet-300 hover:underline">
+                          {user.email}
+                        </Link>
                         {(user.is_admin || user.exclude_from_analytics) && (
                           <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-violet-700/50 text-violet-300">internal</span>
                         )}
@@ -560,7 +604,12 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
 
             {/* Modal body */}
             <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
-              <UserTimeline userId={selectedUser.id} />
+              <Link
+                href={`/admin/users/${selectedUser.id}`}
+                className="flex items-center justify-between px-4 py-3 rounded-xl bg-violet-800/50 hover:bg-violet-700/60 text-sm font-semibold text-violet-100 transition-colors"
+              >
+                View full activity <span aria-hidden>→</span>
+              </Link>
 
               {/* Plan selector */}
               <div>
