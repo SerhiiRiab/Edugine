@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import AdminClient from './admin-client'
+import { fetchAll } from './fetch-all'
 
 const ADMIN_EMAIL = 'ryabushey@gmail.com'
 
@@ -31,13 +32,16 @@ export default async function AdminPage() {
     sessionHistoryResult,
     funnelEventsResult,
   ] = await Promise.all([
-    admin
+    // All full-table reads go through fetchAll — PostgREST silently caps a
+    // response at 1000 rows (content_sets already exceeds that).
+    fetchAll((from, to) => admin
       .from('profiles')
       .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note, last_seen_at, signup_source, utm_source, referrer, invited, exclude_from_analytics')
-      .order('created_at', { ascending: false }),
-    // Single query — just owner_id column to count per user without N+1
-    admin.from('content_sets').select('owner_id, is_copy'),
-    admin.from('lessons').select('owner_id, is_copy'),
+      .order('created_at', { ascending: false })
+      .range(from, to)),
+    // Just owner_id to count per user without N+1
+    fetchAll((from, to) => admin.from('content_sets').select('owner_id, is_copy').order('id').range(from, to)),
+    fetchAll((from, to) => admin.from('lessons').select('owner_id, is_copy').order('id').range(from, to)),
     fetchLastSignInById(admin),
     admin
       .from('session_history')
@@ -47,9 +51,10 @@ export default async function AdminPage() {
     // All history rows (host + start time only) for per-user session stats.
     // Every session_history row already implies >= 1 student (it's only
     // written when the host presses Play with a participant present).
-    admin.from('session_history').select('host_id, started_at'),
+    fetchAll((from, to) => admin.from('session_history').select('host_id, started_at').order('id').range(from, to)),
     // Funnel steps that only exist as events (no durable table behind them).
-    admin.from('product_events').select('user_id, event').in('event', ['session_started', 'student_joined']),
+    fetchAll((from, to) => admin.from('product_events').select('user_id, event')
+      .in('event', ['session_started', 'student_joined']).order('id').range(from, to)),
   ])
 
   // Build per-user count maps in JS (one pass each)

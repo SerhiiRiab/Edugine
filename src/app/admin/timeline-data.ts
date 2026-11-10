@@ -1,5 +1,6 @@
 import 'server-only'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fetchAll } from './fetch-all'
 
 export type UserEvent = {
   id: string
@@ -22,13 +23,15 @@ export async function loadUserTimeline(admin: SupabaseClient, userId: string): P
     admin.from('product_events').select('id, event, props, created_at')
       .eq('user_id', userId).order('created_at', { ascending: false }).limit(200),
     admin.from('lessons').select('id, created_at, title, is_copy, copy_inferred').eq('owner_id', userId),
-    admin.from('content_sets').select('id, created_at, mechanic_id, title, is_copy, copy_inferred').eq('owner_id', userId),
+    fetchAll((from, to) => admin.from('content_sets').select('id, created_at, mechanic_id, title, is_copy, copy_inferred')
+      .eq('owner_id', userId).order('id').range(from, to)),
     admin.from('session_history')
       .select('id, session_id, started_at, ended_at, end_reason, participant_count, lesson_id, set_id, mechanic_id')
       .eq('host_id', userId),
     // Which of this tutor's activities belong to which of their lessons —
     // to fold a copied lesson's activities into one "Copied lesson" row.
-    admin.from('lesson_activities').select('lesson_id, content_set_id, lessons!inner(owner_id)').eq('lessons.owner_id', userId),
+    fetchAll((from, to) => admin.from('lesson_activities').select('lesson_id, content_set_id, lessons!inner(owner_id)')
+      .eq('lessons.owner_id', userId).order('id').range(from, to)),
   ])
   const err = eventsRes.error ?? lessonsRes.error ?? setsRes.error ?? historyRes.error ?? linksRes.error
   if (err) throw new Error(err.message)
