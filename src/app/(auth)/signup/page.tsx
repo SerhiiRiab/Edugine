@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { readFirstTouchFromDocument } from '@/lib/analytics/first-touch'
+import { trackSignup } from '@/lib/actions/analytics'
 import { Eye, EyeOff, Mail } from 'lucide-react'
 
 function passwordStrength(pwd: string): number {
@@ -48,10 +50,13 @@ export default function SignupPage() {
 
     const redirectTo = new URLSearchParams(window.location.search).get('redirect') || ''
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        // First-touch attribution → profiles.signup_source/utm_source/referrer
+        // (copied by handle_new_user, 077_funnel_tracking.sql).
+        data: readFirstTouchFromDocument(),
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo || '/tutor/dashboard')}`,
       },
     })
@@ -60,6 +65,9 @@ export default function SignupPage() {
       setError(error.message)
       setLoading(false)
     } else {
+      // With email confirmation on, the signup event is logged by
+      // /api/auth/callback; if Supabase signed the user in right away, log it here.
+      if (data.session) trackSignup().catch(() => {})
       setRedirectAfterConfirm(redirectTo)
       setConfirmed(true)
     }

@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
+import { trackEvent } from '@/lib/analytics/track'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
 import type { TalkTimeState } from '@/lib/mechanics/talk-time/types'
@@ -99,6 +101,9 @@ export async function createLessonSession(lessonId: string) {
     .single()
 
   if (error || !session) throw new Error(error?.message ?? 'Failed to create session')
+  after(() => trackEvent(user.id, 'session_started', {
+    session_id: session.id, kind: 'lesson', lesson_id: lessonId, mechanic_id: firstActivity.mechanic_id,
+  }))
   redirect(`/tutor/sessions/${session.id}/host`)
 }
 
@@ -156,6 +161,9 @@ export async function createSession(
 
   if (error || !session) throw new Error(error?.message ?? 'Failed to create session')
 
+  after(() => trackEvent(user.id, 'session_started', {
+    session_id: session.id, kind: 'activity', set_id: contentSetId, mechanic_id: set.mechanic_id,
+  }))
   redirect(`/tutor/sessions/${session.id}/host`)
 }
 
@@ -200,11 +208,12 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
   // `status === 'waiting'` guards against double-counting if this is ever re-invoked
   // for an already-active session.
   if (session?.status === 'waiting' && turnOrder.length > 0) {
-    await supabase.rpc('increment_sessions_completed', { uid: user.id })
-
     // Durable record for admin visibility — the `sessions` row itself is
     // deleted the moment the session ends (see endSession).
-    await supabase.from('session_history').insert({
+    // profiles.sessions_completed is bumped by a trigger on this insert
+    // (077_funnel_tracking.sql), so the counter and history can't drift
+    // apart the way they did when they were two independent writes.
+    const { error: historyError } = await supabase.from('session_history').insert({
       session_id: sessionId,
       host_id: user.id,
       lesson_id: session.lesson_id,
@@ -212,6 +221,7 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
       mechanic_id: session.mechanic_id,
       participant_count: turnOrder.length,
     })
+    if (historyError) console.error('[startSession] session_history insert failed:', historyError.message)
   }
 
   return { turnOrder }
@@ -948,6 +958,10 @@ export async function launchPublicLesson(lessonId: string): Promise<{ redirectTo
     console.error('[launchPublicLesson] session insert failed:', sessionErr)
     throw new Error(sessionErr?.message ?? 'Failed to create session')
   }
+
+  after(() => trackEvent(user.id, 'session_started', {
+    session_id: session.id, kind: 'public_lesson', lesson_id: lessonId, mechanic_id: firstActivity.mechanic_id,
+  }))
 
   // Return the URL instead of calling redirect() — redirect() throws NEXT_REDIRECT
   // which gets caught by the client try/catch and treated as a regular error.

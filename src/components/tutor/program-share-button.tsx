@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { toast } from 'sonner'
 import { Share2, Loader2 } from 'lucide-react'
 import { getOrCreateProgramShareToken } from '@/lib/actions/programs'
+import { trackShareLinkCopied } from '@/lib/actions/analytics'
 
 interface Props {
   programId: string
@@ -22,6 +23,7 @@ export function ProgramShareButton({ programId }: Props) {
       const url = `${window.location.origin}/programs/share/${result.token}`
       await navigator.clipboard.writeText(url)
       toast.success('Link copied to clipboard')
+      trackShareLinkCopied('program', programId).catch(() => {})
     })
   }
 

@@ -4,6 +4,8 @@ import { randomUUID } from 'crypto'
 import { createClient, getAuthedUser } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
+import { trackEvent } from '@/lib/analytics/track'
 import { redirect } from 'next/navigation'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
@@ -61,6 +63,7 @@ export async function createLesson(
 
   if (error || !lesson) return { error: error?.message ?? 'Failed to create' }
 
+  after(() => trackEvent(user.id, 'lesson_created', { lesson_id: lesson.id }))
   revalidatePath('/tutor/lessons')
   redirect(`/tutor/lessons/${lesson.id}/edit`)
 }
@@ -305,6 +308,11 @@ export async function duplicateLesson(id: string, shareToken?: string): Promise<
     }
   }
 
+  after(() => trackEvent(user.id, 'lesson_copied', {
+    source_lesson_id: id,
+    lesson_id: newLesson.id,
+    via: shareToken ? 'share_link' : 'library',
+  }))
   revalidatePath('/tutor/lessons')
   revalidatePath('/tutor/content-sets')
   return { lessonId: newLesson.id }
@@ -380,6 +388,7 @@ export async function addActivity(
     .single()
 
   if (error || !activity) return { error: error?.message ?? 'Failed to add activity' }
+  after(() => trackEvent(user.id, 'activity_added', { mechanic_id: data.mechanic_id, lesson_id: lessonId }))
   return { id: activity.id }
 }
 
@@ -432,6 +441,7 @@ export async function createLessonBoard(
 
   if (activityError) return { error: activityError.message }
 
+  after(() => trackEvent(user.id, 'activity_added', { mechanic_id: 'lesson_board', lesson_id: lessonId }))
   revalidatePath(`/tutor/lessons/${lessonId}/edit`)
   return { contentSetId: set.id }
 }
@@ -488,6 +498,7 @@ export async function addContentSetToLesson(contentSetId: string, lessonId: stri
   })
 
   if (error) return { error: error.message }
+  after(() => trackEvent(user.id, 'activity_added', { mechanic_id, lesson_id: lessonId }))
   revalidatePath(`/tutor/lessons/${lessonId}/edit`)
   redirect(`/tutor/lessons/${lessonId}/edit`)
 }
@@ -520,6 +531,7 @@ export async function linkContentSetToLesson(contentSetId: string, lessonId: str
   })
 
   if (error) return { error: error.message }
+  after(() => trackEvent(user.id, 'activity_added', { mechanic_id, lesson_id: lessonId }))
   revalidatePath(`/tutor/content-sets/${contentSetId}/edit`)
   revalidatePath(`/tutor/lessons/${lessonId}/edit`)
   return {}

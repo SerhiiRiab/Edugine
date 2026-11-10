@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { trackShareLinkCopied } from '@/lib/actions/analytics'
 import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, initLessonBoardState, saveLessonBoardFinalSnapshot, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
@@ -4081,12 +4082,14 @@ export function SessionHostView({ session, lesson }: Props) {
 
   async function copyCode() {
     await navigator.clipboard.writeText(session.code)
+    trackShareLinkCopied('session_code', session.id).catch(() => {})
     setCodeCopied(true)
     setTimeout(() => setCodeCopied(false), 2000)
   }
 
   async function copyUrl() {
     await navigator.clipboard.writeText(shareUrl)
+    trackShareLinkCopied('session_url', session.id).catch(() => {})
     setUrlCopied(true)
     setTimeout(() => setUrlCopied(false), 2000)
   }

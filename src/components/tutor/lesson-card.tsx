@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { deleteLesson, duplicateLesson, getOrCreateShareToken } from '@/lib/actions/lessons'
+import { trackShareLinkCopied } from '@/lib/actions/analytics'
 import { LaunchLessonButton } from './launch-lesson-button'
 
 const LEVEL_COLORS: Record<string, string> = {
@@ -99,6 +100,7 @@ export function LessonCard({ lesson, onTagClick }: LessonCardProps) {
     }
     await navigator.clipboard.writeText(`${window.location.origin}/lessons/share/${result.token}`)
     toast.success('Link copied to clipboard')
+    trackShareLinkCopied('lesson', lesson.id).catch(() => {})
   }
 
   return (

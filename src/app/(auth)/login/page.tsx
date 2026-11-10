@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { readFirstTouchFromDocument } from '@/lib/analytics/first-touch'
 import { Eye, EyeOff } from 'lucide-react'
 
 export default function LoginPage() {
@@ -47,6 +48,9 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signInWithOtp({
       email: magicEmail,
       options: {
+        // Magic link creates the account if it doesn't exist yet — carry
+        // first-touch attribution the same way the signup form does.
+        data: readFirstTouchFromDocument(),
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || window.location.origin}/api/auth/callback?next=${encodeURIComponent(redirectTo || '/tutor/dashboard')}`,
       },
     })

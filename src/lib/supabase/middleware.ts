@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { FIRST_TOUCH_COOKIE, FIRST_TOUCH_MAX_AGE_S, encodeFirstTouch } from '@/lib/analytics/first-touch'
 
 const supabaseConfigured =
   process.env.NEXT_PUBLIC_SUPABASE_URL?.startsWith('https://') &&
@@ -31,6 +32,42 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 'timeout'>
 const LAST_SEEN_COOKIE = 'eg_last_seen'
 const LAST_SEEN_THROTTLE_MS = 24 * 60 * 60 * 1000
 const LAST_SEEN_TIMEOUT_MS = 3000
+
+// First-touch attribution (077_funnel_tracking.sql): on an anonymous
+// visitor's first real page load, remember the landing path, utm_source and
+// external referrer until they sign up. Only top-level document navigations
+// count — not RSC fetches, prefetches or API calls — and an existing cookie
+// is never overwritten (first touch wins).
+function captureFirstTouch(request: NextRequest, response: NextResponse) {
+  if (request.method !== 'GET') return
+  if (request.cookies.has(FIRST_TOUCH_COOKIE)) return
+  const dest = request.headers.get('sec-fetch-dest')
+  const isDocument = dest
+    ? dest === 'document'
+    : (request.headers.get('accept') ?? '').includes('text/html')
+  if (!isDocument || request.headers.has('rsc') || request.headers.has('next-router-prefetch')) return
+
+  const { pathname, searchParams, host } = request.nextUrl
+  if (/^\/(api|admin|studio|_next)(\/|$)/.test(pathname)) return
+
+  let referrer: string | null = null
+  const rawReferrer = request.headers.get('referer')
+  if (rawReferrer) {
+    try {
+      if (new URL(rawReferrer).host !== host) referrer = rawReferrer.slice(0, 500)
+    } catch { /* malformed — ignore */ }
+  }
+
+  response.cookies.set(FIRST_TOUCH_COOKIE, encodeFirstTouch({
+    signup_source: pathname.slice(0, 300),
+    utm_source: searchParams.get('utm_source')?.slice(0, 100) || null,
+    referrer,
+  }), {
+    maxAge: FIRST_TOUCH_MAX_AGE_S,
+    sameSite: 'lax',
+    path: '/',
+  })
+}
 
 export async function updateSession(request: NextRequest) {
   if (!supabaseConfigured) return NextResponse.next({ request })
@@ -68,6 +105,8 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse
   }
   const user = result.data.session?.user ?? null
+
+  if (!user) captureFirstTouch(request, supabaseResponse)
 
   if (user) {
     const cookieValue = request.cookies.get(LAST_SEEN_COOKIE)?.value

@@ -79,6 +79,7 @@ import {
   createLessonBoard,
 } from '@/lib/actions/lessons'
 import { createLessonSession } from '@/lib/actions/sessions'
+import { trackShareLinkCopied } from '@/lib/actions/analytics'
 import { searchContentSets } from '@/lib/actions/content-sets'
 import { DUPLICATE_LESSON_BOARD_MESSAGE } from '@/lib/mechanics/lesson-board/constants'
 import { INDIVIDUAL_ONLY, SHARED_ONLY, TIMER_SUPPORTED } from '@/lib/mechanics/activity-mode-capabilities'
@@ -742,6 +743,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
 
   function handleCopyLink() {
     navigator.clipboard.writeText(shareUrl).then(() => {
+      trackShareLinkCopied('lesson_public', lesson.id).catch(() => {})
       setCopyDone(true)
       setTimeout(() => setCopyDone(false), 2000)
     })
@@ -757,6 +759,7 @@ export function LessonEditor({ lesson, initialActivities, contentSets }: Props) 
       const url = `${window.location.origin}/lessons/share/${result.token}`
       await navigator.clipboard.writeText(url)
       toast.success('Link copied to clipboard')
+      trackShareLinkCopied('lesson', lesson.id).catch(() => {})
     })
   }
 

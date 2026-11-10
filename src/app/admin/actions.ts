@@ -36,3 +36,17 @@ export async function updateUserPlan(
     return { error: e instanceof Error ? e.message : 'Unknown error' }
   }
 }
+
+// Manually mark a user as invited (personally brought in by us) vs organic.
+export async function setUserInvited(userId: string, invited: boolean): Promise<{ error?: string }> {
+  try {
+    await assertAdmin()
+    const admin = createAdminClient()
+    const { error } = await admin.from('profiles').update({ invited }).eq('id', userId)
+    if (error) return { error: error.message }
+    revalidatePath('/admin')
+    return {}
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : 'Unknown error' }
+  }
+}

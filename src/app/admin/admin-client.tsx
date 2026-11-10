@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid, PenSquare } from 'lucide-react'
-import { updateUserPlan } from './actions'
+import { updateUserPlan, setUserInvited } from './actions'
 
 type UserRow = {
   id: string
@@ -18,6 +18,15 @@ type UserRow = {
   activity_count: number
   lesson_count: number
   last_active_at: string | null
+  signup_source: string | null
+  utm_source: string | null
+  referrer: string | null
+  invited: boolean
+  exclude_from_analytics: boolean
+  is_admin: boolean
+  session_count: number
+  first_student_session_at: string | null
+  session_days: number
 }
 
 type Stats = {
@@ -71,6 +80,28 @@ function formatDuration(startedAt: string, endedAt: string | null) {
   return `${hrs}h ${mins % 60}m`
 }
 
+function referrerHost(referrer: string | null) {
+  if (!referrer) return null
+  try { return new URL(referrer).host.replace(/^www\./, '') } catch { return referrer }
+}
+
+function SourceCell({ user }: { user: UserRow }) {
+  const host = referrerHost(user.referrer)
+  if (!user.signup_source && !user.utm_source && !host) {
+    return <span className="text-violet-600">—</span>
+  }
+  return (
+    <div className="flex flex-col gap-0.5 max-w-[180px]" title={[user.signup_source, user.utm_source && `utm: ${user.utm_source}`, user.referrer].filter(Boolean).join('\n')}>
+      <span className="font-mono text-xs text-violet-200 truncate">{user.signup_source ?? '—'}</span>
+      {(user.utm_source || host) && (
+        <span className="text-[11px] text-violet-400 truncate">
+          {user.utm_source ? `utm: ${user.utm_source}` : host}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function PlanBadge({ plan }: { plan: string }) {
   if (plan === 'pro') {
     return (
@@ -115,6 +146,10 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
   const router = useRouter()
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState<'all' | 'free' | 'pro'>('all')
+  const [organicOnly, setOrganicOnly] = useState(false)
+  // Optimistic overrides for the inline "invited" toggle, keyed by user id.
+  const [invitedOverrides, setInvitedOverrides] = useState<Record<string, boolean>>({})
+  const [invitedPending, setInvitedPending] = useState<string | null>(null)
 
   // Modal state
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null)
@@ -167,10 +202,29 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
     })
   }
 
+  function isInvited(u: UserRow) {
+    return invitedOverrides[u.id] ?? u.invited
+  }
+
+  async function toggleInvited(u: UserRow) {
+    const next = !isInvited(u)
+    setInvitedOverrides(prev => ({ ...prev, [u.id]: next }))
+    setInvitedPending(u.id)
+    const result = await setUserInvited(u.id, next)
+    setInvitedPending(null)
+    if (result.error) {
+      setInvitedOverrides(prev => ({ ...prev, [u.id]: !next }))
+      alert(`Failed to update: ${result.error}`)
+    } else {
+      router.refresh()
+    }
+  }
+
   const filtered = users.filter(u => {
     const matchesSearch = !search || u.email.toLowerCase().includes(search.toLowerCase())
     const matchesPlan = planFilter === 'all' || u.plan === planFilter
-    return matchesSearch && matchesPlan
+    const matchesOrganic = !organicOnly || (!isInvited(u) && !u.is_admin && !u.exclude_from_analytics)
+    return matchesSearch && matchesPlan && matchesOrganic
   })
 
   return (
@@ -213,8 +267,21 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
           <StatCard icon={BookOpen}   label="Total lessons"     value={stats.totalLessons}     color="bg-orange-500/20 text-orange-300" />
         </div>
 
+        <p className="-mt-4 text-xs text-violet-500">
+          Stats exclude internal &amp; QA accounts. Sessions come from session history.
+        </p>
+
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-3">
+          <label className="flex items-center gap-2 px-4 py-2.5 bg-violet-900/50 border border-violet-700/60 rounded-xl text-sm text-violet-200 cursor-pointer select-none whitespace-nowrap">
+            <input
+              type="checkbox"
+              checked={organicOnly}
+              onChange={e => setOrganicOnly(e.target.checked)}
+              className="accent-violet-500 w-4 h-4"
+            />
+            Organic only
+          </label>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-violet-400" />
             <input
@@ -253,11 +320,15 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Email</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Name</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Registered</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Source</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Invited</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Plan</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Pro expires</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Activities</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Lessons</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Sessions</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400 whitespace-nowrap">1st w/ students</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400 whitespace-nowrap">Session days</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wide text-violet-400">Last active</th>
                   <th className="px-4 py-3" />
                 </tr>
@@ -265,14 +336,30 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
               <tbody className="divide-y divide-violet-700/20">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="text-center py-12 text-violet-400">No users found</td>
+                    <td colSpan={14} className="text-center py-12 text-violet-400">No users found</td>
                   </tr>
                 ) : (
                   filtered.map(user => (
                     <tr key={user.id} className="hover:bg-violet-800/20 transition-colors">
-                      <td className="px-4 py-3 font-medium text-white max-w-[220px] truncate">{user.email}</td>
+                      <td className="px-4 py-3 font-medium text-white max-w-[220px] truncate">
+                        {user.email}
+                        {(user.is_admin || user.exclude_from_analytics) && (
+                          <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase bg-violet-700/50 text-violet-300">internal</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-violet-300">{user.full_name || <span className="text-violet-600">—</span>}</td>
                       <td className="px-4 py-3 text-violet-300 whitespace-nowrap">{formatDate(user.created_at)}</td>
+                      <td className="px-4 py-3"><SourceCell user={user} /></td>
+                      <td className="px-4 py-3 text-center">
+                        <input
+                          type="checkbox"
+                          aria-label={`Invited: ${user.email}`}
+                          checked={isInvited(user)}
+                          disabled={invitedPending === user.id}
+                          onChange={() => toggleInvited(user)}
+                          className="accent-violet-500 w-4 h-4 cursor-pointer disabled:opacity-50"
+                        />
+                      </td>
                       <td className="px-4 py-3"><PlanBadge plan={user.plan} /></td>
                       <td className="px-4 py-3 text-violet-300 whitespace-nowrap">
                         {user.plan === 'pro'
@@ -288,7 +375,11 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                       <td className="px-4 py-3 text-right font-mono">
                         <span className={user.lesson_count > 0 ? 'text-orange-300' : 'text-violet-600'}>{user.lesson_count}</span>
                       </td>
-                      <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.sessions_completed}</td>
+                      <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.session_count}</td>
+                      <td className="px-4 py-3 text-violet-300 whitespace-nowrap">
+                        {user.first_student_session_at ? formatDate(user.first_student_session_at) : <span className="text-violet-600">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.session_days}</td>
                       <td className="px-4 py-3 text-violet-300 whitespace-nowrap">
                         {user.last_active_at ? timeAgo(user.last_active_at) : <span className="text-violet-600">never</span>}
                       </td>
@@ -393,7 +484,7 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                   <span className="text-violet-700">·</span>
                   <span className="text-xs text-orange-400 font-semibold">{selectedUser.lesson_count} lessons</span>
                   <span className="text-violet-700">·</span>
-                  <span className="text-xs text-rose-400 font-semibold">{selectedUser.sessions_completed} sessions</span>
+                  <span className="text-xs text-rose-400 font-semibold">{selectedUser.session_count} sessions</span>
                 </div>
               </div>
               <button

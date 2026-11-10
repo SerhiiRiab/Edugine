@@ -8,6 +8,7 @@ import { BookOpen, Target, Rocket, BookText, Star, Trophy, PartyPopper, Dumbbell
 import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
+import { trackStudentJoined } from '@/lib/actions/analytics'
 import { getSessionResults, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { ActivityProgress, TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -1119,6 +1120,8 @@ export function PlayerView({ session, lesson }: Props) {
 
     setParticipantId(participant.id)
     participantIdRef.current = participant.id
+    // Funnel: student_joined + (first one) session_with_students — IDs only.
+    trackStudentJoined(session.id, participant.id).catch(() => {})
 
     await channelRef.current?.track({ role: 'player', nickname: name, participantId: participant.id })
 

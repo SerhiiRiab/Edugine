@@ -23,19 +23,16 @@ export default async function AdminPage() {
   const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
 
   const [
-    totalResult,
-    proResult,
     usersResult,
     contentSetsResult,
     lessonsResult,
     lastSignInById,
     recentSessionsResult,
+    sessionHistoryResult,
   ] = await Promise.all([
-    admin.from('profiles').select('*', { count: 'exact', head: true }),
-    admin.from('profiles').select('*', { count: 'exact', head: true }).eq('plan', 'pro'),
     admin
       .from('profiles')
-      .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note, last_seen_at')
+      .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note, last_seen_at, signup_source, utm_source, referrer, invited, exclude_from_analytics')
       .order('created_at', { ascending: false }),
     // Single query — just owner_id column to count per user without N+1
     admin.from('content_sets').select('owner_id'),
@@ -46,6 +43,10 @@ export default async function AdminPage() {
       .select('id, started_at, ended_at, end_reason, participant_count, host:profiles(email, full_name), lesson:lessons(title), set:content_sets(title)')
       .order('started_at', { ascending: false })
       .limit(50),
+    // All history rows (host + start time only) for per-user session stats.
+    // Every session_history row already implies >= 1 student (it's only
+    // written when the host presses Play with a participant present).
+    admin.from('session_history').select('host_id, started_at'),
   ])
 
   // Build per-user count maps in JS (one pass each)
@@ -58,10 +59,27 @@ export default async function AdminPage() {
     lessonCounts[row.owner_id] = (lessonCounts[row.owner_id] ?? 0) + 1
   }
 
+  // Per-host session stats from session_history — the single source of truth
+  // for session counts (077_funnel_tracking.sql reconciled
+  // profiles.sessions_completed to it and keeps it in sync via trigger).
+  const sessionCounts: Record<string, number> = {}
+  const firstStudentSession: Record<string, string> = {}
+  const sessionDays: Record<string, Set<string>> = {}
+  for (const row of sessionHistoryResult.data ?? []) {
+    sessionCounts[row.host_id] = (sessionCounts[row.host_id] ?? 0) + 1
+    const first = firstStudentSession[row.host_id]
+    if (!first || row.started_at < first) firstStudentSession[row.host_id] = row.started_at
+    ;(sessionDays[row.host_id] ??= new Set()).add(row.started_at.slice(0, 10))
+  }
+
   const users = (usersResult.data ?? []).map(u => ({
     ...u,
+    is_admin: u.email === ADMIN_EMAIL,
     activity_count: activityCounts[u.id] ?? 0,
     lesson_count:   lessonCounts[u.id]   ?? 0,
+    session_count:  sessionCounts[u.id]  ?? 0,
+    first_student_session_at: firstStudentSession[u.id] ?? null,
+    session_days:   sessionDays[u.id]?.size ?? 0,
     // last_sign_in_at only moves on an explicit auth event (password/OAuth/OTP) —
     // NOT on the silent refresh-token exchange that keeps a browser session alive
     // for weeks, so it understates activity for anyone who rarely re-authenticates.
@@ -70,12 +88,16 @@ export default async function AdminPage() {
     last_active_at: pickLatest(u.last_seen_at, lastSignInById[u.id] ?? null),
   }))
 
-  const activeWeek  = users.filter(u => u.last_active_at && u.last_active_at >= sevenDaysAgo).length
-  const activeMonth = users.filter(u => u.last_active_at && u.last_active_at >= thirtyDaysAgo).length
+  // Headline stats exclude our own / QA accounts (exclude_from_analytics).
+  const counted = users.filter(u => !u.exclude_from_analytics && !u.is_admin)
+  const countedIds = new Set(counted.map(u => u.id))
 
-  const totalSessions   = users.reduce((s, p) => s + (p.sessions_completed ?? 0), 0)
-  const totalActivities = (contentSetsResult.data ?? []).length
-  const totalLessons    = (lessonsResult.data ?? []).length
+  const activeWeek  = counted.filter(u => u.last_active_at && u.last_active_at >= sevenDaysAgo).length
+  const activeMonth = counted.filter(u => u.last_active_at && u.last_active_at >= thirtyDaysAgo).length
+
+  const totalSessions   = counted.reduce((s, p) => s + p.session_count, 0)
+  const totalActivities = (contentSetsResult.data ?? []).filter(r => countedIds.has(r.owner_id)).length
+  const totalLessons    = (lessonsResult.data ?? []).filter(r => countedIds.has(r.owner_id)).length
 
   type RecentSessionRow = {
     id: string
@@ -100,8 +122,8 @@ export default async function AdminPage() {
   return (
     <AdminClient
       stats={{
-        totalUsers:    totalResult.count  ?? 0,
-        proUsers:      proResult.count    ?? 0,
+        totalUsers:    counted.length,
+        proUsers:      counted.filter(u => u.plan === 'pro').length,
         activeWeek,
         activeMonth,
         totalSessions,

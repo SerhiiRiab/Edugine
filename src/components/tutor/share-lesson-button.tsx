@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { Share2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getOrCreateShareToken } from '@/lib/actions/lessons'
+import { trackShareLinkCopied } from '@/lib/actions/analytics'
 
 export function ShareLessonButton({ lessonId }: { lessonId: string }) {
   const [isPending, startTransition] = useTransition()
@@ -17,6 +18,7 @@ export function ShareLessonButton({ lessonId }: { lessonId: string }) {
       }
       await navigator.clipboard.writeText(`${window.location.origin}/lessons/share/${result.token}`)
       toast.success('Link copied to clipboard')
+      trackShareLinkCopied('lesson', lessonId).catch(() => {})
     })
   }
 
