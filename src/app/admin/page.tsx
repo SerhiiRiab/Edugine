@@ -36,8 +36,8 @@ export default async function AdminPage() {
       .select('id, email, full_name, created_at, updated_at, plan, pro_expires_at, sessions_completed, admin_note, last_seen_at, signup_source, utm_source, referrer, invited, exclude_from_analytics')
       .order('created_at', { ascending: false }),
     // Single query — just owner_id column to count per user without N+1
-    admin.from('content_sets').select('owner_id'),
-    admin.from('lessons').select('owner_id'),
+    admin.from('content_sets').select('owner_id, is_copy'),
+    admin.from('lessons').select('owner_id, is_copy'),
     fetchLastSignInById(admin),
     admin
       .from('session_history')
@@ -53,13 +53,18 @@ export default async function AdminPage() {
   ])
 
   // Build per-user count maps in JS (one pass each)
+  // Own work vs copies (lessons.is_copy / content_sets.is_copy, 080).
   const activityCounts: Record<string, number> = {}
+  const activityCopied: Record<string, number> = {}
   for (const row of contentSetsResult.data ?? []) {
-    activityCounts[row.owner_id] = (activityCounts[row.owner_id] ?? 0) + 1
+    const m = row.is_copy ? activityCopied : activityCounts
+    m[row.owner_id] = (m[row.owner_id] ?? 0) + 1
   }
   const lessonCounts: Record<string, number> = {}
+  const lessonCopied: Record<string, number> = {}
   for (const row of lessonsResult.data ?? []) {
-    lessonCounts[row.owner_id] = (lessonCounts[row.owner_id] ?? 0) + 1
+    const m = row.is_copy ? lessonCopied : lessonCounts
+    m[row.owner_id] = (m[row.owner_id] ?? 0) + 1
   }
 
   // Per-host session stats from session_history — the single source of truth
@@ -86,11 +91,13 @@ export default async function AdminPage() {
   // Highest funnel step reached (1-5), see FUNNEL_STEPS in admin-client.
   // Later steps imply earlier ones: a session with students counts as
   // "opened a session" even from before product_events existed.
-  function funnelStep(id: string, lessons: number, activities: number, sessions: number) {
+  // Step 2 counts copied content too (a copied lesson is runnable);
+  // content_kind tells the funnel which kind got them there.
+  function funnelStep(id: string, hasContent: boolean, sessions: number) {
     if (sessions > 0) return 5
     if (hadStudentJoin.has(id)) return 4
     if (openedSession.has(id)) return 3
-    if (lessons > 0 || activities > 0) return 2
+    if (hasContent) return 2
     return 1
   }
 
@@ -99,10 +106,19 @@ export default async function AdminPage() {
     is_admin: u.email === ADMIN_EMAIL,
     activity_count: activityCounts[u.id] ?? 0,
     lesson_count:   lessonCounts[u.id]   ?? 0,
+    activity_copied_count: activityCopied[u.id] ?? 0,
+    lesson_copied_count:   lessonCopied[u.id]   ?? 0,
+    content_kind: ((lessonCounts[u.id] ?? 0) + (activityCounts[u.id] ?? 0) > 0
+      ? 'own'
+      : (lessonCopied[u.id] ?? 0) + (activityCopied[u.id] ?? 0) > 0 ? 'copied' : null) as 'own' | 'copied' | null,
     session_count:  sessionCounts[u.id]  ?? 0,
     first_student_session_at: firstStudentSession[u.id] ?? null,
     session_days:   sessionDays[u.id]?.size ?? 0,
-    funnel_step:    funnelStep(u.id, lessonCounts[u.id] ?? 0, activityCounts[u.id] ?? 0, sessionCounts[u.id] ?? 0),
+    funnel_step:    funnelStep(
+      u.id,
+      (lessonCounts[u.id] ?? 0) + (activityCounts[u.id] ?? 0) + (lessonCopied[u.id] ?? 0) + (activityCopied[u.id] ?? 0) > 0,
+      sessionCounts[u.id] ?? 0,
+    ),
     // last_sign_in_at only moves on an explicit auth event (password/OAuth/OTP) —
     // NOT on the silent refresh-token exchange that keeps a browser session alive
     // for weeks, so it understates activity for anyone who rarely re-authenticates.
@@ -119,8 +135,9 @@ export default async function AdminPage() {
   const activeMonth = counted.filter(u => u.last_active_at && u.last_active_at >= thirtyDaysAgo).length
 
   const totalSessions   = counted.reduce((s, p) => s + p.session_count, 0)
-  const totalActivities = (contentSetsResult.data ?? []).filter(r => countedIds.has(r.owner_id)).length
-  const totalLessons    = (lessonsResult.data ?? []).filter(r => countedIds.has(r.owner_id)).length
+  // Headline totals count tutors' own work only, not copies.
+  const totalActivities = (contentSetsResult.data ?? []).filter(r => countedIds.has(r.owner_id) && !r.is_copy).length
+  const totalLessons    = (lessonsResult.data ?? []).filter(r => countedIds.has(r.owner_id) && !r.is_copy).length
 
   type RecentSessionRow = {
     id: string

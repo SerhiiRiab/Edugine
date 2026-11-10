@@ -224,6 +224,9 @@ export async function duplicateLesson(id: string, shareToken?: string): Promise<
       level: original.level,
       tags: original.tags ?? [],
       visibility: 'private',
+      // Origin for admin analytics (080) — a copy isn't the tutor's own work.
+      is_copy: true,
+      copied_from_lesson_id: id,
     })
     .select('id')
     .single()
@@ -280,6 +283,8 @@ export async function duplicateLesson(id: string, shareToken?: string): Promise<
           title: src.title,
           description: src.description,
           language: (src as { language?: string }).language ?? 'en',
+          is_copy: true,
+          copied_from_set_id: src.id,
         })
         .select('id')
         .single()

@@ -19,6 +19,9 @@ type UserRow = {
   admin_note: string | null
   activity_count: number
   lesson_count: number
+  activity_copied_count: number
+  lesson_copied_count: number
+  content_kind: 'own' | 'copied' | null
   last_active_at: string | null
   signup_source: string | null
   utm_source: string | null
@@ -341,12 +344,12 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
         </div>
 
         <p className="-mt-4 text-xs text-violet-500">
-          Stats exclude internal &amp; QA accounts. Sessions come from session history.
+          Stats exclude internal &amp; QA accounts and count own lessons/activities only (copies shown as +Nc). Sessions come from session history.
         </p>
 
         <FunnelPanel
           users={users.filter(u => !isInvited(u) && !u.is_admin && !u.exclude_from_analytics)}
-          onSelect={id => { const u = users.find(x => x.id === id); if (u) openModal(u) }}
+          onSelect={id => router.push(`/admin/users/${id}`)}
         />
         </>}
 
@@ -474,9 +477,11 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                       </td>
                       <td className="px-4 py-3 text-right font-mono">
                         <span className={user.activity_count > 0 ? 'text-teal-300' : 'text-violet-600'}>{user.activity_count}</span>
+                        {user.activity_copied_count > 0 && <span className="ml-1 text-[11px] text-violet-400" title="copied">+{user.activity_copied_count}c</span>}
                       </td>
                       <td className="px-4 py-3 text-right font-mono">
                         <span className={user.lesson_count > 0 ? 'text-orange-300' : 'text-violet-600'}>{user.lesson_count}</span>
+                        {user.lesson_copied_count > 0 && <span className="ml-1 text-[11px] text-violet-400" title="copied">+{user.lesson_copied_count}c</span>}
                       </td>
                       <td className="px-4 py-3 text-right text-violet-300 font-mono">{user.session_count}</td>
                       <td className="px-4 py-3 text-violet-300 whitespace-nowrap">
@@ -587,9 +592,9 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
                   Joined {formatDate(selectedUser.created_at)}
                 </p>
                 <div className="flex items-center gap-3 mt-2">
-                  <span className="text-xs text-teal-400 font-semibold">{selectedUser.activity_count} activities</span>
+                  <span className="text-xs text-teal-400 font-semibold">{selectedUser.activity_count} activities{selectedUser.activity_copied_count > 0 && ` (+${selectedUser.activity_copied_count} copied)`}</span>
                   <span className="text-violet-700">·</span>
-                  <span className="text-xs text-orange-400 font-semibold">{selectedUser.lesson_count} lessons</span>
+                  <span className="text-xs text-orange-400 font-semibold">{selectedUser.lesson_count} lessons{selectedUser.lesson_copied_count > 0 && ` (+${selectedUser.lesson_copied_count} copied)`}</span>
                   <span className="text-violet-700">·</span>
                   <span className="text-xs text-rose-400 font-semibold">{selectedUser.session_count} sessions</span>
                 </div>

@@ -133,6 +133,9 @@ export async function duplicateContentSet(id: string) {
       title: `${original.title} (copy)`,
       description: original.description,
       language: (original as { language?: string }).language ?? 'en',
+      // Origin for admin analytics (080).
+      is_copy: true,
+      copied_from_set_id: id,
     })
     .select('id')
     .single()

@@ -49,9 +49,13 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
   const lastActive = [profile.last_seen_at, lastSignIn].filter(Boolean).sort().at(-1) ?? null
   const lessons = events.filter(e => e.event === 'lesson_created').length
   const activities = events.filter(e => e.event === 'activity_created').length
+  const copiedLessons = events.filter(e => e.event === 'lesson_copied' && e.source === 'db')
+  const copiedActivities = copiedLessons.reduce((n, e) => n + Number(e.props?.activities ?? 0), 0)
+    + events.filter(e => e.event === 'activity_copied').length
   const sessions = events.filter(e => e.event === 'session_held')
   const sessionDays = new Set(sessions.map(s => s.created_at.slice(0, 10))).size
   const lastSession = sessions[0]?.created_at ?? null
+  // Own work only — copying a lesson isn't "creating content".
   const lastContent = events.find(e => e.event === 'lesson_created' || e.event === 'activity_created')?.created_at ?? null
 
   return (
@@ -79,10 +83,10 @@ export default async function AdminUserPage({ params }: { params: Promise<{ id: 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <Stat label="Registered" value={fmt(profile.created_at)} />
           <Stat label="Last active" value={fmt(lastActive)} />
-          <Stat label="Last content created" value={fmt(lastContent)} />
+          <Stat label="Last own content created" value={fmt(lastContent)} />
           <Stat label="Last session w/ students" value={fmt(lastSession)} />
-          <Stat label="Lessons" value={lessons} />
-          <Stat label="Activities" value={activities} />
+          <Stat label="Own lessons" value={lessons} sub={copiedLessons.length ? `+ ${copiedLessons.length} copied` : undefined} />
+          <Stat label="Own activities" value={activities} sub={copiedActivities ? `+ ${copiedActivities} copied` : undefined} />
           <Stat label="Sessions w/ students" value={sessions.length}
             sub={profile.sessions_completed_legacy ? `old counter: ${profile.sessions_completed_legacy}` : undefined} />
           <Stat label="Days with sessions" value={sessionDays} />

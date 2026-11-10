@@ -9,6 +9,7 @@ export const EVENT_LABELS: Record<string, string> = {
   lesson_copied: 'Copied lesson',
   activity_added: 'Added activity to lesson',
   activity_created: 'Created activity',
+  activity_copied: 'Copied activity',
   session_started: 'Opened session',
   student_joined: 'Student joined',
   session_with_students: 'First student in session',
@@ -24,7 +25,7 @@ const HIGHLIGHT = new Set(['session_held', 'session_with_students'])
 
 const FILTERS = [
   { id: 'all',      label: 'All',      match: () => true },
-  { id: 'content',  label: 'Content',  match: (e: string) => ['lesson_created', 'lesson_copied', 'activity_added', 'activity_created'].includes(e) },
+  { id: 'content',  label: 'Content',  match: (e: string) => ['lesson_created', 'lesson_copied', 'activity_added', 'activity_created', 'activity_copied'].includes(e) },
   { id: 'sessions', label: 'Sessions', match: (e: string) => ['session_started', 'student_joined', 'session_with_students', 'session_held'].includes(e) },
   { id: 'failures', label: 'Failures', match: (e: string) => FAILURE.has(e) },
   { id: 'visits',   label: 'Visits & sharing', match: (e: string) => ['signup', 'dashboard_viewed', 'share_link_copied'].includes(e) },

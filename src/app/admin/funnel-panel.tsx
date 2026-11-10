@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 export const FUNNEL_STEPS = [
   { step: 1, label: 'Signed up',             stuckHint: 'never created a lesson or activity' },
-  { step: 2, label: 'Created content',       stuckHint: 'never opened a session' },
+  { step: 2, label: 'Created or copied content', stuckHint: 'never opened a session' },
   { step: 3, label: 'Opened a session',      stuckHint: 'no student ever joined' },
   { step: 4, label: 'Student joined',        stuckHint: 'never pressed Play with students' },
   { step: 5, label: 'Session with students', stuckHint: '' },
@@ -15,6 +15,7 @@ export type FunnelUser = {
   email: string
   funnel_step: number
   last_active_at: string | null
+  content_kind: 'own' | 'copied' | null
 }
 
 function timeAgo(iso: string) {
@@ -71,6 +72,12 @@ export function FunnelPanel({ users, onSelect }: { users: FunnelUser[]; onSelect
                 <div className="h-2.5 rounded-full bg-violet-950/80 overflow-hidden">
                   <div className="h-full rounded-full bg-violet-500" style={{ width: `${pct}%` }} />
                 </div>
+                {step === 2 && (
+                  <p className="mt-1 text-[11px] text-violet-400">
+                    own content: {users.filter(u => u.content_kind === 'own').length}
+                    {' · '}only copied a lesson/activity: {users.filter(u => u.content_kind === 'copied').length}
+                  </p>
+                )}
               </button>
               {isOpen && (
                 <div className="mt-2 mb-3 ml-2 pl-3 border-l border-violet-700/60">
@@ -80,6 +87,7 @@ export function FunnelPanel({ users, onSelect }: { users: FunnelUser[]; onSelect
                       <li key={u.id} className="flex items-center justify-between gap-3 text-xs">
                         <button type="button" onClick={() => onSelect(u.id)} className="text-white hover:text-violet-300 hover:underline truncate">
                           {u.email}
+                          {u.content_kind === 'copied' && <span className="ml-1.5 text-[10px] text-violet-400">(copied only)</span>}
                         </button>
                         <span className="text-violet-400 whitespace-nowrap">
                           {u.last_active_at ? `active ${timeAgo(u.last_active_at)}` : 'never active'}
