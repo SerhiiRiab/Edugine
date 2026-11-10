@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { after } from 'next/server'
+import { trackEvent } from '@/lib/analytics/track'
 import Link from 'next/link'
 import {
   GraduationCap, LayoutList, Plus,
@@ -33,6 +35,9 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   const name = user?.email?.split('@')[0] ?? 'teacher'
+
+  // Funnel: once per user per UTC day (unique index, 079).
+  if (user) after(() => trackEvent(user.id, 'dashboard_viewed'))
 
   const [
     mechanicsResult, favoriteMechanicsResult, lessonsResult, programsResult, allLessonsResult, discoverLessonsResult,

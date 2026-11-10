@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { trackShareLinkCopied } from '@/lib/actions/analytics'
+import { trackShareLinkCopied, trackSessionStartFailed } from '@/lib/actions/analytics'
 import { startSession, endSession, advanceActivity, initStoryState, initTalkTimeState, initContentBlockState, initVoteState, initSpeedDebateState, initRoleplayQuestState, initSpeakingChallengeState, initDebateRouletteState, initHiddenRoleState, initMissionBriefingState, initDramaEventState, initTabooState, initElevatorPitchState, initJigsawReadingState, initPredictVerifyState, initLessonBoardState, saveLessonBoardFinalSnapshot, addLateJoinerToTurnOrder } from '@/lib/actions/sessions'
 import { getAllStudentsProgress, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { TeamActivityResult } from '@/lib/queries/session-results'
@@ -1971,6 +1971,7 @@ export function SessionHostView({ session, lesson }: Props) {
         }
       } catch {
         toast.error('Failed to start game')
+        trackSessionStartFailed(session.id).catch(() => {})
       }
     })
   }

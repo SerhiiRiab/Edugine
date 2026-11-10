@@ -76,7 +76,10 @@ export async function createLessonSession(lessonId: string) {
     .eq('owner_id', user.id)
     .single()
 
-  if (!lesson) throw new Error('Lesson not found')
+  if (!lesson) {
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'create_lesson_session', reason: 'lesson_not_found', lesson_id: lessonId }))
+    throw new Error('Lesson not found')
+  }
 
   const { data: firstActivity } = await supabase
     .from('lesson_activities')
@@ -86,7 +89,10 @@ export async function createLessonSession(lessonId: string) {
     .limit(1)
     .single()
 
-  if (!firstActivity) throw new Error('Lesson has no activities')
+  if (!firstActivity) {
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'create_lesson_session', reason: 'no_activities', lesson_id: lessonId }))
+    throw new Error('Lesson has no activities')
+  }
 
   const { data: session, error } = await supabase
     .from('sessions')
@@ -100,7 +106,10 @@ export async function createLessonSession(lessonId: string) {
     .select('id')
     .single()
 
-  if (error || !session) throw new Error(error?.message ?? 'Failed to create session')
+  if (error || !session) {
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'create_lesson_session', reason: error?.code ?? 'insert_failed', lesson_id: lessonId }))
+    throw new Error(error?.message ?? 'Failed to create session')
+  }
   after(() => trackEvent(user.id, 'session_started', {
     session_id: session.id, kind: 'lesson', lesson_id: lessonId, mechanic_id: firstActivity.mechanic_id,
   }))
@@ -140,7 +149,10 @@ export async function createSession(
     .eq('owner_id', user.id)
     .single()
 
-  if (!set) throw new Error('Content set not found')
+  if (!set) {
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'create_activity_session', reason: 'set_not_found', set_id: contentSetId }))
+    throw new Error('Content set not found')
+  }
 
   const config: Record<string, unknown> = { ...mechanicConfig }
   if (instructions) config.instructions = instructions
@@ -159,7 +171,10 @@ export async function createSession(
     .select('id')
     .single()
 
-  if (error || !session) throw new Error(error?.message ?? 'Failed to create session')
+  if (error || !session) {
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'create_activity_session', reason: error?.code ?? 'insert_failed', set_id: contentSetId }))
+    throw new Error(error?.message ?? 'Failed to create session')
+  }
 
   after(() => trackEvent(user.id, 'session_started', {
     session_id: session.id, kind: 'activity', set_id: contentSetId, mechanic_id: set.mechanic_id,
@@ -199,7 +214,10 @@ export async function startSession(sessionId: string): Promise<{ turnOrder: stri
     .eq('id', sessionId)
     .eq('host_id', user.id)
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'start_session', reason: error.code ?? 'update_failed', session_id: sessionId }))
+    throw new Error(error.message)
+  }
 
   // Count the session as completed the moment it genuinely starts — the host has
   // pressed Play and at least one participant is present — rather than waiting for
@@ -926,6 +944,7 @@ export async function launchPublicLesson(lessonId: string): Promise<{ redirectTo
 
   if (lessonErr || !lesson) {
     console.error('[launchPublicLesson] lesson fetch failed:', lessonErr)
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'launch_public_lesson', reason: 'lesson_not_found', lesson_id: lessonId }))
     throw new Error('Lesson not found or not public')
   }
 
@@ -939,6 +958,7 @@ export async function launchPublicLesson(lessonId: string): Promise<{ redirectTo
 
   if (actErr || !firstActivity) {
     console.error('[launchPublicLesson] activity fetch failed:', actErr)
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'launch_public_lesson', reason: 'no_activities', lesson_id: lessonId }))
     throw new Error('Lesson has no activities')
   }
 
@@ -956,6 +976,7 @@ export async function launchPublicLesson(lessonId: string): Promise<{ redirectTo
 
   if (sessionErr || !session) {
     console.error('[launchPublicLesson] session insert failed:', sessionErr)
+    after(() => trackEvent(user.id, 'session_start_failed', { stage: 'launch_public_lesson', reason: sessionErr?.code ?? 'insert_failed', lesson_id: lessonId }))
     throw new Error(sessionErr?.message ?? 'Failed to create session')
   }
 

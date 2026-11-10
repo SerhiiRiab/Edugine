@@ -29,6 +29,7 @@ export default async function AdminPage() {
     lastSignInById,
     recentSessionsResult,
     sessionHistoryResult,
+    funnelEventsResult,
   ] = await Promise.all([
     admin
       .from('profiles')
@@ -47,6 +48,8 @@ export default async function AdminPage() {
     // Every session_history row already implies >= 1 student (it's only
     // written when the host presses Play with a participant present).
     admin.from('session_history').select('host_id, started_at'),
+    // Funnel steps that only exist as events (no durable table behind them).
+    admin.from('product_events').select('user_id, event').in('event', ['session_started', 'student_joined']),
   ])
 
   // Build per-user count maps in JS (one pass each)
@@ -72,6 +75,25 @@ export default async function AdminPage() {
     ;(sessionDays[row.host_id] ??= new Set()).add(row.started_at.slice(0, 10))
   }
 
+  const openedSession = new Set<string>()
+  const hadStudentJoin = new Set<string>()
+  for (const e of funnelEventsResult.data ?? []) {
+    if (!e.user_id) continue
+    if (e.event === 'session_started') openedSession.add(e.user_id)
+    if (e.event === 'student_joined') hadStudentJoin.add(e.user_id)
+  }
+
+  // Highest funnel step reached (1-5), see FUNNEL_STEPS in admin-client.
+  // Later steps imply earlier ones: a session with students counts as
+  // "opened a session" even from before product_events existed.
+  function funnelStep(id: string, lessons: number, activities: number, sessions: number) {
+    if (sessions > 0) return 5
+    if (hadStudentJoin.has(id)) return 4
+    if (openedSession.has(id)) return 3
+    if (lessons > 0 || activities > 0) return 2
+    return 1
+  }
+
   const users = (usersResult.data ?? []).map(u => ({
     ...u,
     is_admin: u.email === ADMIN_EMAIL,
@@ -80,6 +102,7 @@ export default async function AdminPage() {
     session_count:  sessionCounts[u.id]  ?? 0,
     first_student_session_at: firstStudentSession[u.id] ?? null,
     session_days:   sessionDays[u.id]?.size ?? 0,
+    funnel_step:    funnelStep(u.id, lessonCounts[u.id] ?? 0, activityCounts[u.id] ?? 0, sessionCounts[u.id] ?? 0),
     // last_sign_in_at only moves on an explicit auth event (password/OAuth/OTP) —
     // NOT on the silent refresh-token exchange that keeps a browser session alive
     // for weeks, so it understates activity for anyone who rarely re-authenticates.

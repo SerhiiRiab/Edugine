@@ -71,3 +71,48 @@ export async function trackStudentJoined(sessionId: string, participantId: strin
     }
   })
 }
+
+/**
+ * Host pressed Play but the client-side start sequence threw (startSession
+ * or one of the init*State actions). Server-side failures inside
+ * startSession are logged there; this catches the rest.
+ */
+export async function trackSessionStartFailed(sessionId: string): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+  after(async () => {
+    const admin = createAdminClient()
+    const { data: session } = await admin.from('sessions').select('id, host_id, lesson_id, set_id, mechanic_id')
+      .eq('id', sessionId).maybeSingle()
+    if (!session || session.host_id !== user.id) return
+    await trackEvent(user.id, 'session_start_failed', {
+      stage: 'host_start_client',
+      session_id: session.id,
+      lesson_id: session.lesson_id,
+      set_id: session.set_id,
+      mechanic_id: session.mechanic_id,
+    })
+  })
+}
+
+export type StudentJoinFailReason = 'ended' | 'full' | 'name_taken' | 'insert_failed'
+
+/** A student's join attempt failed — logged against the hosting tutor. */
+export async function trackStudentJoinFailed(sessionId: string, reason: StudentJoinFailReason): Promise<void> {
+  after(async () => {
+    try {
+      const admin = createAdminClient()
+      const { data: session } = await admin.from('sessions').select('id, host_id, status').eq('id', sessionId).maybeSingle()
+      // An ended session's row is already deleted — nothing to attribute it to.
+      if (!session) return
+      await trackEvent(session.host_id, 'student_join_failed', {
+        session_id: session.id,
+        reason,
+        session_status: session.status,
+      })
+    } catch (e) {
+      console.error('[analytics] trackStudentJoinFailed failed:', e)
+    }
+  })
+}

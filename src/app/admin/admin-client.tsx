@@ -4,6 +4,8 @@ import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, X, Shield, Users, Crown, Activity, Trophy, ChevronDown, BookOpen, LayoutGrid, PenSquare } from 'lucide-react'
 import { updateUserPlan, setUserInvited } from './actions'
+import { FunnelPanel } from './funnel-panel'
+import { UserTimeline } from './user-timeline'
 
 type UserRow = {
   id: string
@@ -27,6 +29,7 @@ type UserRow = {
   session_count: number
   first_student_session_at: string | null
   session_days: number
+  funnel_step: number
 }
 
 type Stats = {
@@ -136,6 +139,13 @@ function StatCard({ icon: Icon, label, value, color }: {
   )
 }
 
+const ADMIN_TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'users',    label: 'Users' },
+  { id: 'sessions', label: 'Sessions' },
+] as const
+type AdminTab = typeof ADMIN_TABS[number]['id']
+
 interface Props {
   stats: Stats
   users: UserRow[]
@@ -147,6 +157,25 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState<'all' | 'free' | 'pro'>('all')
   const [organicOnly, setOrganicOnly] = useState(false)
+  const [tab, setTab] = useState<AdminTab>('overview')
+
+  // Keep the active tab in the URL hash (#users etc.) so it survives
+  // router.refresh()/reloads and can be linked to directly.
+  useEffect(() => {
+    const fromHash = () => {
+      const h = window.location.hash.slice(1)
+      if (ADMIN_TABS.some(t => t.id === h)) setTab(h as AdminTab)
+    }
+    fromHash()
+    window.addEventListener('hashchange', fromHash)
+    return () => window.removeEventListener('hashchange', fromHash)
+  }, [])
+
+  function goTo(next: AdminTab) {
+    setTab(next)
+    history.replaceState(null, '', `#${next}`)
+    window.scrollTo({ top: 0 })
+  }
   // Optimistic overrides for the inline "invited" toggle, keyed by user id.
   const [invitedOverrides, setInvitedOverrides] = useState<Record<string, boolean>>({})
   const [invitedPending, setInvitedPending] = useState<string | null>(null)
@@ -231,7 +260,7 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
     <div className="min-h-screen bg-violet-950 text-white">
 
       {/* Header */}
-      <header className="border-b border-violet-800/60 px-6 py-4 flex items-center gap-3">
+      <header className="sticky top-0 z-40 bg-violet-950/95 backdrop-blur border-b border-violet-800/60 px-4 sm:px-6 py-3 flex flex-wrap items-center gap-x-6 gap-y-3">
         <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center">
           <Shield className="w-4 h-4 text-white" />
         </div>
@@ -239,6 +268,28 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
           <h1 className="font-extrabold text-lg leading-none">Admin Panel</h1>
           <p className="text-xs text-violet-400 mt-0.5">Edugine</p>
         </div>
+        <nav className="order-last sm:order-none w-full sm:w-auto flex gap-1 overflow-x-auto" aria-label="Admin sections">
+          {ADMIN_TABS.map(t => {
+            const count = t.id === 'users' ? users.length : t.id === 'sessions' ? recentSessions.length : null
+            const active = tab === t.id
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => goTo(t.id)}
+                aria-current={active ? 'page' : undefined}
+                className={`px-3.5 py-2 rounded-xl text-sm font-semibold whitespace-nowrap transition-colors ${
+                  active ? 'bg-violet-600 text-white' : 'text-violet-300 hover:text-white hover:bg-violet-800/60'
+                }`}
+              >
+                {t.label}
+                {count !== null && (
+                  <span className={`ml-1.5 text-xs font-mono ${active ? 'text-violet-200' : 'text-violet-500'}`}>{count}</span>
+                )}
+              </button>
+            )
+          })}
+        </nav>
         {/* /admin/lesson-generator is intentionally not linked here — it stays
             reachable by direct URL (and is still admin-gated by its own page). */}
         <div className="ml-auto flex items-center gap-2">
@@ -254,8 +305,9 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
         </div>
       </header>
 
-      <div className="p-6 max-w-7xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-8">
 
+        {tab === 'overview' && <>
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <StatCard icon={Users}      label="Total users"       value={stats.totalUsers}       color="bg-violet-600/40 text-violet-300" />
@@ -271,6 +323,13 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
           Stats exclude internal &amp; QA accounts. Sessions come from session history.
         </p>
 
+        <FunnelPanel
+          users={users.filter(u => !isInvited(u) && !u.is_admin && !u.exclude_from_analytics)}
+          onSelect={id => { const u = users.find(x => x.id === id); if (u) openModal(u) }}
+        />
+        </>}
+
+        {tab === 'users' && <>
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-3">
           <label className="flex items-center gap-2 px-4 py-2.5 bg-violet-900/50 border border-violet-700/60 rounded-xl text-sm text-violet-200 cursor-pointer select-none whitespace-nowrap">
@@ -404,6 +463,9 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
           )}
         </div>
 
+        </>}
+
+        {tab === 'sessions' && <>
         {/* Recent sessions */}
         <div className="bg-violet-900/30 border border-violet-700/40 rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-violet-700/40">
@@ -459,6 +521,7 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
             </table>
           </div>
         </div>
+        </>}
       </div>
 
       {/* Plan Management Modal */}
@@ -496,7 +559,8 @@ export default function AdminClient({ stats, users, recentSessions }: Props) {
             </div>
 
             {/* Modal body */}
-            <div className="p-5 space-y-5">
+            <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+              <UserTimeline userId={selectedUser.id} />
 
               {/* Plan selector */}
               <div>

@@ -8,7 +8,7 @@ import { BookOpen, Target, Rocket, BookText, Star, Trophy, PartyPopper, Dumbbell
 import { AnimatePresence, motion } from 'framer-motion'
 import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
-import { trackStudentJoined } from '@/lib/actions/analytics'
+import { trackStudentJoined, trackStudentJoinFailed } from '@/lib/actions/analytics'
 import { getSessionResults, getTeamActivityResults } from '@/lib/queries/session-results'
 import type { ActivityProgress, TeamActivityResult } from '@/lib/queries/session-results'
 import type { StoryBuilderState } from '@/lib/mechanics/story-builder/types'
@@ -1085,6 +1085,7 @@ export function PlayerView({ session, lesson }: Props) {
     }
 
     if (currentSession.status === 'finished') {
+      trackStudentJoinFailed(session.id, 'ended').catch(() => {})
       setNicknameError('This session has already ended.')
       setIsJoining(false)
       return
@@ -1097,6 +1098,7 @@ export function PlayerView({ session, lesson }: Props) {
       .eq('is_host', false)
 
     if (existing && existing.length >= MAX_PARTICIPANTS) {
+      trackStudentJoinFailed(session.id, 'full').catch(() => {})
       setNicknameError(`Session is full (max ${MAX_PARTICIPANTS} students).`)
       setIsJoining(false)
       return
@@ -1109,6 +1111,7 @@ export function PlayerView({ session, lesson }: Props) {
       .single()
 
     if (error || !participant) {
+      trackStudentJoinFailed(session.id, error?.code === '23505' ? 'name_taken' : 'insert_failed').catch(() => {})
       if (error?.code === '23505') {
         setNicknameError('That name is taken. Please choose another.')
       } else {

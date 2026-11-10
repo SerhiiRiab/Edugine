@@ -12,6 +12,9 @@ export type ProductEvent =
   | 'student_joined'
   | 'session_with_students'
   | 'share_link_copied'
+  | 'dashboard_viewed'
+  | 'session_start_failed'
+  | 'student_join_failed'
 
 type Props = Record<string, string | number | boolean | null | undefined>
 
@@ -45,6 +48,7 @@ export async function trackEvent(userId: string | null, event: ProductEvent, pro
     }
 
     const { error } = await admin.from('product_events').insert({ user_id: userId, event, props: clean })
+    // 23505: once-only / once-per-day event already logged (077, 079).
     if (error && error.code !== '23505') {
       console.error(`[analytics] failed to track ${event}:`, error.message)
     }
